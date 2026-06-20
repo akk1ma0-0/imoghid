@@ -1,19 +1,17 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ImoGhid — светлая тема (дизайн docs/imoghid-v4.html).
+   Фон, шрифты и цвета задаются в обёртках .ig-root / .auth-root через CSS-переменные.
+   Здесь — только базовый светлый фон и color-scheme, чтобы тёмная тема ОС
+   (prefers-color-scheme: dark) НЕ просвечивала за дизайном и не перекрашивала
+   скроллбары/контролы. Никакого dark-mode override и system-ui на body. */
+html {
+  color-scheme: light;
+  background: #ffffff;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  color: #171717;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
 }

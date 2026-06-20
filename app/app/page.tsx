@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// /app → главный модуль «Obiectele mele».
+// /app → первая вкладка меню «Verificare imobil».
 export default function AppHome() {
-  redirect("/app/objects");
+  redirect("/app/cadastru");
 }
