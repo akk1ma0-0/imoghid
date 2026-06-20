@@ -28,7 +28,7 @@
 - **Vercel project:** `imoghid.vercel.app` (алиас того же деплоя)
 - **Database:** Neon PostgreSQL, регион EU Frankfurt (`DATABASE_URL` в Vercel Environment Variables; локально — свой Postgres из `.env`)
 - **Хостинг:** Vercel, авто-деплой из GitHub `akk1ma0-0/imoghid` (ветка `main`). Каждый push в `main` → новый production-деплой.
-- **Build:** `prisma migrate deploy || echo … ; next build` — миграции применяются на Neon при сборке (non-blocking: если БД недоступна на этапе build, деплой не падает).
+- **Build:** `prisma generate && (prisma migrate deploy || echo …) && next build`. `prisma generate` ОБЯЗАТЕЛЕН первым: Vercel кеширует `node_modules` и восстанавливает устаревший Prisma Client — без regenerate `next build` падает на новых полях схемы. `migrate deploy` non-blocking (если БД недоступна на build — деплой не падает).
 - **Env на Vercel (Production):** `DATABASE_URL` (Neon, pooled), `AUTH_SECRET` (свой, не из локального `.env`), `ANTHROPIC_API_KEY`, `AUTH_TRUST_HOST=true`. Секреты только в Vercel, в репозитории их нет.
 - **Стартовая страница:** корень `/` → `/app` → **`/app/cadastru` (Verificare imobil)** — первая вкладка меню.
 
