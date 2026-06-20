@@ -1,0 +1,625 @@
+// ═══════════════════════════════════════════════════════════════════
+// ImoGhid — Prisma Schema · FINAL
+// PostgreSQL · Next.js · Prisma ORM
+//
+// Decizii arhitecturale:
+// - 2 planuri: BASIC ($10) și PRO ($30), fără trial gratuit
+// - Pro/Basic se acordă manual din Prisma Studio sau SQL
+// - Anunțuri 999 stocate permanent cu arhivare automată (>6 luni)
+// - Agenție = câmp text simplu la User (tabel separat — versiunea 2)
+// - phoneHash în lista neagră — SHA-256, nu plaintext (Legea 133/2011)
+// - objectIndex pe documente/câmpuri/semnale pentru tipul Schimb
+// ═══════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ENUM-uri
+// ─────────────────────────────────────────────────────────────────
+
+enum SubscriptionPlan {
+  BASIC  // $10/lună — acces complet la aplicație
+  PRO    // $30/lună — + PDF, CMA, generator anunțuri, istoric extins
+}
+
+enum UserRole {
+  AGENT
+  ADMIN  // acces la panoul de administrare
+}
+
+enum DealType {
+  VANZARE_CUMPARARE
+  DONATIE
+  SCHIMB
+  ALT_TIP
+}
+
+enum PartyType {
+  PERSOANA_FIZICA
+  PERSOANA_JURIDICA
+}
+
+enum TransactionStep {
+  DATE_OBIECT      // Pasul 1
+  INCARCARE        // Pasul 2
+  VERIFICARE_ACTE  // Pasul 3
+  COPROPRIETARI    // Pasul 4
+  LISTA_NOTAR      // Pasul 5
+  PLATI            // Pasul 6
+  RAPORT           // Pasul 7
+  PROGRAMARE_ASP   // Pasul 8
+}
+
+enum DocumentType {
+  CONTRACT_VANZARE_CUMPARARE
+  CONTRACT_TRANSMITERE_PRIMIRE   // "...transmitere-primire a locuinței"
+  EXTRAS_REGISTRU
+  EXTRAS_CAPITOL_SUPLIMENTAR
+  ACT_DE_DREPT
+  PASAPORT_TEHNIC
+  BULETIN_IDENTITATE
+  PROCURA
+  ACORD_SOT
+  HOTARARE_FONDATORI
+  CERTIFICAT_PRIVATIZARE
+  RAPORT_EVALUARE
+  DOVADA_PROVENIENTEI_BANILOR
+  ALT_DOCUMENT
+}
+
+enum FlagSeverity {
+  RED    // Blocker — trebuie rezolvat înainte de notar
+  AMBER  // Atenție — verificare manuală necesară
+  GREEN  // OK — confirmat prin date
+}
+
+enum FlagZone {
+  VERIFICAT            // ✅ Verificat conform datelor
+  VERIFICARE_MANUALA   // ⚠️ Necesită verificare manuală
+  IN_AFARA_ZONEI       // ⬜ În afara zonei de verificare
+}
+
+enum BlacklistTag {
+  AGENT_ASCUNS
+  OBIECT_FALS
+}
+
+enum ListingType {
+  APARTAMENT
+  CASA
+  TEREN
+  COMERCIAL
+}
+
+enum PriceChange {
+  UP
+  DOWN
+  STABLE
+}
+
+// ─────────────────────────────────────────────────────────────────
+// UTILIZATORI
+// ─────────────────────────────────────────────────────────────────
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  passwordHash    String
+  name            String
+  phone           String?
+  role            UserRole         @default(AGENT)
+
+  // Agenție — câmp text simplu (tabel separat în v2)
+  agencyName      String?
+
+  // Profil pentru PDF branding
+  logoUrl         String?
+  profilePhotoUrl String?
+
+  // Abonament
+  plan                SubscriptionPlan @default(BASIC)
+  planActivatedAt     DateTime?
+  planExpiresAt       DateTime?        // null = activ până la anulare
+  stripeCustomerId    String?          @unique
+  stripeSubscriptionId String?         @unique
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relații
+  transactions         Transaction[]
+  savedListingContacts SavedListingContact[]
+  blacklistReports     BlacklistReport[]
+  reports              Report[]
+  anuntGenerations     AnuntGeneration[]
+  inviteCodes          InviteCode[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CODURI DE INVITAȚIE (pentru teste și acces manual PRO)
+// Utilizare: tu creezi un cod, îl trimiți testatorului,
+// la înregistrare codul activează PRO automat
+// ─────────────────────────────────────────────────────────────────
+
+model InviteCode {
+  id          String    @id @default(cuid())
+  code        String    @unique  // ex: "IMOTEST2025"
+  plan        SubscriptionPlan @default(PRO)
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+
+  maxUses     Int       @default(1)
+  usedCount   Int       @default(0)
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+
+  createdAt   DateTime  @default(now())
+
+  @@map("invite_codes")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TRANZACȚII — Ghidul tranzacției (8 pași)
+// ─────────────────────────────────────────────────────────────────
+
+model Transaction {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+
+  // Pasul 1 — Date obiect
+  address     String?
+  cadastralNo String?
+  objectType  String?         // Apartament, Casă, Teren, Comercial
+  dealType    DealType        @default(VANZARE_CUMPARARE)
+  sellerType  PartyType       @default(PERSOANA_FIZICA)
+  buyerType   PartyType       @default(PERSOANA_FIZICA)
+
+  // Date client
+  clientName        String?
+  clientPhone       String?
+  clientContractRef String?   // nr. contract cu clientul
+
+  // Progres
+  currentStep TransactionStep @default(DATE_OBIECT)
+  completedAt DateTime?       // când a ajuns la pasul 8
+
+  // Legătură cu anunț 999 (dacă vine din lentă)
+  listingId   String?
+  listing     Listing999?     @relation(fields: [listingId], references: [id])
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relații
+  documents      TransactionDocument[]
+  extractedFields ExtractedField[]
+  flags          TransactionFlag[]
+  owners         PropertyOwner[]
+  notarChecklist NotarChecklistItem[]
+  calculation    TransactionCalculation?
+  report         Report?
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DOCUMENTE încărcate pe tranzacție (Pasul 2)
+// ─────────────────────────────────────────────────────────────────
+
+model TransactionDocument {
+  id            String       @id @default(cuid())
+  transactionId String
+  transaction   Transaction  @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // Pentru tipul Schimb (1 = Obiect 1, 2 = Obiect 2)
+  objectIndex   Int          @default(1)
+
+  fileName      String
+  fileUrl       String       // cheie S3 / Supabase Storage
+  fileSize      Int          // octeți
+  mimeType      String       // "application/pdf", "image/jpeg"
+
+  // Procesare automată
+  documentType  DocumentType?
+  ocrText       String?      // text extras prin OCR
+  hasHandwriting Boolean     @default(false)
+  typeConfidence Float?      // 0.0–1.0
+
+  uploadedAt    DateTime     @default(now())
+
+  // Relații inverse
+  notarItems    NotarChecklistItem[]
+
+  @@index([transactionId])
+  @@map("transaction_documents")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CÂMPURI EXTRASE din documente (Pasul 3)
+// Structură flexibilă: fieldName/value în loc de coloane fixe.
+// Dacă Claude API extrage câmpuri noi — nu e nevoie de migrare.
+// ─────────────────────────────────────────────────────────────────
+
+model ExtractedField {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // Pentru Schimb
+  objectIndex   Int         @default(1)
+
+  // Exemple de fieldName:
+  // "cadastralNo", "address", "area_act", "area_extras",
+  // "owner_name", "legal_basis", "encumbrances",
+  // "purchase_price", "registration_date"
+  fieldName     String
+  value         String?
+  sourceDocId   String?     // din ce document a fost extras
+
+  // Euristică actualizare: true=CAPSLOCK, false=inițiale, null=necunoscut
+  isActualized  Boolean?
+
+  @@index([transactionId])
+  @@map("extracted_fields")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SEMNALE — Steaguri roșii/galbene/verzi (Pasul 3)
+// ─────────────────────────────────────────────────────────────────
+
+model TransactionFlag {
+  id            String       @id @default(cuid())
+  transactionId String
+  transaction   Transaction  @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  objectIndex   Int          @default(1) // pentru Schimb
+
+  severity      FlagSeverity
+  zone          FlagZone
+  // Coduri predefinite (generate de engine sau de LLM):
+  // "AREA_MISMATCH", "NOT_ACTUALIZED", "PRIVATIZARE_CERT",
+  // "LEGAL_ENTITY_SELLER", "ENCUMBRANCE_FOUND",
+  // "MARRIED_CONSENT_NEEDED", "MINOR_OWNER", "PROCURA_CHECK"
+  code          String
+
+  titleRo       String
+  descriptionRo String?
+  legalRef      String?      // "Codul civil art. 20", etc.
+  legalRefUrl   String?      // link legis.md
+
+  isResolved    Boolean      @default(false)
+  resolvedAt    DateTime?
+
+  createdAt     DateTime     @default(now())
+
+  @@index([transactionId])
+  @@map("transaction_flags")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// COPROPRIETARI (Pasul 4)
+// ─────────────────────────────────────────────────────────────────
+
+model PropertyOwner {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  objectIndex   Int         @default(1) // pentru Schimb
+
+  fullName      String
+  // Cotă: 1/2 → numerator=1, denominator=2; 1/1 → 1,1
+  shareNumerator   Int      @default(1)
+  shareDenominator Int      @default(1)
+
+  isActualized        Boolean?  // null=necunoscut, true=CAPSLOCK, false=inițiale
+  isMinor             Boolean   @default(false)
+  isLegalEntity       Boolean   @default(false)
+
+  // Acorduri necesare și starea lor
+  acordSotRequired          Boolean @default(false)
+  acordSotObtained          Boolean @default(false)
+  tutorApprovalRequired     Boolean @default(false)
+  tutorApprovalObtained     Boolean @default(false)
+  foundersDecisionRequired  Boolean @default(false)
+  foundersDecisionObtained  Boolean @default(false)
+  dataActualizationRequired Boolean @default(false)
+  dataActualizationDone     Boolean @default(false)
+
+  @@index([transactionId])
+  @@map("property_owners")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LISTA PENTRU NOTAR (Pasul 5)
+// ─────────────────────────────────────────────────────────────────
+
+model NotarChecklistItem {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // "VANZATOR" | "CUMPARATOR"
+  party         String
+
+  // Cheie predefinită: "act_de_drept", "extras_registru",
+  // "extras_capitol_suplimentar", "acord_sot", "procura",
+  // "act_identitate", "hotarare_fondatori", "raport_evaluare",
+  // "dovada_provenientei"
+  documentKey   String
+  labelRo       String
+
+  isRequired    Boolean     @default(true)
+  isUploaded    Boolean     @default(false)
+  documentId    String?     // legătură cu fișierul încărcat
+  document      TransactionDocument? @relation(fields: [documentId], references: [id])
+
+  sortOrder     Int         @default(0)
+
+  @@index([transactionId])
+  @@map("notar_checklist_items")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CALCULE (Pasul 6)
+// O singură înregistrare per tranzacție, toate calculele la un loc
+// ─────────────────────────────────────────────────────────────────
+
+model TransactionCalculation {
+  id            String      @id @default(cuid())
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // Impozit creșterea de capital — Vânzare-cumpărare
+  buyPrice      Float?      // MDL (preluat automat din câmpurile extrase)
+  sellPrice     Float?      // MDL
+  capitalGain   Float?      // sellPrice - buyPrice
+  taxBase       Float?      // capitalGain / 2
+  taxAmount     Float?      // taxBase * 12%
+  isExempt      Boolean     @default(false) // 3 ani posesie + viză reședință
+
+  // Donație
+  donationValue    Float?
+  donationRelType  String?  // "family" | "other"
+  donationTaxAmount Float?
+
+  // Schimb
+  schimbValue1     Float?
+  schimbValue2     Float?
+  schimbDiff       Float?   // |v1 - v2|
+  schimbTaxBase    Float?   // diff / 2
+  schimbTaxAmount  Float?   // taxBase * 12%
+
+  // Notariat — Legea 271/2003
+  notaryTransactionValue Float?  // valoarea introdusă de agent
+  notaryFeeAmount        Float?  // plata autentificare notarială (MDL)
+  notaryFeePct           Float?  // procentul aplicat (ex: 0.005)
+  taxStatAmount          Float?  // taxa de stat (MDL)
+  taxStatPct             Float?  // 0.001 (rude gr.I) sau 0.005 (alte persoane)
+  notaryTotal            Float?  // total orientativ
+
+  // Credit ipotecar
+  propertyValueEur Float?
+  downPaymentEur   Float?
+
+  updatedAt     DateTime    @updatedAt
+
+  @@map("transaction_calculations")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RAPOARTE PDF (Pasul 7 · numai PRO)
+// ─────────────────────────────────────────────────────────────────
+
+model Report {
+  id            String      @id @default(cuid())
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+
+  fileUrl       String      // cheie S3
+  generatedAt   DateTime    @default(now())
+
+  @@map("reports")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ANUNȚURI 999.md — stocate permanent cu arhivare automată
+//
+// Arhitectura partiționate PostgreSQL:
+// - Tabelul principal: anunțuri active (lastSeenAt > acum - 6 luni)
+// - Tabelul arhivă: listing_999_archive (copie automată prin pg_cron)
+// - Index pe (sector, listingType, isOwner, isActive) pentru filtrare rapidă
+// - Index pe priceEur pentru CMA
+//
+// Scriptul de arhivare (rulat de pg_cron zilnic):
+// INSERT INTO listing_999_archive SELECT * FROM listings_999
+//   WHERE isActive = false AND lastSeenAt < NOW() - INTERVAL '6 months';
+// DELETE FROM listings_999
+//   WHERE isActive = false AND lastSeenAt < NOW() - INTERVAL '6 months';
+// ─────────────────────────────────────────────────────────────────
+
+model Listing999 {
+  id              String        @id @default(cuid())
+
+  externalId      String        @unique  // ID pe 999.md
+  url             String
+
+  listingType     ListingType?
+  sector          String?       // Botanica, Centru, Râșcani, Ciocana, Buiucani
+  address         String?
+  priceEur        Float?
+  priceMdl        Float?
+  rooms           Int?
+  areaM2          Float?
+  floor           Int?
+  totalFloors     Int?
+  description     String?
+  imageUrls       String[]
+
+  // Detectare proprietar (algoritm de deduplicare)
+  isOwner         Boolean       @default(false)
+  ownerScore      Float?        // 0.0–1.0 (cât de sigur e că e proprietar)
+
+  // Dinamica prețului
+  priceChange     PriceChange   @default(STABLE)
+  priceDiffEur    Float?        // față de prețul anterior
+  priceHistory    ListingPriceHistory[]
+
+  // Stare
+  isActive        Boolean       @default(true)
+  isArchived      Boolean       @default(false)
+  firstSeenAt     DateTime      @default(now())
+  lastSeenAt      DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Lista neagră
+  blacklistPhoneHash String?
+  blacklistReport    BlacklistReport? @relation(fields: [blacklistPhoneHash], references: [phoneHash])
+
+  // Relații
+  savedContacts   SavedListingContact[]
+  transactions    Transaction[]
+
+  @@index([sector, listingType, isOwner, isActive])
+  @@index([priceEur])
+  @@index([lastSeenAt])
+  @@index([isActive, isArchived])
+  @@map("listings_999")
+}
+
+model ListingPriceHistory {
+  id          String      @id @default(cuid())
+  listingId   String
+  listing     Listing999  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  priceEur    Float?
+  priceMdl    Float?
+  recordedAt  DateTime    @default(now())
+
+  @@index([listingId])
+  @@map("listing_price_history")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CONTACTE PRIVATE ale agentului pe anunț
+// Legea 133/2011 — operatorul datelor = agentul, nu platforma
+// Vizibil NUMAI agentului care l-a creat (userId)
+// ─────────────────────────────────────────────────────────────────
+
+model SavedListingContact {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  listingId   String
+  listing     Listing999  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  phone       String?     // introdus manual de agent
+  note        String?
+
+  savedAt     DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Un agent — un contact per anunț
+  @@unique([userId, listingId])
+  @@map("saved_listing_contacts")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LISTA NEAGRĂ
+// phoneHash = SHA-256 al numărului (ex: hash("+37369123456"))
+// Comparare: când parserul găsește un anunț, calculează hash-ul
+// numărului și verifică în această tabelă
+// ─────────────────────────────────────────────────────────────────
+
+model BlacklistReport {
+  id           String        @id @default(cuid())
+  reporterId   String
+  reporter     User          @relation(fields: [reporterId], references: [id])
+
+  phoneHash    String        @unique  // SHA-256, nu plaintext
+  tag          BlacklistTag
+  note         String?
+
+  reportCount  Int           @default(1)  // câți agenți au raportat
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  listings     Listing999[]
+
+  @@map("blacklist_reports")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BAZA DE REGULI JURIDICE (editabilă fără deploy)
+// Modificare lege → editezi înregistrarea în Prisma Studio
+// sau prin panoul admin — fără cod nou, fără redeploy
+// ─────────────────────────────────────────────────────────────────
+
+model LegalRule {
+  id            String       @id @default(cuid())
+
+  // Cod unic folosit de engine pentru a identifica regula:
+  // "MARRIED_CONSENT", "MINOR_TUTOR", "PROCURA_CHECK",
+  // "PRIVATIZARE_CERT", "LEGAL_ENTITY_SELLER",
+  // "AREA_MISMATCH", "NOT_ACTUALIZED"
+  code          String       @unique
+
+  titleRo       String
+  descriptionRo String
+  legalActRo    String       // "Codul familiei art. 20–22"
+  legalActUrl   String?      // link legis.md
+
+  severity      FlagSeverity @default(AMBER)
+  zone          FlagZone     @default(VERIFICARE_MANUALA)
+
+  // La ce tipuri de tranzacții se aplică
+  appliesToAll  Boolean      @default(true)
+  appliesTo     DealType[]   // dacă appliesToAll=false
+
+  isActive      Boolean      @default(true)
+  effectiveFrom DateTime?    // de când e în vigoare legea
+  effectiveTo   DateTime?    // până când (dacă e abrogată)
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("legal_rules")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// INSTRUMENTE — Generator anunțuri (Modul 3 · numai PRO)
+// ─────────────────────────────────────────────────────────────────
+
+model AnuntGeneration {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  inputText   String   // ce a introdus agentul
+  outputRo    String?  // text generat în română
+  outputRu    String?  // text generat în rusă
+  hashtags    String[]
+
+  // Token usage pentru monitoring costuri Claude API
+  inputTokens  Int?
+  outputTokens Int?
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("anunt_generations")
+}

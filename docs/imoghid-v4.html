@@ -1,0 +1,2245 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImoGhid · Platforma agentului imobiliar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#111827;--ink2:#374151;--ink3:#6B7280;--ink4:#9CA3AF;
+  --line:#E5E7EB;--line2:#F3F4F6;--bg:#F8F9FA;--sur:#FFFFFF;
+  --blue:#1D4ED8;--blue2:#3B82F6;--blue-bg:#EFF6FF;--blue-br:#BFDBFE;
+  --green:#15803D;--green-bg:#F0FDF4;--green-br:#BBF7D0;
+  --amber:#92400E;--amber-bg:#FFFBEB;--amber-br:#FDE68A;
+  --orange:#9A3412;--orange-bg:#FFF7ED;--orange-br:#FED7AA;
+  --red:#991B1B;--red-bg:#FEF2F2;--red-br:#FECACA;
+  --purple:#4C1D95;--purple-bg:#F5F3FF;--purple-br:#DDD6FE;
+  --r:6px;--rl:10px;
+  --mono:"IBM Plex Mono",monospace;
+  --sans:"Inter",sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);font-size:14px;line-height:1.5;color:var(--ink);background:var(--bg);min-height:100vh;}
+
+/* ── TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:100;background:var(--sur);border-bottom:1px solid var(--line);display:flex;align-items:center;height:52px;padding:0 18px;gap:0;}
+.logo{display:flex;align-items:center;gap:9px;padding-right:18px;border-right:1px solid var(--line);margin-right:16px;}
+.logo-icon{width:28px;height:28px;background:var(--ink);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;}
+.logo-name{font-size:15px;font-weight:700;letter-spacing:-.03em;}
+.logo-sub{font-size:10px;font-family:var(--mono);color:var(--ink3);display:block;margin-top:-1px;}
+.nav{display:flex;gap:2px;}
+.nav-btn{font-family:var(--sans);font-size:16px;font-weight:500;padding:5px 12px;border-radius:var(--r);border:none;background:none;color:var(--ink);cursor:pointer;transition:all .1s;display:flex;align-items:center;gap:6px;}
+.nav-btn:hover{background:var(--line2);color:var(--ink);}
+.nav-btn.active{background:var(--ink);color:#fff;}
+.cnt{font-family:var(--mono);font-size:10px;background:var(--red);color:#fff;border-radius:20px;padding:1px 6px;font-weight:600;}
+.topbar-r{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.tx-pill{font-family:var(--mono);font-size:11px;padding:3px 10px;border:1px solid var(--line);border-radius:20px;color:var(--ink2);display:inline-flex;align-items:center;gap:6px;}
+.tx-dot{width:6px;height:6px;border-radius:50%;background:var(--blue2);}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--ink);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;font-family:var(--mono);cursor:pointer;}
+.draft{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1.5px dashed var(--red);color:var(--red);padding:2px 7px;border-radius:3px;transform:rotate(-2deg);}
+
+/* ── SHELL ── */
+.shell{display:grid;grid-template-columns:220px 1fr 290px;min-height:calc(100vh - 52px);}
+
+/* ── LEFT NAV ── */
+.lnav{background:var(--sur);border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column;}
+.nav-lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);padding:0 8px;margin-bottom:5px;margin-top:10px;}
+.nav-lbl:first-child{margin-top:0;}
+.step-item{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:flex-start;padding:7px 8px;border-radius:var(--r);cursor:pointer;border:1px solid transparent;position:relative;transition:background .1s;}
+.step-item:hover{background:var(--line2);}
+.step-item.active{background:var(--blue-bg);border-color:var(--blue-br);}
+.step-num{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);background:var(--sur);display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink3);flex-shrink:0;position:relative;z-index:1;}
+.step-item.done .step-num{background:var(--green);border-color:var(--green);color:#fff;}
+.step-item.active .step-num{background:var(--blue);border-color:var(--blue);color:#fff;}
+.step-txt b{display:block;font-size:12.5px;font-weight:600;color:var(--ink);}
+.step-txt small{display:block;font-size:11px;color:var(--ink3);margin-top:1px;}
+.step-item.active .step-txt b{color:var(--blue);}
+.step-line{position:absolute;left:20px;top:34px;bottom:-2px;width:1.5px;background:var(--line);z-index:0;}
+.legend-block{margin-top:14px;padding:10px;background:var(--line2);border-radius:var(--r);}
+.legend-block .nav-lbl{margin:0 0 6px;padding:0;}
+.leg-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink2);padding:2px 0;}
+.leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* ── MAIN ── */
+main{padding:22px 26px 60px;overflow-y:auto;}
+.crumb{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink4);margin-bottom:5px;}
+h1{font-size:21px;font-weight:700;letter-spacing:-.03em;margin-bottom:5px;}
+.sub{font-size:13px;color:var(--ink3);max-width:55ch;line-height:1.6;margin-bottom:20px;}
+.prog{height:3px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:18px;}
+.prog-fill{height:100%;background:var(--blue2);border-radius:3px;transition:width .3s;}
+
+/* ── CARD ── */
+.card{background:var(--sur);border:1px solid var(--line);border-radius:var(--rl);overflow:hidden;margin-bottom:14px;}
+.card-hd{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;}
+.card-hd b{font-size:13.5px;font-weight:600;color:var(--ink);}
+.card-bd{padding:14px;}
+
+/* ── BADGES ── */
+.badge{font-family:var(--mono);font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.b-green{background:var(--green-bg);color:var(--green);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-orange{background:var(--orange-bg);color:var(--orange);}
+.b-red{background:var(--red-bg);color:var(--red);}
+.b-blue{background:var(--blue-bg);color:var(--blue);}
+.b-gray{background:var(--line2);color:var(--ink3);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+
+/* ── INPUT FIELDS ── */
+.field-group{margin-bottom:12px;}
+.field-group label{display:block;font-size:11px;color:var(--ink3);margin-bottom:3px;}
+.field-group input,.field-group select,.field-group textarea{width:100%;font-family:var(--sans);font-size:16px;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;background:var(--sur);color:var(--ink);transition:border-color .12s;}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus{outline:none;border-color:var(--blue2);}
+.field-group textarea{resize:vertical;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+
+/* ── DROP ZONE ── */
+.drop{border:2px dashed var(--line);border-radius:var(--rl);padding:28px 20px;text-align:center;background:var(--line2);cursor:pointer;transition:all .15s;}
+.drop:hover{border-color:var(--blue2);background:var(--blue-bg);}
+.drop-big{font-size:14px;font-weight:600;margin-bottom:4px;}
+.drop-sub{font-size:12px;color:var(--ink3);}
+.drop-btn{display:inline-flex;align-items:center;gap:5px;margin-top:12px;font-family:var(--mono);font-size:11px;border:1.5px solid var(--line);background:var(--sur);padding:5px 12px;border-radius:var(--r);cursor:pointer;transition:border-color .1s;}
+.drop-btn:hover{border-color:var(--ink);}
+
+/* ── TYPE BUTTONS ── */
+.type-grid{display:flex;gap:8px;flex-wrap:wrap;}
+.type-btn{font-family:var(--sans);font-size:13px;font-weight:500;padding:8px 16px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--sur);cursor:pointer;color:var(--ink2);transition:all .12s;}
+.type-btn:hover{border-color:var(--ink3);}
+.type-btn.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+/* ── DOC ROWS ── */
+.doc-row{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px dashed var(--line);}
+.doc-row:first-child{border-top:none;}
+.doc-ic{width:32px;height:38px;border:1.5px solid var(--line);border-radius:4px;display:grid;place-items:center;font-family:var(--mono);font-size:9px;font-weight:600;color:var(--ink3);background:var(--sur);}
+.doc-name{font-size:13px;font-weight:600;}
+.doc-meta{font-size:11px;color:var(--ink3);margin-top:1px;}
+
+/* ── FIELD TABLE ── */
+.ftbl{width:100%;border-collapse:collapse;font-size:13px;}
+.fl2-box{border:1px solid var(--line);border-radius:var(--r);padding:10px 8px;text-align:center;background:var(--sur);}
+.fl2-box.bad{background:var(--red-bg);border-color:var(--red-br);}
+.fl2-box.bad .fl2-v{color:var(--red);}
+.fl2-box.ok{background:var(--green-bg);border-color:var(--green-br);}
+.fl2-box.ok .fl2-v{color:var(--green);}
+.fl2-k{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);}
+.fl2-v{font-size:14px;font-weight:600;margin-top:4px;}
+.cad-tr-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:12.5px;}
+.cad-tr-item:last-child{border-bottom:none;}
+.cad-tk{width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:1px;}
+.cad-tk.ok{background:var(--green);color:#fff;}
+.cad-tk.run{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-br);}
+.cad-tk.wait{background:var(--line2);color:var(--ink3);border:1px solid var(--line);}
+.cad-tr-val{font-family:var(--mono);font-size:11px;color:var(--ink3);}
+.cad-spin{width:10px;height:10px;border:2px solid var(--amber-br);border-top-color:var(--amber);border-radius:50%;animation:cadspin .8s linear infinite;}
+@keyframes cadspin{to{transform:rotate(360deg);}}
+.cad-apt-chip{font-family:var(--mono);font-size:12px;min-width:34px;text-align:center;background:var(--sur);border:1px solid var(--line);border-radius:var(--r);padding:6px 7px;cursor:pointer;transition:border-color .1s,color .1s;}
+.cad-apt-chip:hover{border-color:var(--blue2);color:var(--blue);background:var(--blue-bg);}
+.ftbl td{padding:7px 5px;border-top:1px dashed var(--line);vertical-align:top;}
+.ftbl tr:first-child td{border-top:none;}
+.ftbl .k{color:var(--ink3);width:44%;}
+.ftbl .v{font-weight:600;}
+.tag{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;margin-left:5px;vertical-align:middle;}
+.tag-green{background:var(--green-bg);color:var(--green);}
+.tag-amber{background:var(--amber-bg);color:var(--amber);}
+.tag-red{background:var(--red-bg);color:var(--red);}
+
+/* ── NOTICE BLOCKS ── */
+.notice{display:flex;gap:9px;padding:11px 12px;border-radius:var(--r);margin-bottom:8px;border:1px solid;}
+.notice-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.notice b{font-size:12.5px;display:block;margin-bottom:2px;}
+.notice p{font-size:12px;margin:0;line-height:1.5;color:var(--ink2);}
+.notice.red{background:var(--red-bg);border-color:var(--red-br);}
+.notice.red .notice-dot{background:var(--red);}
+.notice.red b{color:var(--red);}
+.notice.amber{background:var(--amber-bg);border-color:var(--amber-br);}
+.notice.amber .notice-dot{background:var(--amber);}
+.notice.amber b{color:var(--amber);}
+.notice.orange{background:var(--orange-bg);border-color:var(--orange-br);}
+.notice.orange .notice-dot{background:var(--orange);}
+.notice.orange b{color:var(--orange);}
+.notice.green{background:var(--green-bg);border-color:var(--green-br);}
+.notice.green .notice-dot{background:var(--green);}
+.notice.green b{color:var(--green);}
+.notice.blue{background:var(--blue-bg);border-color:var(--blue-br);}
+.notice.blue .notice-dot{background:var(--blue2);}
+.notice.blue b{color:var(--blue);}
+
+/* ── OWNER ROW ── */
+.owner-row{display:grid;grid-template-columns:34px 1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-top:1px dashed var(--line);}
+.owner-row:first-child{border-top:none;}
+.owner-ava{display:none;}
+
+/* ── CHECKLIST ── */
+.chk-row{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-top:1px dashed var(--line);}
+.chk-row:first-child{border-top:none;}
+.chk-box{width:17px;height:17px;border:1.5px solid var(--line);border-radius:4px;flex-shrink:0;margin-top:2px;display:grid;place-items:center;cursor:pointer;transition:all .1s;}
+.chk-box.on{background:var(--blue);border-color:var(--blue);}
+.chk-box.on::after{content:"✓";color:#fff;font-size:10px;font-weight:700;}
+.chk-box.miss{border-color:var(--red);border-style:dashed;}
+.chk-txt b{font-size:13px;display:block;}
+.chk-txt small{font-size:11px;color:var(--ink3);display:block;margin-top:1px;}
+
+/* ── SECTION DIVIDER ── */
+.sec-div{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);padding:12px 0 6px;border-top:1px dashed var(--line);margin-top:4px;}
+.sec-div:first-child{border-top:none;padding-top:0;}
+
+/* ── CALC ── */
+.calc{width:100%;border-collapse:collapse;}
+.calc td{padding:9px 5px;border-top:1px dashed var(--line);font-size:13px;}
+.calc tr.tot td{border-top:1.5px solid var(--ink);font-weight:700;font-size:14px;}
+.calc .r{text-align:right;font-family:var(--mono);}
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.bank-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px dashed var(--line);font-size:13px;}
+.bank-row:first-child{border-top:none;}
+.bank-rate{font-family:var(--mono);font-weight:600;}
+.bank-pay{font-family:var(--mono);color:var(--blue);}
+.toggle-row{display:flex;gap:8px;margin-bottom:14px;}
+.toggle-opt{font-family:var(--sans);font-size:13px;padding:6px 14px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--sur);cursor:pointer;color:var(--ink2);transition:all .1s;}
+.toggle-opt.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+/* ── ASP ── */
+.asp-hero{background:var(--sur);border:1px solid var(--line);border-radius:var(--rl);padding:30px;text-align:center;}
+.asp-icon{width:52px;height:52px;border-radius:50%;background:var(--blue-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:24px;}
+.asp-title{font-size:16px;font-weight:700;margin-bottom:6px;}
+.asp-sub{font-size:13px;color:var(--ink3);max-width:40ch;margin:0 auto 20px;line-height:1.6;}
+.asp-btn{display:inline-flex;align-items:center;gap:7px;background:var(--ink);color:#fff;border:none;font-family:var(--mono);font-size:12px;padding:10px 20px;border-radius:var(--r);cursor:pointer;text-decoration:none;transition:background .12s;}
+.asp-btn:hover{background:var(--ink2);}
+
+/* ── NOTE ── */
+.note{font-size:12px;color:var(--ink2);padding:9px 11px;background:var(--blue-bg);border-left:3px solid var(--blue2);line-height:1.6;border-radius:0 var(--r) var(--r) 0;}
+.note-warn{background:var(--amber-bg);border-left-color:var(--amber);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--sur);border-radius:var(--rl);width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);}
+.modal-hd{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;}
+.modal-hd h2{font-size:15px;font-weight:600;margin:0;flex:1;}
+.modal-bd{padding:18px 20px;}
+.modal-ft{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;}
+.modal-section{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line);}
+.modal-section:first-child{margin-top:0;}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.field-row-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+/* ── RIGHT RAIL ── */
+.rrail{background:var(--sur);border-left:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:12px;}
+.next-card{background:var(--ink);color:#fff;border-radius:var(--rl);padding:14px;}
+.nc-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9CA3AF;margin-bottom:6px;}
+.next-card h3{font-size:14px;font-weight:600;margin-bottom:10px;line-height:1.3;}
+.nc-act{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid #1F2937;}
+.nc-act:first-of-type{border-top:none;}
+.nc-chk{width:16px;height:16px;border:1.5px solid #374151;border-radius:3px;flex-shrink:0;margin-top:2px;display:grid;place-items:center;}
+.nc-chk.on{background:var(--blue2);border-color:var(--blue2);}
+.nc-chk.on::after{content:"✓";color:#fff;font-size:9px;font-weight:700;}
+.nc-act-txt{font-size:12px;}
+.nc-act-txt small{display:block;font-size:10.5px;color:#6B7280;margin-top:1px;}
+.nc-btn{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:12px;font-family:var(--mono);font-size:11px;background:var(--blue2);color:#fff;border:none;padding:8px 14px;border-radius:var(--r);cursor:pointer;width:100%;transition:background .12s;}
+.nc-btn:hover{background:var(--blue);}
+.rules-card{border:1px solid var(--line);border-radius:var(--rl);overflow:hidden;}
+.rules-hd{padding:9px 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;}
+.rules-hd b{font-size:12.5px;}
+.rules-hd span{margin-left:auto;font-family:var(--mono);font-size:9.5px;color:var(--ink4);}
+.rules-bd{padding:10px 13px;}
+.rules-bd p{font-size:12px;color:var(--ink3);line-height:1.6;}
+.law-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.law-tag{font-family:var(--mono);font-size:11px;border:1px solid var(--line);padding:2px 7px;border-radius:3px;color:var(--ink2);text-decoration:none;display:inline-block;transition:border-color .1s,color .1s;}.law-tag:hover{border-color:var(--blue2);color:var(--blue);}
+.disclaimer{font-size:13.5px;color:var(--ink3);line-height:1.6;border-top:1px dashed var(--line);padding-top:12px;font-weight:400;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;border:1.5px solid var(--ink);background:var(--sur);padding:6px 12px;border-radius:var(--r);cursor:pointer;color:var(--ink);text-decoration:none;transition:background .1s;}
+.btn:hover{background:var(--line2);}
+.btn.solid{background:var(--ink);color:#fff;}
+.btn.solid:hover{background:var(--ink2);}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+/* ── SECTIONS ── */
+.section{display:none;}
+.section.show{display:block;}
+
+/* ── VIEWS ── */
+#viewFlow{display:grid;grid-template-columns:220px 1fr 290px;min-height:calc(100vh - 52px);}
+#viewFeed{display:none;padding:22px 26px 60px;}
+#viewAI{display:none;padding:22px 26px 60px;}
+#viewObjects{display:none;padding:22px 26px 60px;}
+
+/* ── FEED ── */
+.src-note{font-size:11px;color:var(--ink3);background:var(--green-bg);border-left:3px solid var(--green);padding:8px 11px;margin-bottom:16px;max-width:520px;line-height:1.6;border-radius:0 var(--r) var(--r) 0;}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.chip{font-family:var(--mono);font-size:11px;border:1px solid var(--line);background:var(--sur);border-radius:20px;padding:4px 11px;cursor:pointer;color:var(--ink2);transition:all .1s;white-space:nowrap;}
+.chip:hover{border-color:var(--ink3);}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.listings{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:14px;}
+.lcard{background:var(--sur);border:1px solid var(--line);border-radius:var(--rl);display:flex;flex-direction:column;transition:border-color .15s;}
+.lcard:hover{border-color:var(--ink3);}
+.lthumb{height:110px;background:repeating-linear-gradient(45deg,var(--line2),var(--line2) 10px,#ECEFF1 10px,#ECEFF1 20px);border-bottom:1px solid var(--line);border-radius:var(--rl) var(--rl) 0 0;display:grid;place-items:center;color:var(--ink4);font-family:var(--mono);font-size:11px;position:relative;}
+.new-badge{position:absolute;top:8px;left:8px;background:var(--red);color:#fff;font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:2px 6px;border-radius:3px;}
+.warn-badge{position:absolute;top:8px;right:8px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-br);font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;}
+.price-drop{position:absolute;bottom:8px;right:8px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-br);font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;}
+.lbody{padding:12px;display:flex;flex-direction:column;gap:4px;flex:1;}
+.ltype{display:inline-block;font-family:var(--mono);font-size:10px;background:var(--blue-bg);color:var(--blue);padding:2px 7px;border-radius:3px;align-self:flex-start;}
+.lprop{display:inline-block;font-family:var(--mono);font-size:10px;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:3px;margin-left:3px;}
+.laddr{font-weight:600;font-size:13.5px;}
+.lmeta{font-size:12px;color:var(--ink3);}
+.lprice{font-size:17px;font-weight:700;letter-spacing:-.02em;margin-top:3px;}
+.lprice-old{font-size:12px;color:var(--ink4);text-decoration:line-through;margin-left:5px;font-weight:400;}
+.lacts{display:flex;gap:7px;margin-top:7px;}
+.lacts .btn{flex:1;justify-content:center;}
+.priv-block{border-top:1.5px dashed var(--blue2);background:var(--blue-bg);padding:11px 12px;border-radius:0 0 var(--rl) var(--rl);}
+.priv-lock{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue);display:flex;align-items:center;gap:5px;margin-bottom:8px;}
+.fld{display:flex;flex-direction:column;gap:2px;margin-bottom:7px;}
+.fld label{font-size:11px;color:var(--ink3);}
+.fld input,.fld textarea{font-family:var(--sans);font-size:16px;border:1px solid var(--line);border-radius:var(--r);padding:6px 9px;background:var(--sur);color:var(--ink);resize:vertical;transition:border-color .12s;width:100%;}
+.fld input:focus,.fld textarea:focus{outline:none;border-color:var(--blue2);}
+.priv-block.hidden{display:none;}
+
+/* ── OBJECTS MODULE ── */
+.obj-tabs{display:flex;gap:2px;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:0;}
+.obj-tab{font-family:var(--sans);font-size:13px;font-weight:500;padding:8px 14px;border-radius:var(--r) var(--r) 0 0;border:none;background:none;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .1s;}
+.obj-tab:hover{color:var(--ink);}
+.obj-tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+.obj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.obj-card{background:var(--sur);border:1px solid var(--line);border-radius:var(--rl);overflow:hidden;transition:border-color .15s;}
+.obj-card:hover{border-color:var(--ink3);}
+.obj-card-hd{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:8px;}
+.obj-status{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.obj-card-bd{padding:12px 14px;}
+.obj-meta-row{display:flex;justify-content:space-between;font-size:12px;color:var(--ink3);padding:4px 0;border-bottom:1px dashed var(--line);}
+.obj-meta-row:last-child{border-bottom:none;}
+.obj-meta-row b{color:var(--ink);font-weight:500;}
+.obj-card-ft{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:7px;}
+.obj-card-ft .btn{flex:1;justify-content:center;}
+
+/* ── AI / INSTRUMENTE ── */
+.ai-wrap{max-width:760px;}
+.lang-tabs{display:flex;gap:5px;margin-bottom:9px;}
+.lang-tab{font-family:var(--mono);font-size:10px;padding:3px 10px;border:1px solid var(--line);border-radius:20px;cursor:pointer;background:var(--sur);color:var(--ink3);transition:all .1s;}
+.lang-tab.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.ai-output{background:var(--line2);border:1px dashed var(--line);border-radius:var(--r);padding:12px;font-size:13px;line-height:1.7;color:var(--ink2);min-height:80px;}
+.cma-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat-box{background:var(--line2);border-radius:var(--r);padding:10px 12px;text-align:center;}
+.stat-val{font-size:20px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;}
+.stat-lbl{font-size:10.5px;color:var(--ink3);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ═══ -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-icon">IG</div>
+    <div>
+      <div class="logo-name">ImoGhid</div>
+      <span class="logo-sub">Platforma agentului imobiliar · Moldova</span>
+    </div>
+  </div>
+  <nav class="nav">
+    <button class="nav-btn active" id="tab-cadastru" onclick="setView('cadastru')">Verificare imobil</button>
+    <button class="nav-btn" id="tab-flow" onclick="setView('flow')">Ghidul tranzacției</button>
+    <button class="nav-btn" id="tab-objects" onclick="setView('objects')">Obiectele mele</button>
+    <button class="nav-btn" id="tab-ai" onclick="setView('ai')">Instrumente</button>
+    <button class="nav-btn" id="tab-feed" onclick="setView('feed')">Anunțuri 999 <span class="cnt">14</span></button>
+  </nav>
+  <div class="topbar-r">
+    <span style="font-size:13.5px;font-weight:500;color:var(--ink2);">Ion Popescu</span>
+    <div class="avatar" style="width:32px;height:32px;font-size:12px;">IP</div>
+  </div>
+</header>
+
+<!-- ═══ VERIFICARE CADASTRU (modul independent) ═══ -->
+<div id="viewCadastru" style="display:flex;justify-content:center;min-height:calc(100vh - 52px);">
+  <main style="padding:80px 24px 60px;max-width:760px;width:100%;">
+    <div style="text-align:center;margin-bottom:36px;">
+      <h1 style="font-size:34px;margin:0 0 14px;">Verificați un obiect în cadastru</h1>
+      <p class="sub" style="font-size:16px;max-width:560px;margin:0 auto;">Căutați obiectul după adresă sau numărul cadastral înainte de a-l lua în lucru. Datele confirmate aici se transferă direct în Ghidul tranzacției.</p>
+    </div>
+
+    <!-- ── CĂUTARE ÎN CADASTRU ── -->
+    <div class="card" id="cad-search-card">
+      <div class="card-bd" style="padding:28px 26px 30px;">
+        <div class="field-group">
+          <label style="font-size:14px;">Adresă sau număr cadastral</label>
+          <div style="display:flex;gap:10px;">
+            <input type="text" id="cad_q" placeholder="str. Independenței 42, ap. 7 sau 0100225.041.212" style="flex:1;height:54px;font-size:17px;padding:0 18px;" onkeydown="if(event.key==='Enter')cadLookup()">
+            <button class="btn solid" onclick="cadLookup()" style="white-space:nowrap;height:54px;padding:0 26px;font-size:15px;">Căutați →</button>
+          </div>
+          <div style="display:flex;gap:7px;align-items:center;margin-top:16px;flex-wrap:wrap;">
+            <span style="font-size:13px;color:var(--ink4);">Exemple:</span>
+            <span class="law-tag" style="cursor:pointer;font-size:13px;padding:6px 11px;" onclick="cadFillExample('str. Cetatea Albă 143/1 ap.32')">adresă + apartament</span>
+            <span class="law-tag" style="cursor:pointer;font-size:13px;padding:6px 11px;" onclick="cadFillExample('str. Cetatea Albă 143/1')">adresă fără apartament</span>
+            <span class="law-tag" style="cursor:pointer;font-size:13px;padding:6px 11px;" onclick="cadFillExample('0100110.477.05.040')">număr cadastral</span>
+          </div>
+        </div>
+
+        <!-- Trace (acțiunile agentului) -->
+        <div id="cad-trace" style="display:none;margin-top:16px;">
+          <div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:7px;">Acțiunile agentului</div>
+          <ul id="cad-trace-list" style="list-style:none;padding:0;margin:0;"></ul>
+        </div>
+
+        <!-- Apartment picker -->
+        <div id="cad-apt-picker" style="display:none;margin-top:16px;">
+          <div id="cad-apt-note" style="font-size:13px;color:var(--ink2);margin-bottom:8px;"></div>
+          <div id="cad-apt-grid" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+
+        <!-- Fallback -->
+        <div id="cad-fallback" class="notice red" style="display:none;margin-top:16px;">
+          <div class="notice-dot"></div>
+          <div>
+            <b id="cad-fb-title"></b>
+            <p id="cad-fb-text" style="margin:4px 0 8px;"></p>
+            <a class="btn" href="https://www.cadastru.md/ecadastru" target="_blank" rel="noopener">Deschideți e-Cadastru manual →</a>
+          </div>
+        </div>
+
+        <!-- Record found -->
+        <div id="cad-record" style="display:none;margin-top:18px;">
+          <table class="ftbl">
+            <tr><td class="k">Adresă</td><td class="v" id="cad-r-addr">—</td></tr>
+            <tr><td class="k">Număr cadastral</td><td class="v" id="cad-r-cad">—</td></tr>
+            <tr><td class="k">Suprafață</td><td class="v" id="cad-r-supr">—</td></tr>
+            <tr><td class="k">Destinație</td><td class="v" id="cad-r-dest">—</td></tr>
+            <tr><td class="k">Valoare (evaluare)</td><td class="v" id="cad-r-val">—</td></tr>
+            <tr><td class="k">Tip proprietate</td><td class="v" id="cad-r-prop">—</td></tr>
+          </table>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;">
+            <div class="fl2-box" id="cad-f-dr"><div class="fl2-k">Alte drepturi reale</div><div class="fl2-v" id="cad-v-dr">—</div></div>
+            <div class="fl2-box" id="cad-f-not"><div class="fl2-k">Notări</div><div class="fl2-v" id="cad-v-not">—</div></div>
+            <div class="fl2-box" id="cad-f-int"><div class="fl2-k">Interdicții</div><div class="fl2-v" id="cad-v-int">—</div></div>
+          </div>
+          <div class="note note-warn" style="margin-top:10px;">Date orientative din Registrul bunurilor imobile. Persoanele cu date personale nu sunt afișate la acest pas (Legea 133/2011).</div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <a class="btn" href="https://www.cadastru.md/ecadastru" target="_blank" rel="noopener">Deschideți e-Cadastru ↗</a>
+            <button class="btn solid" onclick="cadConfirm()">Creați dosarul ↓</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmed → redirected banner -->
+    <div id="cad-confirmed-banner" class="notice green" style="display:none;">
+      <div class="notice-dot"></div>
+      <div style="display:flex;align-items:center;width:100%;gap:10px;">
+        <div style="flex:1;">
+          <b id="cad-cb-addr">—</b>
+          <p style="margin:2px 0 0;font-size:11.5px;" id="cad-cb-cad">—</p>
+        </div>
+        <a onclick="cadEditObject()" style="font-size:11.5px;color:var(--blue);cursor:pointer;white-space:nowrap;">← schimbați obiectul</a>
+      </div>
+    </div>
+
+    <!-- Legendă semnale — horizontal, no card border -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:28px;margin-top:24px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);"><span style="width:9px;height:9px;border-radius:50%;background:var(--green);flex-shrink:0;"></span>Nu există — fără obstacole</div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);"><span style="width:9px;height:9px;border-radius:50%;background:var(--red);flex-shrink:0;"></span>Există — necesită clarificare</div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══ GHIDUL TRANZACȚIEI ═══ -->
+<div id="viewFlow" style="display:none;">
+  <nav class="lnav">
+    <div class="nav-lbl">Ghidul tranzacției</div>
+    <div class="step-item done"   data-step="1" onclick="go(1)"><div class="step-num">1</div><div class="step-txt"><b>Date obiect</b><small>adresă, nr. cadastral</small></div><div class="step-line"></div></div>
+    <div class="step-item done"   data-step="2" onclick="go(2)"><div class="step-num">2</div><div class="step-txt"><b>Încărcare</b><small>Acte aferente</small></div><div class="step-line"></div></div>
+    <div class="step-item active" data-step="3" onclick="go(3)"><div class="step-num">3</div><div class="step-txt"><b>Verificare acte</b><small>verificare și atenționări</small></div><div class="step-line"></div></div>
+    <div class="step-item"        data-step="4" onclick="go(4)"><div class="step-num">4</div><div class="step-txt"><b>Coproprietari</b><small>acorduri și drepturi</small></div><div class="step-line"></div></div>
+    <div class="step-item"        data-step="5" onclick="go(5)"><div class="step-num">5</div><div class="step-txt"><b>Lista pentru notar</b><small>dosar pentru notar</small></div><div class="step-line"></div></div>
+    <div class="step-item"        data-step="6" onclick="go(6)"><div class="step-num">6</div><div class="step-txt"><b>Plăți la tranzacție</b><small>impozit și cheltuieli</small></div><div class="step-line"></div></div>
+    <div class="step-item"        data-step="7" onclick="go(7)"><div class="step-num">7</div><div class="step-txt"><b>Descărcați raport</b><small>PDF</small></div><div class="step-line"></div></div>
+    <div class="step-item"        data-step="8" onclick="go(8)"><div class="step-num">8</div><div class="step-txt"><b>Programare ASP</b><small>înregistrare stat</small></div></div>
+    <div class="legend-block">
+      <div class="nav-lbl">Zone de verificare</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--green)"></div>Verificat conform datelor</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--amber)"></div>Verificare manuală</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--ink4)"></div>În afara zonei de verificare</div>
+    </div>
+  </nav>
+
+  <main id="mainContent" style="position:relative;">
+
+    <!-- PASUL 1: Date obiect -->
+    <section class="section" id="s1">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 1 / 8</div>
+        <div id="txPill-s1" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Date obiect</h1>
+      <p class="sub">Introduceți datele cunoscute. Documentele se încarcă la pasul următor.</p>
+      <div class="prog"><div class="prog-fill" style="width:14%"></div></div>
+      <div class="notice blue" id="cad-prefill-banner" style="display:none;">
+        <div class="notice-dot"></div>
+        <div style="display:flex;align-items:center;width:100%;gap:10px;">
+          <div style="flex:1;">
+            <b>Date completate din verificarea cadastrului</b>
+            <p style="margin:2px 0 0;font-size:11.5px;" id="cad-prefill-info">—</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="s1-standard" style="display:block;">
+        <div class="card">
+          <div class="card-hd"><b>Obiect</b></div>
+          <div class="card-bd">
+            <div class="field-group"><label>Adresa obiectului</label><input type="text" id="manual_addr" placeholder="str. Independenței 42, ap. 7, Chișinău"></div>
+            <div class="field-row">
+              <div class="field-group"><label>Număr cadastral</label><input type="text" id="manual_cad" placeholder="0100225.041.0212"></div>
+              <div class="field-group"><label>Tip obiect</label>
+                <select>
+                  <option>Apartament</option><option>Casă</option><option>Teren</option><option>Comercial</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group"><label>Suprafață (m²) <span style="font-weight:400;color:var(--ink3);">opțional</span></label><input type="text" id="manual_suprafata" placeholder="66.80"></div>
+              <div class="field-group"><label>Destinație <span style="font-weight:400;color:var(--ink3);">opțional</span></label><input type="text" id="manual_destinatie" placeholder="Locativă"></div>
+              <div class="field-group"><label>Valoare evaluare <span style="font-weight:400;color:var(--ink3);">opțional</span></label><input type="text" id="manual_valoare" placeholder="344 020 lei"></div>
+            </div>
+            <div class="field-group"><label>Tip tranzacție</label>
+              <div class="type-grid">
+                <button class="type-btn on" onclick="setDealType('vc',this)">Vânzare-cumpărare</button>
+                <button class="type-btn" onclick="setDealType('don',this)">Donație</button>
+                <button class="type-btn" onclick="setDealType('sch',this)">Schimb</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="s1-schimb" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="card">
+            <div class="card-hd"><b>Obiect 1</b></div>
+            <div class="card-bd">
+              <div class="field-group"><label>Adresa obiectului</label><input type="text" id="manual_addr_o1" placeholder="str. Independenței 42, ap. 7, Chișinău"></div>
+              <div class="field-group"><label>Număr cadastral</label><input type="text" id="manual_cad_o1" placeholder="0100225.041.0212"></div>
+              <div class="field-group"><label>Tip obiect</label>
+                <select>
+                  <option>Apartament</option><option>Casă</option><option>Teren</option><option>Comercial</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><b>Obiect 2</b></div>
+            <div class="card-bd">
+              <div class="field-group"><label>Adresa obiectului</label><input type="text" id="manual_addr_o2" placeholder="str. Decebal 99/D, ap. 40, Chișinău"></div>
+              <div class="field-group"><label>Număr cadastral</label><input type="text" id="manual_cad_o2" placeholder="0100110.477.05.040"></div>
+              <div class="field-group"><label>Tip obiect</label>
+                <select>
+                  <option>Apartament</option><option>Casă</option><option>Teren</option><option>Comercial</option>
+                </select>
+              </div>
+              <button class="btn" type="button" onclick="setView('cadastru')" style="width:100%;margin-top:4px;">Verifică obiect →</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px;">
+          <div class="card-hd"><b>Tip tranzacție</b></div>
+          <div class="card-bd">
+            <div class="type-grid">
+              <button class="type-btn" onclick="setDealType('vc',this)">Vânzare-cumpărare</button>
+              <button class="type-btn" onclick="setDealType('don',this)">Donație</button>
+              <button class="type-btn on" onclick="setDealType('sch',this)">Schimb</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><b>Client</b></div>
+        <div class="card-bd">
+          <div class="field-row">
+            <div class="field-group"><label>Numele clientului</label><input type="text" placeholder="Popescu Ion"></div>
+            <div class="field-group"><label>Telefon</label><input type="text" placeholder="+373 69 000 000"></div>
+          </div>
+          <div class="field-group">
+            <label>Contract cu clientul (opțional)</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="contract_nr" placeholder="numărul contractului..." style="flex:1;">
+              <input type="file" id="contract_file" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="cuFileSelected(this)">
+              <button class="btn" type="button" onclick="document.getElementById('contract_file').click()" style="white-space:nowrap;">📎 Încărcați fișierul</button>
+            </div>
+            <div id="contract_file_name" style="display:none;margin-top:6px;font-size:11.5px;color:var(--ink2);"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASUL 2: Încărcare -->
+    <section class="section" id="s2">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 2 / 8</div>
+        <div id="txPill-s2" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Încărcați documentele</h1>
+      <p class="sub">Trageți PDF-uri sau fotografii ale documentelor. Tipul fiecărui fișier este determinat automat.</p>
+      <div class="prog"><div class="prog-fill" style="width:25%"></div></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <a href="https://programare.asp.gov.md/programare" target="_blank" rel="noopener" class="btn solid" style="font-size:12px;">🏛 Comandați Extras — ASP.gov.md ↗</a>
+        <a href="https://map.ecadastre.md" target="_blank" rel="noopener" class="btn" style="font-size:12px;">🗺 Date cadastrale — eCadastre.md ↗</a>
+      </div>
+      <!-- View standard (non-schimb) -->
+      <div id="s2-standard" class="card">
+        <div class="card-hd"><b>Fișiere</b></div>
+        <div class="card-bd">
+          <div class="drop">
+            <div style="font-size:22px;color:var(--ink4);margin-bottom:7px;">⬆</div>
+            <div class="drop-big">Trageți fișierele aici</div>
+            <div class="drop-sub">Contract de vânzare · Extras din registru · Act de drept<br>PDF · JPG · PNG — până la 20 MB per fișier</div>
+            <button class="drop-btn">+ selectați fișiere</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- View Schimb — 2 coloane -->
+      <div id="s2-schimb" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-hd" style="background:var(--blue-bg);"><b style="color:var(--blue);">Obiect 1</b></div>
+            <div class="card-bd">
+              <div class="drop" style="padding:18px 14px;">
+                <div style="font-size:18px;color:var(--ink4);margin-bottom:5px;">⬆</div>
+                <div class="drop-big" style="font-size:13px;">Documente Obiect 1</div>
+                <div class="drop-sub">Act de drept · Extras · Contract</div>
+                <button class="drop-btn" style="margin-top:8px;">+ selectați</button>
+              </div>
+              <div style="margin-top:12px;">
+                <div class="doc-row">
+                  <div class="doc-ic">PDF</div>
+                  <div><div class="doc-name">Act de drept (Obiect 1)</div><div class="doc-meta">Tip determinat automat</div></div>
+                  <span class="badge b-green">det.</span>
+                </div>
+                <div class="doc-row">
+                  <div class="doc-ic">PDF</div>
+                  <div><div class="doc-name">Extras din Registru (Ob. 1)</div><div class="doc-meta">7 câmpuri extrase</div></div>
+                  <span class="badge b-green">det.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-hd" style="background:var(--purple-bg);"><b style="color:var(--purple);">Obiect 2</b></div>
+            <div class="card-bd">
+              <div class="drop" style="padding:18px 14px;">
+                <div style="font-size:18px;color:var(--ink4);margin-bottom:5px;">⬆</div>
+                <div class="drop-big" style="font-size:13px;">Documente Obiect 2</div>
+                <div class="drop-sub">Act de drept · Extras · Contract</div>
+                <button class="drop-btn" style="margin-top:8px;">+ selectați</button>
+              </div>
+              <div style="margin-top:12px;">
+                <div class="doc-row">
+                  <div class="doc-ic">PDF</div>
+                  <div><div class="doc-name">Act de drept (Obiect 2)</div><div class="doc-meta">Tip determinat automat</div></div>
+                  <span class="badge b-green">det.</span>
+                </div>
+                <div class="doc-row">
+                  <div class="doc-ic">PDF</div>
+                  <div><div class="doc-name">Extras din Registru (Ob. 2)</div><div class="doc-meta">7 câmpuri extrase</div></div>
+                  <span class="badge b-green">det.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- PASUL 3: Verificare -->
+    <section class="section" id="s3">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 3 / 8</div>
+        <div id="txPill-s3" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Verificare acte</h1>
+      <p class="sub">Platforma a comparat câmpurile între documente. Trei aspecte necesită atenție.</p>
+      <div class="prog"><div class="prog-fill" style="width:43%"></div></div>
+
+      <!-- View standard -->
+      <div id="s3-standard">
+        <div class="card">
+          <div class="card-hd"><b>Câmpuri extrase</b><span class="badge b-gray" style="margin-left:auto;">Extras · 26.04.2024</span></div>
+          <div class="card-bd">
+          <table class="ftbl">
+            <tr><td class="k">Număr cadastral</td><td class="v">0100225.041.0212</td></tr>
+            <tr><td class="k">Adresă</td><td class="v">str. Independenței 42, ap. 7, Chișinău</td></tr>
+            <tr><td class="k">Proprietar(i)</td>
+              <td class="v">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">POPESCU IONEL <span class="tag tag-green">actualizat</span></div>
+                <div style="display:flex;align-items:center;gap:6px;">Grosu M.V. <span class="tag tag-amber">date neactualizate</span></div>
+              </td>
+            </tr>
+            <tr><td class="k">Suprafața conf. act de drept</td><td class="v" style="color:var(--red);">60,1 m² ← discrepanță</td></tr>
+            <tr><td class="k">Suprafața conf. extras</td><td class="v">58,4 m²</td></tr>
+            <tr><td class="k">Temeiul dreptului</td><td class="v">Contract de vânzare-cumpărare, 2009</td></tr>
+            <tr><td class="k">Sarcini/Grevări</td><td class="v" style="color:var(--green);">Nu au fost identificate</td></tr>
+            <tr><td class="k">Suma din actul de proprietate</td><td class="v">430 000 MDL</td></tr>
+          </table>
+          </div>
+        </div>
+      <div class="notice red">
+        <div class="notice-dot"></div>
+        <div><b>Discrepanță de suprafață: 58,4 ↔ 60,1 m²</b><p>Datele din extras și actul de drept nu coincid. Necesită clarificare înainte de notar.</p></div>
+      </div>
+      <div class="notice amber">
+        <div class="notice-dot"></div>
+        <div><b>Verificați existența certificatului privind participanții la privatizare</b><p>Temeiul dreptului — Contract de vânzare-cumpărare, transmitere-primire. Este necesar să verificați existența certificatului privind participanții la privatizare.</p></div>
+      </div>
+      <div class="notice amber">
+        <div class="notice-dot"></div>
+        <div><b>Date neactualizate: GROSU M.V.</b><p>Înregistrarea conține inițiale în loc de numele complet. Este necesară actualizarea în Cadastru înainte de tranzacție.</p></div>
+      </div>
+      <div class="notice green">
+        <div class="notice-dot"></div>
+        <div><b>Interdicții/grevări neidentificate</b><p>Conform extras: sechestre, ipotecă, uzufruct — absente. Reverificați înainte de notar.</p></div>
+      </div>
+      </div>
+
+      <!-- View Schimb — 2 coloane -->
+      <div id="s3-schimb" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-hd" style="background:var(--blue-bg);"><b style="color:var(--blue);">Obiect 1 · Câmpuri extrase</b><span class="badge b-gray" style="margin-left:auto;">26.04.2024</span></div>
+            <div class="card-bd">
+          <table class="ftbl">
+            <tr><td class="k">Număr cadastral</td><td class="v">0100418.027.0094</td></tr>
+            <tr><td class="k">Adresă</td><td class="v">bd. Moscova 14, ap. 3, Chișinău</td></tr>
+            <tr><td class="k">Proprietar(i)</td>
+              <td class="v">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">POPESCU IONEL <span class="tag tag-green">actualizat</span></div>
+                <div style="display:flex;align-items:center;gap:6px;">Grosu M.V. <span class="tag tag-amber">date neactualizate</span></div>
+              </td>
+            </tr>
+            <tr><td class="k">Suprafața conf. act de drept</td><td class="v" style="color:var(--red);">60,1 m² ← discrepanță</td></tr>
+            <tr><td class="k">Suprafața conf. extras</td><td class="v">58,4 m²</td></tr>
+            <tr><td class="k">Temeiul dreptului</td><td class="v">Contract de vânzare-cumpărare, 2009</td></tr>
+            <tr><td class="k">Sarcini/Grevări</td><td class="v" style="color:var(--green);">Nu au fost identificate</td></tr>
+            <tr><td class="k">Suma din actul de proprietate</td><td class="v">430 000 MDL</td></tr>
+          </table>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-hd" style="background:var(--purple-bg);"><b style="color:var(--purple);">Obiect 2 · Câmpuri extrase</b><span class="badge b-gray" style="margin-left:auto;">26.04.2024</span></div>
+            <div class="card-bd">
+          <table class="ftbl">
+            <tr><td class="k">Număr cadastral</td><td class="v">0100418.027.0094</td></tr>
+            <tr><td class="k">Adresă</td><td class="v">bd. Moscova 14, ap. 3, Chișinău</td></tr>
+            <tr><td class="k">Proprietar(i)</td>
+              <td class="v">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">POPESCU IONEL <span class="tag tag-green">actualizat</span></div>
+                <div style="display:flex;align-items:center;gap:6px;">Grosu M.V. <span class="tag tag-amber">date neactualizate</span></div>
+              </td>
+            </tr>
+            <tr><td class="k">Suprafața conf. act de drept</td><td class="v" style="color:var(--red);">60,1 m² ← discrepanță</td></tr>
+            <tr><td class="k">Suprafața conf. extras</td><td class="v">58,4 m²</td></tr>
+            <tr><td class="k">Temeiul dreptului</td><td class="v">Contract de vânzare-cumpărare, 2009</td></tr>
+            <tr><td class="k">Sarcini/Grevări</td><td class="v" style="color:var(--green);">Nu au fost identificate</td></tr>
+            <tr><td class="k">Suma din actul de proprietate</td><td class="v">430 000 MDL</td></tr>
+          </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Semnale Obiect 1 -->
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--blue);margin-bottom:6px;">Semnale · Obiect 1</div>
+        <div class="notice red"><div class="notice-dot"></div><div><b>Discrepanță de suprafață: 58,4 ↔ 60,1 m²</b><p>Datele din extras și actul de drept nu coincid. Necesită clarificare înainte de notar.</p></div></div>
+        <div class="notice amber"><div class="notice-dot"></div><div><b>Date neactualizate: GROSU M.V.</b><p>Înregistrarea conține inițiale. Este necesară actualizarea în Cadastru.</p></div></div>
+        <div class="notice green"><div class="notice-dot"></div><div><b>Interdicții/grevări neidentificate — Obiect 1</b><p>Conform extras: sechestre, ipotecă, uzufruct — absente.</p></div></div>
+
+        <!-- Semnale Obiect 2 -->
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--purple);margin-top:14px;margin-bottom:6px;">Semnale · Obiect 2</div>
+        <div class="notice green"><div class="notice-dot"></div><div><b>Date actualizate — Obiect 2</b><p>Proprietarul este înregistrat cu numele complet în CAPSLOCK.</p></div></div>
+        <div class="notice green"><div class="notice-dot"></div><div><b>Interdicții/grevări neidentificate — Obiect 2</b><p>Conform extras: sechestre, ipotecă, uzufruct — absente.</p></div></div>
+      </div>
+
+    </section>
+
+    <!-- PASUL 4: Coproprietari -->
+    <section class="section" id="s4">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 4 / 8</div>
+        <div id="txPill-s4" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Coproprietari și acorduri</h1>
+      <p class="sub">Platforma a determinat componența proprietarilor și ce acorduri sunt necesare.</p>
+      <div class="prog"><div class="prog-fill" style="width:57%"></div></div>
+
+      <!-- View standard -->
+      <div id="s4-standard">
+        <div class="card">
+          <div class="card-hd"><b>Proprietari conform extras</b></div>
+          <div class="card-bd">
+            <div class="owner-row">
+              <div class="owner-ava">PI</div>
+              <div><div style="font-size:13px;font-weight:600;">POPESCU IONEL</div><div style="font-size:11px;color:var(--ink3);">Cotă: 1/2</div></div>
+              <span class="badge b-green">actualizat</span>
+            </div>
+            <div class="owner-row">
+              <div class="owner-ava">GM</div>
+              <div><div style="font-size:13px;font-weight:600;">Grosu M.V.</div><div style="font-size:11px;color:var(--ink3);">Cotă: 1/2</div></div>
+              <span class="badge b-amber">neactualizat</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><b>Acorduri și verificări necesare</b><span class="badge b-red" style="margin-left:auto;">2 nesoluționate</span></div>
+          <div class="card-bd">
+            <ul style="list-style:none;padding:0;margin:0;">
+              <li style="display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);align-items:flex-start;"><span style="color:var(--red);font-size:16px;line-height:1.2;flex-shrink:0;">•</span><div><b style="font-size:13px;">Acordul soțului/coproprietarilor</b><br><span style="font-size:11px;color:var(--ink3);">Căsătorie sau proprietate comună — acordul este obligatoriu.</span></div></li>
+              <li style="display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);align-items:flex-start;"><span style="color:var(--amber);font-size:16px;line-height:1.2;flex-shrink:0;">•</span><div><b style="font-size:13px;">Datele personale sunt actualizate</b><br><span style="font-size:11px;color:var(--ink3);">GROSU M.V. — date neactualizate. Necesită actualizare în Cadastru.</span></div></li>
+              <li style="display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);align-items:flex-start;"><span style="color:var(--green);font-size:16px;line-height:1.2;flex-shrink:0;">•</span><div><b style="font-size:13px;">Niciun minor</b><br><span style="font-size:11px;color:var(--ink3);">Autorizația autorității tutelare nu este necesară.</span></div></li>
+              <li style="display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);align-items:flex-start;"><span style="color:var(--green);font-size:16px;line-height:1.2;flex-shrink:0;">•</span><div><b style="font-size:13px;">Cotele sunt determinate</b><br><span style="font-size:11px;color:var(--ink3);">Ambii proprietari: cotă 1/2 — cotele sunt indicate în extras.</span></div></li>
+              <li style="display:flex;gap:10px;padding:8px 0;align-items:flex-start;"><span style="color:var(--ink3);font-size:16px;line-height:1.2;flex-shrink:0;">•</span><div><b style="font-size:13px;">Procură (dacă se acționează prin reprezentant)</b><br><span style="font-size:11px;color:var(--ink3);">Verificați: specială, termen de valabilitate, formă notarială.</span></div></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- View Schimb — 2 coloane -->
+      <div id="s4-schimb" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-hd" style="background:var(--blue-bg);"><b style="color:var(--blue);">Proprietari Obiect 1</b></div>
+            <div class="card-bd">
+              <div class="owner-row">
+                <div class="owner-ava">PI</div>
+                <div><div style="font-size:13px;font-weight:600;">POPESCU IONEL</div><div style="font-size:11px;color:var(--ink3);">Cotă: 1/1</div></div>
+                <span class="badge b-green">actualizat</span>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:8px;margin-bottom:0;">
+            <div class="card-hd" style="background:var(--blue-bg);"><b style="color:var(--blue);">Acorduri necesare · Obiect 1</b></div>
+            <div class="card-bd">
+              <ul style="list-style:none;padding:0;margin:0;">
+                <li style="display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);align-items:flex-start;">
+                  <span style="color:var(--red);font-size:16px;line-height:1.2;flex-shrink:0;">•</span>
+                  <div><b style="font-size:12.5px;">Acordul soțului/coproprietarilor</b><br><span style="font-size:11px;color:var(--ink3);">Căsătorie sau proprietate comună — acordul este obligatoriu.</span></div>
+                </li>
+                <li style="display:flex;gap:10px;padding:7px 0;align-items:flex-start;">
+                  <span style="color:var(--green);font-size:16px;line-height:1.2;flex-shrink:0;">•</span>
+                  <div><b style="font-size:12.5px;">Niciun minor</b><br><span style="font-size:11px;color:var(--ink3);">Autorizația autorității tutelare nu este necesară.</span></div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          </div>
+          <div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-hd" style="background:var(--purple-bg);"><b style="color:var(--purple);">Proprietari Obiect 2</b></div>
+            <div class="card-bd">
+              <div class="owner-row">
+                <div class="owner-ava">PI</div>
+                <div><div style="font-size:13px;font-weight:600;">POPESCU IONEL</div><div style="font-size:11px;color:var(--ink3);">Cotă: 1/1</div></div>
+                <span class="badge b-green">actualizat</span>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:8px;margin-bottom:0;">
+            <div class="card-hd" style="background:var(--purple-bg);"><b style="color:var(--purple);">Acorduri necesare · Obiect 2</b></div>
+            <div class="card-bd">
+              <ul style="list-style:none;padding:0;margin:0;">
+                <li style="display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);align-items:flex-start;">
+                  <span style="color:var(--red);font-size:16px;line-height:1.2;flex-shrink:0;">•</span>
+                  <div><b style="font-size:12.5px;">Acordul soțului/coproprietarilor</b><br><span style="font-size:11px;color:var(--ink3);">Căsătorie sau proprietate comună — acordul este obligatoriu.</span></div>
+                </li>
+                <li style="display:flex;gap:10px;padding:7px 0;align-items:flex-start;">
+                  <span style="color:var(--green);font-size:16px;line-height:1.2;flex-shrink:0;">•</span>
+                  <div><b style="font-size:12.5px;">Niciun minor</b><br><span style="font-size:11px;color:var(--ink3);">Autorizația autorității tutelare nu este necesară.</span></div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- PASUL 5: Lista pentru notar -->
+    <section class="section" id="s5">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 5 / 8</div>
+        <div id="txPill-s5" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Lista de documente pentru notar</h1>
+      <p class="sub">Lista depinde de tipul tranzacției și statutul părților. Platforma indică ce este disponibil și ce lipsește.</p>
+      <div class="prog"><div class="prog-fill" style="width:71%"></div></div>
+
+      <div class="card">
+        <div class="card-hd"><b>Partea 1</b><span class="badge b-red" style="margin-left:auto;">2 lipsesc</span></div>
+        <div class="card-bd">
+          <div class="chk-row"><div class="chk-box on"></div><div class="chk-txt"><b>Act de drept</b><small>Document de drept</small></div></div>
+          <div class="chk-row"><div class="chk-box on"></div><div class="chk-txt"><b>Extras din Registrul bunurilor imobile</b><small>Actualizat · 26.04.2024</small></div></div>
+          <div class="chk-row"><div class="chk-box on"></div><div class="chk-txt"><b>Extras din capitolul suplimentar din Registrul bunurilor imobile</b></div></div>
+          <div class="chk-row"><div class="chk-box miss"></div><div class="chk-txt"><b>Acordul soțului/coproprietarilor</b><small>Obligatoriu (vezi pasul 4)</small></div></div>
+          <div class="chk-row"><div class="chk-box on"></div><div class="chk-txt"><b>Act de identitate</b></div></div>
+          <div class="chk-row"><div class="chk-box miss"></div><div class="chk-txt"><b>Procură</b><small>După caz</small></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><b>Partea 2</b></div>
+        <div class="card-bd">
+          <div class="chk-row"><div class="chk-box on"></div><div class="chk-txt"><b>Act de identitate</b></div></div>
+          <div class="chk-row"><div class="chk-box miss"></div><div class="chk-txt"><b>Dovada provenienței banilor</b><small>Confirmarea provenienței banilor</small></div></div>
+          <div class="chk-row"><div class="chk-box miss"></div><div class="chk-txt"><b>Procură</b><small>După caz</small></div></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- PASUL 6: Plăți la tranzacție -->
+    <section class="section" id="s6">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 6 / 8</div>
+        <div id="txPill-s6" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Plăți la tranzacție</h1>
+      <p class="sub">Impozit pe creșterea de capital, cheltuieli notariale și calculator credit ipotecar. Sumele sunt orientative.</p>
+      <div class="prog"><div class="prog-fill" style="width:75%"></div></div>
+
+      <!-- Toggle fizic/juridic — GLOBAL pentru toate secțiunile -->
+      <div class="toggle-row" style="margin-bottom:16px;">
+        <button class="toggle-opt on" id="togFiz" onclick="setEntity('fiz')">Persoană fizică</button>
+        <button class="toggle-opt" id="togJur" onclick="setEntity('jur')">Persoană juridică</button>
+      </div>
+
+      <!-- ── IMPOZIT ── -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-hd"><b>Impozit creșterea de capital</b></div>
+        <div class="card-bd">
+
+          <!-- PERSOANĂ FIZICĂ -->
+          <div id="blockFiz">
+
+            <!-- Vânzare-cumpărare -->
+            <div id="tax-vc">
+              <div class="field-group">
+                <div style="display:grid;grid-template-columns:16px 1fr;align-items:start;gap:8px;">
+                  <input type="checkbox" id="chkExempt" onchange="calcTax()" style="margin-top:3px;">
+                  <label for="chkExempt" style="font-size:13px;cursor:pointer;line-height:1.4;">Vânzătorul a posedat cu viză de reședință în perioada de peste 3 ani</label>
+                </div>
+              </div>
+              <div id="tax-exempt" class="notice green" style="display:none;margin-top:8px;">
+                <div class="notice-dot"></div>
+                <div><b>Scutire de impozit</b><p>Vânzătorul a posedat bunul cu viză de reședință mai mult de 3 ani — impozitul pe creșterea de capital nu se aplică.</p></div>
+              </div>
+              <div id="tax-inputs" style="margin-top:12px;">
+                <div class="calc-grid">
+                  <div class="field-group">
+                    <label>Prețul de cumpărare (MDL)</label>
+                    <input type="number" id="buy_price" placeholder="900 000" value="430000" oninput="calcTax()">
+                  </div>
+                  <div class="field-group">
+                    <label>Prețul de vânzare (MDL)</label>
+                    <input type="number" id="sell_price" placeholder="1 400 000" oninput="calcTax()">
+                  </div>
+                </div>
+                <div id="tax-result" style="margin-top:10px;">
+                  <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">Formula: (Preț vânzare − Preț cumpărare) ÷ 2 × 12%</div>
+                  <table class="calc">
+                    <tr><td>Prețul de vânzare</td><td class="r" id="r-sell">—</td></tr>
+                    <tr><td>Prețul de cumpărare</td><td class="r" id="r-buy">—</td></tr>
+                    <tr><td>Creșterea de capital</td><td class="r" id="r-gain">—</td></tr>
+                    <tr><td>Baza impozabilă (÷ 2)</td><td class="r" id="r-base">—</td></tr>
+                    <tr class="tot"><td>Impozit (× 12%)</td><td class="r" id="r-tax">—</td></tr>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Donație -->
+            <div id="tax-don" style="display:none;">
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+                <label style="display:grid;grid-template-columns:16px 1fr;align-items:start;gap:8px;font-size:13px;cursor:pointer;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--r);">
+                  <input type="radio" name="don_rel" value="family" onchange="calcTaxDon()" style="margin-top:2px;">
+                  <span>Rude apropiate</span>
+                </label>
+                <label style="display:grid;grid-template-columns:16px 1fr;align-items:start;gap:8px;font-size:13px;cursor:pointer;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--r);">
+                  <input type="radio" name="don_rel" value="other" onchange="calcTaxDon()" style="margin-top:2px;">
+                  <span>Alte persoane</span>
+                </label>
+              </div>
+              <div id="don-exempt" class="notice green" style="display:none;">
+                <div class="notice-dot"></div>
+                <div><b>Scutire de impozit</b><p>La tranzacția de donații între rude apropiate, plata impozitului pentru creșterea de capital nu se percepe.</p></div>
+              </div>
+              <div id="don-result" style="display:none;">
+                <div class="field-group" style="margin-top:10px;">
+                  <label>Valoarea bunului donat (MDL)</label>
+                  <input type="number" id="don_val" placeholder="1 400 000" oninput="calcTaxDon()">
+                </div>
+                <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">Formula: Valoarea bunului ÷ 2 × 12%</div>
+                <table class="calc">
+                  <tr><td>Valoarea bunului</td><td class="r" id="d-val">—</td></tr>
+                  <tr><td>Baza impozabilă (÷ 2)</td><td class="r" id="d-base">—</td></tr>
+                  <tr class="tot"><td>Impozit (× 12%)</td><td class="r" id="d-tax">—</td></tr>
+                </table>
+                <div class="note note-warn" style="margin-top:8px;">Calculul exact al impozitului îl face notarul sau un consultant fiscal.</div>
+              </div>
+            </div>
+
+            <!-- Schimb -->
+            <div id="tax-sch" style="display:none;">
+              <div class="calc-grid">
+                <div class="field-group">
+                  <label><b>Obiect 1</b> — preț de evaluare (MDL)</label>
+                  <input type="number" id="sch_v1" placeholder="800 000" oninput="calcTaxSch()">
+                </div>
+                <div class="field-group">
+                  <label><b>Obiect 2</b> — preț de evaluare (MDL)</label>
+                  <input type="number" id="sch_v2" placeholder="600 000" oninput="calcTaxSch()">
+                </div>
+              </div>
+              <div class="chk-row" style="margin-top:10px;cursor:pointer;" onclick="toggleSchSurcharge()">
+                <div class="chk-box" id="sch-surcharge-box"></div>
+                <div class="chk-txt"><b>Una dintre părți face o plată suplimentară (sultă)</b><small>Bifați dacă diferența de valoare se compensează printr-o sumă în bani</small></div>
+              </div>
+              <div id="sch-surcharge-amount" class="field-group" style="display:none;margin-top:8px;">
+                <label>Suma plății suplimentare (MDL)</label>
+                <input type="number" id="sch_surcharge_val" placeholder="200 000" oninput="calcTaxSch()">
+              </div>
+              <div id="sch-result" style="display:none;margin-top:10px;">
+                <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">Formula: (Obiect mai scump − Obiect mai ieftin) ÷ 2 × 12%</div>
+                <table class="calc">
+                  <tr><td>Obiect mai scump</td><td class="r" id="s-high">—</td></tr>
+                  <tr><td>Obiect mai ieftin</td><td class="r" id="s-low">—</td></tr>
+                  <tr><td>Diferența</td><td class="r" id="s-diff">—</td></tr>
+                  <tr><td>Baza impozabilă (÷ 2)</td><td class="r" id="s-half">—</td></tr>
+                  <tr class="tot"><td>Impozit (× 12%)</td><td class="r" id="s-tax">—</td></tr>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- end blockFiz -->
+
+          <!-- PERSOANĂ JURIDICĂ -->
+          <div id="blockJur" style="display:none;">
+            <div class="toggle-row" style="margin-bottom:10px;">
+              <button class="toggle-opt on" id="togVat" onclick="setVat('yes')">Plătitor TVA</button>
+              <button class="toggle-opt" id="togNoVat" onclick="setVat('no')">Neplătitor TVA</button>
+            </div>
+            <div id="jur-vat">
+              <div class="notice blue" style="margin-bottom:8px;">
+                <div class="notice-dot"></div>
+                <div><b>Plătitor TVA</b><p>Impozit pe creșterea de capital — 12% din profitul net (prețul de vânzare − valoarea contabilă cu amortizarea inclusă). La vânzarea imobilelor comerciale — TVA 20%.</p></div>
+              </div>
+            </div>
+            <div id="jur-novat" style="display:none;">
+              <div class="notice blue">
+                <div class="notice-dot"></div>
+                <div><b>Neplătitor TVA</b><p>Impozit pe cifra de afaceri — 4% din suma totală a veniturilor din vânzare.</p></div>
+              </div>
+            </div>
+            <div class="note note-warn" style="margin-top:10px;">Calculul exact al impozitului pentru persoane juridice este efectuat de contabil.</div>
+          </div><!-- end blockJur -->
+
+        </div>
+      </div>
+
+      <!-- ── NOTARIAT ── -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-hd"><b>Plata pentru autentificarea tranzacțiilor + Taxa de stat</b><span class="badge b-gray" style="margin-left:auto;">Legea 271/2003</span></div>
+        <div class="card-bd">
+          <div class="field-group" style="max-width:300px;">
+            <label>Valoarea tranzacției (MDL)</label>
+            <input type="number" id="notary_val" placeholder="1 400 000" oninput="calcNotary()">
+          </div>
+          <table class="calc" id="notary-result">
+            <tr><td>Plata pentru autentificare notarială (<span id="n-fee-pct">—</span>)</td><td class="r" id="n-fee">—</td></tr>
+            <tr><td>Taxa de stat</td><td class="r" id="n-duty">—</td></tr>
+            <tr class="tot"><td>Total orientativ</td><td class="r" id="n-total">—</td></tr>
+          </table>
+          <!-- Tranșe fizic -->
+          <div id="notary-fiz-info" style="margin-top:10px;font-size:11px;color:var(--ink3);line-height:1.7;">
+            <b style="color:var(--ink2);">Tranșe pers. fizice (Legea 271/2003):</b>
+            ≤20k→1,3% · 20–50k→1,0% · 50–100k→0,9% · 100–200k→0,8% · 200–400k→0,6% · 400–600k→0,5% · 600–800k→0,3% · 800k–1M→0,2% · &gt;1M→0,1% · min. 120 MDL
+          </div>
+          <!-- Tranșe juridic -->
+          <div id="notary-jur-info" style="display:none;margin-top:10px;font-size:11px;color:var(--ink3);line-height:1.7;">
+            <b style="color:var(--ink2);">Tranșe pers. juridice (Legea 271/2003):</b>
+            &lt;800 000 MDL → 0,5% · 800 001–1 000 000 MDL → 0,2% · &gt;1 000 000 MDL → 0,1% · min. 120 MDL
+          </div>
+          <div class="note note-warn" style="margin-top:8px;">Toate calculele sunt orientative. Suma exactă este calculată de notar.</div>
+        </div>
+      </div>
+
+      <!-- ── CREDIT ── -->
+      <div class="card">
+        <div class="card-hd"><b>Calculator credit ipotecar</b></div>
+        <div class="card-bd">
+          <div class="calc-grid" style="margin-bottom:14px;">
+            <div class="field-group"><label>Valoarea obiectului (€)</label><input type="number" id="prop_val" placeholder="80 000" oninput="calcMortgage()"></div>
+            <div class="field-group"><label>Avans (€)</label><input type="number" id="down_pay" placeholder="20 000" oninput="calcMortgage()"></div>
+          </div>
+          <div class="bank-row"><div>MAIB <span style="font-size:11px;color:var(--ink3);">· 20 ani</span></div><div class="bank-rate">7.9%</div><div class="bank-pay" id="maib-pay">— €/lună</div></div>
+          <div class="bank-row"><div>Victoriabank <span style="font-size:11px;color:var(--ink3);">· 20 ani</span></div><div class="bank-rate">8.2%</div><div class="bank-pay" id="vic-pay">— €/lună</div></div>
+          <div class="bank-row"><div>OTP Bank <span style="font-size:11px;color:var(--ink3);">· 20 ani</span></div><div class="bank-rate">8.5%</div><div class="bank-pay" id="otp-pay">— €/lună</div></div>
+          <div class="note note-warn" style="margin-top:10px;">Ratele sunt orientative · verificați la bancă.</div>
+        </div>
+      </div>
+    </section>
+    <!-- PASUL 7: Raport -->
+    <section class="section" id="s7">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 7 / 8</div>
+        <div id="txPill-s7" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Descărcați raportul</h1>
+      <p class="sub">Raportul complet al tranzacției — rezultatele verificării, semnale, calcule, dosar pentru notar.</p>
+      <div class="prog"><div class="prog-fill" style="width:87%"></div></div>
+      <div class="asp-hero" style="text-align:left;padding:24px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">Raport complet · PDF</div>
+        <div style="font-size:13px;color:var(--ink3);margin-bottom:20px;line-height:1.6;">
+          Conține: verificarea actelor, semnale identificate, acordurile necesare, lista documentelor pentru notar, calculele impozitelor și cheltuielilor notariale.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="asp-btn" onclick="alert('Raport PDF — în MVP')">⤓ Descărcați raportul (PDF)</button>
+          <button class="btn" style="color:#fff;border-color:rgba(255,255,255,.3);" onclick="alert('Trimiteți clientului — în MVP')">Trimiteți clientului ↗</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASUL 8: ASP -->
+    <section class="section" id="s8">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+        <div class="crumb" style="margin-bottom:0;">Pasul 8 / 8</div>
+        <div id="txPill-s8" class="tx-pill" style="display:none;"><span class="tx-dot"></span></div>
+      </div>
+      <h1>Programare la ASP</h1>
+      <p class="sub">Ultimul pas — programarea pentru înregistrarea de stat a tranzacției.</p>
+      <div class="prog"><div class="prog-fill" style="width:100%"></div></div>
+      <div class="asp-hero">
+        <div class="asp-icon">🏛</div>
+        <div class="asp-title">Agenția Servicii Publice (ASP)</div>
+        <div class="asp-sub">Programare pentru înregistrarea de stat a transferului dreptului de proprietate.</div>
+        <a href="https://programare.asp.gov.md" class="asp-btn" target="_blank" rel="noopener">Programați-vă pe ASP.gov.md →</a>
+      </div>
+    </section>
+
+    <!-- Step navigation: prev / next -->
+    <div id="stepNav" style="display:flex;justify-content:center;gap:12px;margin:28px 0 10px;"></div>
+
+  </main>
+
+  <!-- Right rail -->
+  <aside class="rrail">
+    <div class="rules-card">
+      <div class="rules-hd"><b>Acte normative</b><span>editabilă</span></div>
+      <div class="rules-bd">
+        <p>Se schimbă legea — se modifică regula, nu programul.</p>
+        <div class="law-tags">
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=140&lang=ro" target="_blank" rel="noopener">Codul civil 2024</a>
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=13266&lang=ro" target="_blank" rel="noopener">Codul familiei</a>
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=108376&lang=ro" target="_blank" rel="noopener">Legea Cadastrului</a>
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=111&lang=ro" target="_blank" rel="noopener">Codul fiscal</a>
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=108061&lang=ro" target="_blank" rel="noopener">Legea 271/2003</a>
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=40&lang=ro" target="_blank" rel="noopener">Legea 40/2026</a>
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=150415&lang=ro" target="_blank" rel="noopener">Legea freelancerilor</a>
+          <a class="law-tag" href="https://www.legis.md/cautare/getResults?doc_id=340930&lang=ro" target="_blank" rel="noopener">Legea 133/2011</a>
+        </div>
+      </div>
+    </div>
+    <div class="disclaimer">Platforma sugerează și marchează, dar nu autentifică. Responsabilitatea finală pentru tranzacție revine notarului și agentului.</div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);">
+      <p style="font-size:12px;color:var(--ink3);line-height:1.6;margin:0 0 8px;">Pentru consultanță extinsă, vă rugăm să contactați un expert imobiliar.</p>
+      <p style="font-size:12px;color:var(--ink3);line-height:1.6;margin:0 0 10px;">Platforma ImoGhid a fost elaborată în colaborare cu <b style="color:var(--ink2);">Liudmila Popovscaia</b>, jurist în domeniu imobiliar.</p>
+      <img src="/qr-liudmila.png" alt="QR contact Liudmila Popovscaia" style="width:100%;border-radius:var(--r);display:block;">
+    </div>
+  </aside>
+</div><!-- end viewFlow -->
+
+<!-- ═══ ANUNȚURI 999 ═══ -->
+<div id="viewFeed">
+  <div class="crumb">Anunțuri · actualizate în timp real</div>
+  <h1>Anunțuri noi de la proprietari</h1>
+  <div class="src-note"><b>Date:</b> platforma afișează faptele anunțului și linkul către sursă. Telefonul vânzătorului — pe 999. Contactul îl salvați manual în blocul privat.</div>
+  <div class="filters">
+    <span class="chip on" onclick="setChip(this)">Toate</span>
+    <span class="chip" onclick="setChip(this)">Apartamente</span>
+    <span class="chip" onclick="setChip(this)">Case</span>
+    <span class="chip" onclick="setChip(this)">Terenuri</span>
+    <span class="chip" onclick="setChip(this)">Botanica</span>
+    <span class="chip" onclick="setChip(this)">Centru</span>
+    <span class="chip" onclick="setChip(this)">Râșcani</span>
+    <span class="chip" onclick="setChip(this)">Ciocana</span>
+    <span class="chip" onclick="setChip(this)">↓ Preț redus</span>
+  </div>
+  <div class="listings">
+
+    <!-- Card 1: preț redus -->
+    <div class="lcard">
+      <div class="lthumb"><span class="new-badge">NOU · azi</span><span class="price-drop">↓ −3 500 €</span>[foto]</div>
+      <div class="lbody">
+        <div><span class="ltype">Apartament · 2 odăi</span><span class="lprop">✓ Proprietar</span></div>
+        <div class="laddr">sec. Botanica, str. Independenței</div>
+        <div class="lmeta">62 м² · et. 5/9 · reparație medie · centrală autonomă</div>
+        <div class="lprice">72 500 € <span class="lprice-old">76 000 €</span></div>
+        <div class="lacts">
+          <a class="btn solid" href="#" onclick="return false">Deschide pe 999 →</a>
+          <a class="btn" href="#" onclick="openDeal(this);return false">+ La tranzacție</a>
+        </div>
+        <button class="btn priv-trigger" style="margin-top:7px;width:100%;justify-content:center;border-style:dashed;" onclick="togglePriv(this)">+ Salvați contactul vânzătorului</button>
+      </div>
+      <div class="priv-block hidden">
+        <div class="priv-lock">🔒 Contactul meu · vizibil doar pentru dvs.</div>
+        <div class="fld"><label>Telefonul vânzătorului</label><input type="text" placeholder="introduceți manual (de pe 999)"></div>
+        <div class="fld"><label>Notă</label><textarea rows="2" placeholder="ex.: am sunat, resunat miercuri"></textarea></div>
+        <div style="display:flex;gap:7px;margin-top:4px;flex-wrap:wrap;">
+          <button class="btn solid" onclick="saveContact(this)">Salvează</button>
+          <button class="btn" onclick="togglePriv(this)">Anulează</button>
+          <button class="btn delete-contact-btn" onclick="deleteContact(this)" style="display:none;color:var(--red);border-color:var(--red-br);margin-left:auto;">🗑 Ștergeți</button>
+        </div>
+      </div>
+      <div class="priv-saved" style="display:none;flex-direction:column;gap:4px;padding:10px 12px;background:var(--green-bg);border:1px solid var(--green-br);border-radius:0 0 var(--rl) var(--rl);">
+        <div style="font-size:11px;font-weight:600;color:var(--green);">✓ Contact salvat</div>
+        <div style="font-size:12px;color:var(--ink2);">📞 <span class="saved-phone">—</span></div>
+        <div style="font-size:12px;color:var(--ink3);font-style:italic;"><span class="saved-note"></span></div>
+      </div>
+    </div>
+
+    <!-- Card 2: standard -->
+    <div class="lcard">
+      <div class="lthumb"><span class="new-badge">NOU · azi</span>[foto]</div>
+      <div class="lbody">
+        <div><span class="ltype">Casă</span><span class="lprop">✓ Proprietar</span></div>
+        <div class="laddr">com. Stăuceni, str. Trandafirilor</div>
+        <div class="lmeta">145 m² · teren 8 ari · gaz</div>
+        <div class="lprice">165 000 €</div>
+        <div class="lacts">
+          <a class="btn solid" href="#" onclick="return false">Deschide pe 999 →</a>
+          <a class="btn" href="#" onclick="openDeal(this);return false">+ La tranzacție</a>
+        </div>
+        <button class="btn priv-trigger" style="margin-top:7px;width:100%;justify-content:center;border-style:dashed;" onclick="togglePriv(this)">+ Salvați contactul vânzătorului</button>
+      </div>
+      <div class="priv-block hidden">
+        <div class="priv-lock">🔒 Contactul meu · vizibil doar pentru dvs.</div>
+        <div class="fld"><label>Telefonul vânzătorului</label><input type="text" placeholder="introduceți manual (de pe 999)"></div>
+        <div class="fld"><label>Notă</label><textarea rows="2" placeholder="ex.: am convenit o vizionare"></textarea></div>
+        <div style="display:flex;gap:7px;margin-top:4px;flex-wrap:wrap;">
+          <button class="btn solid" onclick="saveContact(this)">Salvează</button>
+          <button class="btn" onclick="togglePriv(this)">Anulează</button>
+          <button class="btn delete-contact-btn" onclick="deleteContact(this)" style="display:none;color:var(--red);border-color:var(--red-br);margin-left:auto;">🗑 Ștergeți</button>
+        </div>
+      </div>
+      <div class="priv-saved" style="display:none;flex-direction:column;gap:4px;padding:10px 12px;background:var(--green-bg);border:1px solid var(--green-br);border-radius:0 0 var(--rl) var(--rl);">
+        <div style="font-size:11px;font-weight:600;color:var(--green);">✓ Contact salvat</div>
+        <div style="font-size:12px;color:var(--ink2);">📞 <span class="saved-phone">—</span></div>
+        <div style="font-size:12px;color:var(--ink3);font-style:italic;"><span class="saved-note"></span></div>
+      </div>
+    </div>
+
+    <!-- Card 3: listă neagră -->
+    <div class="lcard">
+      <div class="lthumb"><span class="new-badge">acum 2 ore</span><span class="warn-badge">⚠ Listă neagră</span>[foto]</div>
+      <div class="lbody">
+        <div><span class="ltype">Apartament · 1 odaie</span><span class="badge b-red" style="margin-left:3px;font-size:10px;">Agent ascuns</span></div>
+        <div class="laddr">sec. Centru, str. Armenească</div>
+        <div class="lmeta">38 м² · et. 3/5</div>
+        <div class="lprice">49 000 €</div>
+        <div style="background:var(--red-bg);border:1px solid var(--red-br);border-radius:var(--r);padding:7px 9px;font-size:11px;color:var(--red);margin-top:7px;line-height:1.5;">La acest număr a fost identificat un agent ascuns · semnalat de 3 agenți</div>
+        <div class="lacts" style="margin-top:8px;">
+          <a class="btn solid" href="#" onclick="return false">Deschide pe 999 →</a>
+          <a class="btn" href="#" onclick="openDeal(this);return false">+ La tranzacție</a>
+        </div>
+        <button class="btn priv-trigger" style="margin-top:7px;width:100%;justify-content:center;border-style:dashed;" onclick="togglePriv(this)">+ Salvați contactul vânzătorului</button>
+      </div>
+      <div class="priv-block hidden">
+        <div class="priv-lock">🔒 Contactul meu · vizibil doar pentru dvs.</div>
+        <div class="fld"><label>Telefonul vânzătorului</label><input type="text" placeholder="introduceți manual (de pe 999)"></div>
+        <div class="fld"><label>Notă</label><textarea rows="2" placeholder="ex.: agent ascuns, nu contactați"></textarea></div>
+        <div style="display:flex;gap:7px;margin-top:4px;flex-wrap:wrap;">
+          <button class="btn solid" onclick="saveContact(this)">Salvează</button>
+          <button class="btn" onclick="togglePriv(this)">Anulează</button>
+          <button class="btn delete-contact-btn" onclick="deleteContact(this)" style="display:none;color:var(--red);border-color:var(--red-br);margin-left:auto;">🗑 Ștergeți</button>
+        </div>
+      </div>
+      <div class="priv-saved" style="display:none;flex-direction:column;gap:4px;padding:10px 12px;background:var(--green-bg);border:1px solid var(--green-br);border-radius:0 0 var(--rl) var(--rl);">
+        <div style="font-size:11px;font-weight:600;color:var(--green);">✓ Contact salvat</div>
+        <div style="font-size:12px;color:var(--ink2);">📞 <span class="saved-phone">—</span></div>
+        <div style="font-size:12px;color:var(--ink3);font-style:italic;"><span class="saved-note"></span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ OBIECTELE MELE ═══ -->
+<div id="viewObjects">
+  <div class="crumb">Modul</div>
+  <h1>Obiectele mele</h1>
+  <div class="obj-tabs">
+    <button class="obj-tab active" data-filter="active" onclick="filterObjects('active',this)">În lucru (3)</button>
+    <button class="obj-tab" data-filter="waiting" onclick="filterObjects('waiting',this)">În așteptare</button>
+    <button class="obj-tab" data-filter="done" onclick="filterObjects('done',this)">Finisate</button>
+    <button class="obj-tab" data-filter="archive" onclick="filterObjects('archive',this)">Arhivă</button>
+  </div>
+  <div class="obj-grid">
+    <div class="obj-card" data-status="active">
+      <div class="obj-card-hd">
+        <div class="obj-status" style="background:var(--green)"></div>
+        <div>
+          <div style="font-size:13px;font-weight:600;">str. Independenței 42, ap. 7</div>
+          <div style="font-size:11px;color:var(--ink3);">Apartament · 2 odăi · Botanica</div>
+        </div>
+        <span class="badge b-green" style="margin-left:auto;">Activ</span>
+      </div>
+      <div class="obj-card-bd">
+        <div class="obj-meta-row"><span>Client</span><b>Popescu Ion</b></div>
+        <div class="obj-meta-row"><span>Preț</span><b>72 500 €</b></div>
+        <div class="obj-meta-row"><span>Ghidul tranzacției</span><b>Pasul 3 / 7</b></div>
+        <div class="obj-meta-row"><span>Contract cu clientul</span><b>№ 2024-041</b></div>
+        <div class="obj-meta-row"><span>Următoarea vizionare</span><b>18.06.2026 · 14:00</b></div>
+      </div>
+      <div class="obj-card-ft">
+        <button class="btn solid" onclick="setView('flow');go(3)">Deschide ghidul</button>
+      </div>
+      <div class="obj-card-ft" style="border-top:1px dashed var(--line);">
+        <button class="btn" onclick="setObjStatus(this,'waiting')">În așteptare</button>
+        <button class="btn" onclick="setObjStatus(this,'done')">Finisează</button>
+        <button class="btn" onclick="setObjStatus(this,'archive')">În arhivă</button>
+      </div>
+    </div>
+    <div class="obj-card" data-status="waiting">
+      <div class="obj-card-hd">
+        <div class="obj-status" style="background:var(--amber)"></div>
+        <div>
+          <div style="font-size:13px;font-weight:600;">com. Stăuceni, str. Trandafirilor</div>
+          <div style="font-size:11px;color:var(--ink3);">Casă · 145 м²</div>
+        </div>
+        <span class="badge b-amber" style="margin-left:auto;">În așteptare</span>
+      </div>
+      <div class="obj-card-bd">
+        <div class="obj-meta-row"><span>Client</span><b>Grosu Maria</b></div>
+        <div class="obj-meta-row"><span>Preț</span><b>165 000 €</b></div>
+        <div class="obj-meta-row"><span>Ghidul tranzacției</span><b>Pasul 1 / 8</b></div>
+        <div class="obj-meta-row"><span>Contract cu clientul</span><b>neîncheiat</b></div>
+        <div class="obj-meta-row"><span>Următoarea vizionare</span><b>neprogramată</b></div>
+      </div>
+      <div class="obj-card-ft">
+        <button class="btn solid" onclick="setView('flow');go(1)">Deschide ghidul</button>
+      </div>
+      <div class="obj-card-ft" style="border-top:1px dashed var(--line);">
+        <button class="btn" onclick="setObjStatus(this,'active')">Reactivează</button>
+        <button class="btn" onclick="setObjStatus(this,'done')">Finisează</button>
+        <button class="btn" onclick="setObjStatus(this,'archive')">În arhivă</button>
+      </div>
+    </div>
+    <div class="obj-card" style="border:2px dashed var(--line);cursor:pointer;" onclick="setView('flow');go(1)">
+      <div style="padding:30px;text-align:center;color:var(--ink3);">
+        <div style="font-size:24px;margin-bottom:8px;">+</div>
+        <div style="font-size:13px;font-weight:500;color:var(--ink2);">Adăugați obiect</div>
+        <div style="font-size:12px;margin-top:4px;">Creați un nou ghid de tranzacție</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ INSTRUMENTE ═══ -->
+<div id="viewAI">
+  <div class="ai-wrap">
+    <div class="crumb">Instrumente</div>
+    <h1>Instrumente</h1>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><b>Generare anunț</b><span class="badge b-purple" style="margin-left:auto;">Claude API · 5 sec</span></div>
+      <div class="card-bd">
+        <div class="field-group"><label>Caracteristici pe scurt</label><textarea id="aiIn" rows="2" placeholder="Ciocana, 2 camere, reparație medie, centrală autonomă, mobilat, 4/9, lângă școală">Ciocana, 2 camere, reparație medie, centrală autonomă, mobilat, 4/9, lângă școală</textarea></div>
+        <div class="lang-tabs">
+          <button class="lang-tab on" onclick="setLang('ro',this)">Română</button>
+          <button class="lang-tab" onclick="setLang('ru',this)">Rusă</button>
+        </div>
+        <div class="ai-output" id="aiOut">Apartament luminos cu 2 camere în sectorul Ciocana, etaj 4/9. Reparație medie, mobilat complet, centrală termică autonomă. Școala și transportul public — la 5 minute pe jos.<br><br><span style="color:var(--ink3);font-family:var(--mono);font-size:11px;">#apartament2camere #Ciocana #chisinau #autonoma #vanzare</span></div>
+        <div style="margin-top:10px;display:flex;gap:7px;">
+          <button class="btn primary" onclick="alert('Solicitare API Claude — în MVP')">Generați →</button>
+          <button class="btn">Copiați</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><b>Acte / Contracte</b><span class="badge b-gray" style="margin-left:auto;">șabloane</span></div>
+      <div class="card-bd">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--line);">
+            <div><div style="font-size:13px;font-weight:600;">Contract de intermediere</div><div style="font-size:11px;color:var(--ink3);">Cu clauză de exclusivitate · contract cu clientul</div></div>
+            <button class="btn" onclick="openModal('modal-contract')">Completați →</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--line);">
+            <div><div style="font-size:13px;font-weight:600;">Garanție de cumpărare</div><div style="font-size:11px;color:var(--ink3);">Recipisă privind primirea sumei de garanție</div></div>
+            <button class="btn" onclick="openModal('modal-garantie')">Completați →</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;">
+            <div><div style="font-size:13px;font-weight:600;">Ofertă de cumpărare</div><div style="font-size:11px;color:var(--ink3);">Ofertă de cumpărare</div></div>
+            <button class="btn">Completați →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hd"><b>Analiză de piață (CMA) — sec. Ciocana, 2 odăi</b><span class="badge b-gray" style="margin-left:auto;">14 analize · date demo</span></div>
+      <div class="card-bd">
+        <div class="cma-stats">
+          <div class="stat-box"><div class="stat-val">1 240</div><div class="stat-lbl">€/m² medie</div></div>
+          <div class="stat-box"><div class="stat-val">43 zile</div><div class="stat-lbl">timp mediu de vânzare</div></div>
+          <div class="stat-box"><div class="stat-val">14</div><div class="stat-lbl">anunțuri în 90 zile</div></div>
+        </div>
+        <div class="note">Date bazate pe anunțurile de pe 999.md din ultimele 90 de zile. Utilizați ca argument la negocierea prețului.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><b>Raport pentru client (PDF)</b></div>
+      <div class="card-bd">
+        <div class="field-group"><label>Tranzacție</label>
+          <select id="reportTxSelect">
+            <option>str. Independenței 42, ap. 7 — Popescu Ion</option>
+            <option>com. Stăuceni, str. Trandafirilor — Grosu Maria</option>
+          </select>
+        </div>
+        <div class="note">Raportul include: rezultatele verificării actelor, semnalele identificate, analiza de piață (CMA) și datele de contact ale agentului. Brandat cu numele și logo-ul propriu.</div>
+        <div style="margin-top:10px;display:flex;gap:7px;">
+          <button class="btn solid" onclick="alert('Generare PDF — în MVP')">⤓ Generați raportul</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var NEXT={
+  1:{t:"Încărcați documentele",a:[{on:false,tx:"Completați datele obiectului",s:""},{on:false,tx:"Indicați tipul tranzacției",s:""}],n:2},
+  2:{t:"Treceți la verificare",a:[{on:true,tx:"Date obiect completate",s:""},{on:true,tx:"Documente încărcate",s:"3 fișiere"},{on:false,tx:"Lansați verificarea actelor",s:"pasul 3"}],n:3},
+  3:{t:"Eliminați discrepanțele",a:[{on:true,tx:"Acte verificate",s:"3 câmpuri"},{on:false,tx:"Actualizați datele Grosu M.V.",s:"Cadastru"},{on:false,tx:"Clarificați suprafața",s:"58,4 ↔ 60,1 m²"}],n:4},
+  4:{t:"Finalizați acordurile",a:[{on:false,tx:"Obțineți acordul soțului/coproprietarilor",s:""},{on:false,tx:"Actualizați datele Grosu M.V.",s:""}],n:5},
+  5:{t:"2 documente lipsesc",a:[{on:false,tx:"Atașați acordul soțului",s:""},{on:false,tx:"Procură sau dovada provenienței banilor",s:""},{on:false,tx:"Calculați impozitul",s:"pasul 6"}],n:6},
+  6:{t:"Descărcați raportul",a:[{on:false,tx:"Verificați calculele",s:""},{on:false,tx:"Descărcați raportul PDF",s:"pasul 7"}],n:7},
+  7:{t:"Programați-vă la ASP",a:[{on:false,tx:"Verificați finalizarea",s:""},{on:false,tx:"Programați-vă la ASP",s:"pasul 8"}],n:8},
+  8:{t:"Traseu parcurs ✓",a:[{on:true,tx:"Documente colectate",s:""},{on:true,tx:"Impozite calculate",s:""},{on:false,tx:"Înregistrați tranzacția la ASP",s:""}],n:null}
+};
+
+function renderStepNav(n){
+  var box=document.getElementById('stepNav');
+  if(!box)return;
+  var prevBtn = n>1
+    ? '<button class="btn" onclick="go('+(n-1)+')">← Pasul anterior</button>'
+    : '<button class="btn" disabled style="opacity:.4;cursor:default;">← Pasul anterior</button>';
+  var c=NEXT[n];
+  var nextBtn = c.n
+    ? '<button class="btn solid" onclick="go('+c.n+')">→ Pasul '+c.n+'</button>'
+    : '';
+  box.innerHTML = prevBtn + nextBtn;
+}
+
+function renderNext(n){
+  var c=NEXT[n];
+  var h='<div class="nc-lbl">Pasul următor</div><h3>'+c.t+'</h3>';
+  c.a.forEach(function(a){h+='<div class="nc-act"><div class="nc-chk'+(a.on?' on':'')+'"></div><div class="nc-act-txt">'+a.tx+(a.s?'<small>'+a.s+'</small>':'')+'</div></div>';});
+  if(c.n)h+='<button class="nc-btn" onclick="go('+c.n+')">→ Pasul '+c.n+'</button>';
+  // step 8 — no extra button
+  document.getElementById('nextCard').innerHTML=h;
+}
+
+function updateStepPill(){
+  var label=window._pillLabel||'Vânzare-cumpărare';
+  for(var i=1;i<=8;i++){
+    var el=document.getElementById('txPill-s'+i);
+    if(!el)continue;
+    el.style.display='none';
+    el.innerHTML='<span class="tx-dot"></span>'+label;
+  }
+  // show only for active step
+  var active=document.querySelector('.step-item.active');
+  if(active){
+    var n=active.dataset.step;
+    var pill=document.getElementById('txPill-s'+n);
+    if(pill)pill.style.display='inline-flex';
+  }
+}
+// ════════════════════════════════════════════════════════════
+// MODUL CĂUTARE CADASTRU (Pasul 1) — date demo, fallback manual
+// ════════════════════════════════════════════════════════════
+const CAD_RECORDS={
+  "0100110.477.05.040":{addr:"bd. Decebal 99/D, ap.40, Botanica",supr:"89.80 m²",dest:"Locativă",val:"605 563 lei",prop:"Privată",dr:"Există",not:"Nu există",int:"Există"},
+  "0100109.159.02.032":{addr:"str. Cetatea Albă 143/1, ap.32, Botanica",supr:"66.80 m²",dest:"Locativă",val:"344 020 lei",prop:"Privată",dr:"Există",not:"Nu există",int:"Există"}
+};
+function cadRange(n){return Array.from({length:n},(_,i)=>i+1);}
+const CAD_BUILDINGS={
+  "0100109.159.02":{addr:"str. Cetatea Albă 143/1",teren:"0100109.159",apts:cadRange(60)},
+  "0100109.159.01":{addr:"str. Cetatea Albă 143/3",teren:"0100109.159",apts:cadRange(30)},
+  "0100109.159.03":{addr:"str. Cetatea Albă 143/2",teren:"0100109.159",apts:cadRange(39)},
+  "0100110.477.05":{addr:"bd. Decebal 99/D",teren:"0100110.477",apts:cadRange(60)}
+};
+const CAD_ADDR_INDEX={"cetatea alba 143/1":"0100109.159.02","cetatea alba 143/3":"0100109.159.01","cetatea alba 143/2":"0100109.159.03","decebal 99/d":"0100110.477.05"};
+const CAD_FULL_RE=/^\d{7}\.\d{3}\.\d{2}\.\d{3}$/;
+let CAD_TRACE=[];
+
+function cadNorm(s){return s.toLowerCase().replace(/[ăâ]/g,'a').replace(/î/g,'i').replace(/[șş]/g,'s').replace(/[țţ]/g,'t').replace(/\b(str|strada|bd|bulevardul|sect|sector|mun|municipiul)\.?/g,' ').replace(/chisinau|botanica/g,' ').replace(/,/g,' ').replace(/\s+/g,' ').trim();}
+function cadExtractApt(s){const m=s.match(/(?:ap\.?|apartament)\s*(\d+)/i);return m?parseInt(m[1],10):null;}
+function cadPad3(n){return String(n).padStart(3,'0');}
+
+function cadHide(...ids){ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});}
+
+function cadRenderTrace(){
+  document.getElementById('cad-trace').style.display='block';
+  document.getElementById('cad-trace-list').innerHTML=CAD_TRACE.map(t=>{
+    const icon=t.s==='ok'?'<span class="cad-tk ok">✓</span>':t.s==='run'?'<span class="cad-tk run"><span class="cad-spin"></span></span>':'<span class="cad-tk wait">'+(t.step||'!')+'</span>';
+    return '<li class="cad-tr-item">'+icon+'<span><b>'+t.title+'</b>'+(t.val?'<br><span class="cad-tr-val">'+t.val+'</span>':'')+'</span></li>';
+  }).join('');
+}
+
+function cadFillExample(v){
+  const q=document.getElementById('cad_q');
+  q.value=v; q.focus();
+}
+
+function cadLookup(){
+  const raw=document.getElementById('cad_q').value.trim();
+  cadHide('cad-apt-picker','cad-record','cad-fallback');
+  CAD_TRACE=[];
+  if(!raw){document.getElementById('cad_q').focus();return;}
+  CAD_TRACE=[{s:'run',title:'Recunosc datele introduse…'}];
+  cadRenderTrace();
+  setTimeout(()=>{
+    const clean=raw.replace(/\s+/g,' ');
+    if(CAD_FULL_RE.test(clean.replace(/\s/g,''))){
+      const cad=clean.replace(/\s/g,'');
+      CAD_TRACE=[{s:'ok',title:'Număr cadastral',val:cad},{s:'run',title:'Extrag înregistrarea…'}];
+      cadRenderTrace();
+      setTimeout(()=>cadShowRecord(cad,null,null),700);
+      return;
+    }
+    const apt=cadExtractApt(clean);
+    const key=cadNorm(clean.replace(/(?:ap\.?|apartament)\s*\d+/i,''));
+    let bcad=CAD_ADDR_INDEX[key];
+    if(!bcad){for(const k in CAD_ADDR_INDEX){if(key.includes(k)){bcad=CAD_ADDR_INDEX[k];break;}}}
+    if(!bcad){
+      cadHide('cad-trace');
+      cadShowFallback('Adresa nu a fost găsită.','Verificați formatul străzii/numărului sau deschideți portalul manual.');
+      return;
+    }
+    const b=CAD_BUILDINGS[bcad];
+    CAD_TRACE=[{s:'ok',title:'Adresă recunoscută'},{s:'ok',title:'Teren',val:b.teren},{s:'ok',title:'Clădire',val:b.addr+' → '+bcad},{s:'run',title:'Lista apartamentelor…'}];
+    cadRenderTrace();
+    setTimeout(()=>{
+      if(apt){
+        if(!b.apts.includes(apt)){
+          CAD_TRACE[CAD_TRACE.length-1]={s:'wait',step:'!',title:'Apartamentul '+apt+' nu a fost găsit în această clădire'};
+          cadRenderTrace();
+          cadShowAptPicker(bcad,'Apartamentul '+apt+' nu a fost găsit în clădirea '+b.addr+'. Selectați din listă:');
+          return;
+        }
+        CAD_TRACE[CAD_TRACE.length-1]={s:'ok',title:'Apartament',val:'ap.'+apt};
+        const cad=bcad+'.'+cadPad3(apt);
+        CAD_TRACE.push({s:'run',title:'Extrag înregistrarea…',val:cad});
+        cadRenderTrace();
+        setTimeout(()=>cadShowRecord(cad,bcad,apt),700);
+      } else {
+        CAD_TRACE[CAD_TRACE.length-1]={s:'wait',step:'!',title:'Selectați apartamentul (nu se presupune)'};
+        cadRenderTrace();
+        cadShowAptPicker(bcad,'Clădirea '+b.addr+' conține '+b.apts.length+' apartamente. Selectați-l pe cel necesar:');
+      }
+    },800);
+  },550);
+}
+
+function cadShowFallback(title,text){
+  document.getElementById('cad-fb-title').textContent=title;
+  document.getElementById('cad-fb-text').textContent=text;
+  document.getElementById('cad-fallback').style.display='flex';
+}
+
+function cadShowAptPicker(bcad,note){
+  const b=CAD_BUILDINGS[bcad];
+  document.getElementById('cad-apt-note').textContent=note;
+  document.getElementById('cad-apt-grid').innerHTML=b.apts.map(n=>'<span class="cad-apt-chip" onclick="cadPickApt(\''+bcad+'\','+n+')">'+n+'</span>').join('');
+  document.getElementById('cad-apt-picker').style.display='block';
+}
+
+function cadPickApt(bcad,n){
+  cadHide('cad-apt-picker');
+  const cad=bcad+'.'+cadPad3(n);
+  CAD_TRACE.push({s:'ok',title:'Apartament',val:'ap.'+n},{s:'run',title:'Extrag înregistrarea…',val:cad});
+  cadRenderTrace();
+  setTimeout(()=>cadShowRecord(cad,bcad,n),700);
+}
+
+function cadSynth(cad,bcad,apt){
+  const b=bcad?CAD_BUILDINGS[bcad]:null;
+  const supr=(45+(apt*37)%45).toFixed(2);
+  const flag=(apt%3===0);
+  return {
+    addr:(b?b.addr+', ap.'+apt:cad)+' (demo)',
+    supr:supr+' m²', dest:"Locativă",
+    val:(300000+apt*4137).toLocaleString('ro-RO')+" lei",
+    prop:"Privată", dr:flag?"Există":"Nu există", not:"Nu există", int:flag?"Există":"Nu există"
+  };
+}
+
+function cadSetFlag(cellId,valId,v){
+  const cell=document.getElementById(cellId), valEl=document.getElementById(valId);
+  const clear=(v==="Nu există");
+  cell.className="fl2-box "+(clear?"ok":"bad");
+  valEl.textContent=(clear?'✓ ':'! ')+v;
+}
+
+function cadShowRecord(cad,bcad,apt){
+  const d=CAD_RECORDS[cad]||cadSynth(cad,bcad,apt);
+  if(CAD_TRACE.length){CAD_TRACE[CAD_TRACE.length-1]={s:'ok',title:'Înregistrare extrasă',val:cad};cadRenderTrace();}
+  document.getElementById('cad-r-addr').textContent=d.addr;
+  document.getElementById('cad-r-cad').textContent=cad;
+  document.getElementById('cad-r-supr').textContent=d.supr;
+  document.getElementById('cad-r-dest').textContent=d.dest;
+  document.getElementById('cad-r-val').textContent=d.val;
+  document.getElementById('cad-r-prop').textContent=d.prop;
+  cadSetFlag('cad-f-dr','cad-v-dr',d.dr);
+  cadSetFlag('cad-f-not','cad-v-not',d.not);
+  cadSetFlag('cad-f-int','cad-v-int',d.int);
+  document.getElementById('cad-record').style.display='block';
+  window._cadCur=d; window._cadCurCad=cad;
+}
+
+function cadConfirm(){
+  const d=window._cadCur, cad=window._cadCurCad;
+  if(!d)return;
+  // show confirmation banner briefly on this page
+  document.getElementById('cad-cb-addr').textContent=d.addr.replace(' (demo)','');
+  document.getElementById('cad-cb-cad').textContent='Număr cadastral '+cad+' · confirmat prin e-Cadastru';
+  document.getElementById('cad-confirmed-banner').style.display='flex';
+  // store data for transfer to Ghidul tranzacției
+  window._cadConfirmedData={addr:d.addr.replace(' (demo)',''),cad:cad,supr:d.supr,dest:d.dest,val:d.val};
+  // redirect to Ghidul tranzacției, Step 1, with fields pre-filled
+  setTimeout(()=>{
+    setView('flow');
+    go(1);
+    cadApplyPrefill();
+  },600);
+}
+
+function cadApplyPrefill(){
+  const data=window._cadConfirmedData;
+  if(!data)return;
+  const ma=document.getElementById('manual_addr'); if(ma) ma.value=data.addr;
+  const mc=document.getElementById('manual_cad'); if(mc) mc.value=data.cad;
+  const ms=document.getElementById('manual_suprafata'); if(ms&&data.supr) ms.value=data.supr;
+  const md=document.getElementById('manual_destinatie'); if(md&&data.dest) md.value=data.dest;
+  const mv=document.getElementById('manual_valoare'); if(mv&&data.val) mv.value=data.val;
+  const banner=document.getElementById('cad-prefill-banner');
+  const info=document.getElementById('cad-prefill-info');
+  if(banner&&info){
+    info.textContent='Adresă și număr cadastral · '+data.cad+' · confirmat prin e-Cadastru';
+    banner.style.display='flex';
+  }
+}
+
+function cadEditObject(){
+  cadHide('cad-confirmed-banner');
+  document.getElementById('cad-search-card').style.display='block';
+}
+
+function cuFileSelected(input){
+  var nameBox=document.getElementById('contract_file_name');
+  if(input.files&&input.files[0]){
+    nameBox.textContent='✓ '+input.files[0].name;
+    nameBox.style.display='block';
+  } else {
+    nameBox.style.display='none';
+  }
+}
+
+function filterObjects(status,btn){
+  document.querySelectorAll('.obj-tab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.querySelectorAll('.obj-card[data-status]').forEach(function(card){
+    card.style.display = (status==='active' ? card.dataset.status==='active' : card.dataset.status===status) ? '' : 'none';
+  });
+}
+
+function setObjStatus(btn,status){
+  var card=btn.closest('.obj-card');
+  if(!card)return;
+  card.dataset.status=status;
+  var dot=card.querySelector('.obj-status');
+  var badge=card.querySelector('.badge');
+  var map={
+    active:{color:'var(--green)',badgeClass:'badge b-green',label:'Activ'},
+    waiting:{color:'var(--amber)',badgeClass:'badge b-amber',label:'În așteptare'},
+    done:{color:'var(--blue)',badgeClass:'badge b-blue',label:'Finisat'},
+    archive:{color:'var(--ink3)',badgeClass:'badge b-gray',label:'În arhivă'}
+  };
+  var m=map[status];
+  if(dot)dot.style.background=m.color;
+  if(badge){badge.className=m.badgeClass;badge.textContent=m.label;}
+  // re-apply current filter
+  var activeTab=document.querySelector('.obj-tab.active');
+  if(activeTab)filterObjects(activeTab.dataset.filter,activeTab);
+}
+
+function go(n){
+  for(var i=1;i<=8;i++){var s=document.getElementById('s'+i);if(s)s.classList.remove('show');}
+  var t=document.getElementById('s'+n);if(t)t.classList.add('show');
+  document.querySelectorAll('.step-item').forEach(function(el){
+    var s=+el.dataset.step;
+    el.classList.toggle('active',s===n);
+    el.classList.toggle('done',s<n);
+  });
+  updateStepPill();
+  renderStepNav(n);
+  var m=document.getElementById('mainContent');if(m)m.scrollTo(0,0);
+}
+
+function setView(v){
+  document.getElementById('viewCadastru').style.display='none';
+  document.getElementById('viewFlow').style.display='none';
+  document.getElementById('viewFeed').style.display='none';
+  document.getElementById('viewAI').style.display='none';
+  document.getElementById('viewObjects').style.display='none';
+  document.getElementById('tab-cadastru').classList.remove('active');
+  document.getElementById('tab-flow').classList.remove('active');
+  document.getElementById('tab-feed').classList.remove('active');
+  document.getElementById('tab-ai').classList.remove('active');
+  document.getElementById('tab-objects').classList.remove('active');
+  if(v==='cadastru'){document.getElementById('viewCadastru').style.display='flex';}
+  else if(v==='flow'){document.getElementById('viewFlow').style.display='grid';}
+  else if(v==='feed'){document.getElementById('viewFeed').style.display='block';}
+  else if(v==='objects'){document.getElementById('viewObjects').style.display='block';}
+  else{document.getElementById('viewAI').style.display='block';}
+  document.getElementById('tab-'+v).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function togglePriv(btn){
+  // Called from Anulează inside priv-block — close it and show trigger button
+  var priv=btn.closest('.priv-block');
+  if(priv){
+    priv.classList.add('hidden');
+    var card=priv.closest('.lcard');
+    if(card){
+      var trigger=card.querySelector('.priv-trigger');
+      if(trigger)trigger.style.display='';
+      // Hide delete button on cancel
+      var delBtn=card.querySelector('.delete-contact-btn');
+      if(delBtn)delBtn.style.display='none';
+    }
+    return;
+  }
+  // Called from trigger button — hide trigger, open priv-block
+  var card=btn.closest('.lcard');
+  if(card){
+    btn.style.display='none';
+    var p=card.querySelector('.priv-block');
+    if(p)p.classList.remove('hidden');
+    // Show delete button only if contact was already saved
+    if(btn._saved){
+      var delBtn=card.querySelector('.delete-contact-btn');
+      if(delBtn)delBtn.style.display='';
+    }
+  }
+}
+
+function saveContact(btn){
+  var card=btn.closest('.lcard');
+  if(!card)return;
+  var priv=card.querySelector('.priv-block');
+  var phone=card.querySelector('.priv-block input[type=text]');
+  var note=card.querySelector('.priv-block textarea');
+  var phoneVal=phone?phone.value.trim():'';
+  var noteVal=note?note.value.trim():'';
+  if(priv)priv.classList.add('hidden');
+  // Hide delete button again
+  var delBtn=card.querySelector('.delete-contact-btn');
+  if(delBtn)delBtn.style.display='none';
+  // Show saved badge
+  var saved=card.querySelector('.priv-saved');
+  if(saved){
+    saved.style.display='flex';
+    var ph=saved.querySelector('.saved-phone');
+    if(ph)ph.textContent=phoneVal||'—';
+    var nt=saved.querySelector('.saved-note');
+    if(nt)nt.textContent=noteVal;
+  }
+  // Update trigger button
+  var trigger=card.querySelector('.priv-trigger');
+  if(trigger){
+    trigger.style.display='';
+    trigger.textContent='✎ Editați contactul salvat';
+    trigger.style.borderStyle='solid';
+    trigger.style.color='var(--green)';
+    trigger.style.borderColor='var(--green-br)';
+    trigger._saved=true;
+  }
+}
+
+function deleteContact(btn){
+  var card=btn.closest('.lcard');
+  if(!card)return;
+  var priv=card.querySelector('.priv-block');
+  var saved=card.querySelector('.priv-saved');
+  var trigger=card.querySelector('.priv-trigger');
+  var phone=card.querySelector('.priv-block input[type=text]');
+  var note=card.querySelector('.priv-block textarea');
+  // Clear inputs
+  if(phone)phone.value='';
+  if(note)note.value='';
+  // Hide priv-block and saved badge
+  if(priv)priv.classList.add('hidden');
+  if(saved)saved.style.display='none';
+  // Reset delete button visibility
+  var delBtn=card.querySelector('.delete-contact-btn');
+  if(delBtn)delBtn.style.display='none';
+  // Reset trigger button to original state
+  if(trigger){
+    trigger.style.display='';
+    trigger.textContent='+ Salvați contactul vânzătorului';
+    trigger.style.borderStyle='dashed';
+    trigger.style.color='';
+    trigger.style.borderColor='';
+    trigger._saved=false;
+  }
+}
+function setChip(el){document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('on');});el.classList.add('on');}
+function openDeal(btn){var addr=btn.closest('.lcard').querySelector('.laddr').textContent;if(confirm('Creați ghidul tranzacției pentru:\n'+addr+'?')){setView('flow');go(1);}}
+
+function setLang(lang,btn){
+  document.querySelectorAll('.lang-tab').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  var out=document.getElementById('aiOut');
+  if(lang==='ru'){
+    out.innerHTML='Apartament luminos cu 2 camere în Ciocana, etaj 4/9. Reparație medie, mobilat, centrală termică autonomă. Școala și stațiile — 5 minute pe jos.<br><br><span style="color:var(--ink3);font-family:var(--mono);font-size:11px;">#apartament2camere #Ciocana #chisinau #autonoma #vanzare</span>';
+  } else {
+    out.innerHTML='Apartament luminos cu 2 camere \u00een sectorul Ciocana, etaj 4/9. Repara\u021bie medie, mobilat complet, central\u0103 termic\u0103 autonom\u0103. \u0218coala \u0219i transportul public \u2014 la 5 minute pe jos.<br><br><span style="color:var(--ink3);font-family:var(--mono);font-size:11px;">#apartament2camere #Ciocana #chisinau #autonoma #vanzare</span>';
+  }
+}
+
+function fmt(n){return Math.round(n).toLocaleString('ro-MD');}
+
+var currentDealType='vc';
+
+function setDealType(type,btn){
+  currentDealType=type;
+  document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  // update tx-pill label
+  var labels={vc:'Vânzare-cumpărare',don:'Donație',sch:'Schimb',alt:'Alt tip'};
+  window._pillLabel=labels[type];
+  updateStepPill();
+  // show/hide tax blocks
+  ['vc','don','sch'].forEach(function(t){
+    var el=document.getElementById('tax-'+t);
+    if(el)el.style.display=t===type?'block':'none';
+  });
+  // show/hide schimb split views in steps 2,3,4
+  var isSchimb=type==='sch';
+  ['s1-standard','s2-standard','s3-standard','s4-standard'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.style.display=isSchimb?'none':'block';
+  });
+  ['s1-schimb','s2-schimb','s3-schimb','s4-schimb'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.style.display=isSchimb?'block':'none';
+  });
+  // La Donație: ascundem toggle fizic/juridic global
+  var entTog=document.querySelectorAll('.toggle-row')[0];
+  var globalTog=document.getElementById('togFiz');
+  if(globalTog){
+    var row=globalTog.closest('.toggle-row');
+    if(row)row.style.display=type==='don'?'none':'flex';
+  }
+  if(type==='don'){setEntity('fiz');}
+}
+
+function setEntity(t){
+  document.getElementById('blockFiz').style.display=t==='fiz'?'block':'none';
+  document.getElementById('blockJur').style.display=t==='jur'?'block':'none';
+  document.getElementById('togFiz').classList.toggle('on',t==='fiz');
+  document.getElementById('togJur').classList.toggle('on',t==='jur');
+  var fi=document.getElementById('notary-fiz-info');
+  var ji=document.getElementById('notary-jur-info');
+  if(fi)fi.style.display=t==='fiz'?'block':'none';
+  if(ji)ji.style.display=t==='jur'?'block':'none';
+  calcNotary();
+}
+
+function setVat(t){
+  document.getElementById('jur-vat').style.display=t==='yes'?'block':'none';
+  document.getElementById('jur-novat').style.display=t==='no'?'block':'none';
+  document.getElementById('togVat').classList.toggle('on',t==='yes');
+  document.getElementById('togNoVat').classList.toggle('on',t==='no');
+}
+
+// Vânzare-cumpărare tax
+function calcTax(){
+  var exempt=document.getElementById('chkExempt');
+  var isExempt=exempt&&exempt.checked;
+  var taxExemptEl=document.getElementById('tax-exempt');
+  var taxInputs=document.getElementById('tax-inputs');
+  if(isExempt){
+    if(taxExemptEl)taxExemptEl.style.display='flex';
+    if(taxInputs)taxInputs.style.display='none';
+    return;
+  }
+  if(taxExemptEl)taxExemptEl.style.display='none';
+  if(taxInputs)taxInputs.style.display='block';
+  var buy=+document.getElementById('buy_price').value;
+  var sell=+document.getElementById('sell_price').value;
+  var dash='—';
+  if(!buy||!sell||sell<=buy){
+    document.getElementById('r-sell').textContent=sell?fmt(sell)+' MDL':dash;
+    document.getElementById('r-buy').textContent=buy?fmt(buy)+' MDL':dash;
+    document.getElementById('r-gain').textContent=dash;
+    document.getElementById('r-base').textContent=dash;
+    document.getElementById('r-tax').textContent=dash;
+    return;
+  }
+  var gain=sell-buy,base=gain*0.5,tax=base*0.12;
+  document.getElementById('r-sell').textContent=fmt(sell)+' MDL';
+  document.getElementById('r-buy').textContent=fmt(buy)+' MDL';
+  document.getElementById('r-gain').textContent=fmt(gain)+' MDL';
+  document.getElementById('r-base').textContent=fmt(base)+' MDL';
+  document.getElementById('r-tax').textContent=fmt(tax)+' MDL';
+}
+
+// Donație tax — radio buttons (Rude apropiate / Alte persoane)
+function calcTaxDon(){
+  var radios=document.querySelectorAll('input[name="don_rel"]');
+  var rel='none';
+  radios.forEach(function(r){if(r.checked)rel=r.value;});
+  var exempt=document.getElementById('don-exempt');
+  var res=document.getElementById('don-result');
+  if(rel==='family'){
+    exempt.style.display='flex';
+    res.style.display='none';
+    return;
+  }
+  exempt.style.display='none';
+  if(rel==='none'){res.style.display='none';return;}
+  // Alte persoane — show calc
+  res.style.display='block';
+  var val=+document.getElementById('don_val').value;
+  if(!val)return;
+  var base=val*0.5,tax=base*0.12;
+  document.getElementById('d-val').textContent=fmt(val)+' MDL';
+  document.getElementById('d-base').textContent=fmt(base)+' MDL';
+  document.getElementById('d-tax').textContent=fmt(tax)+' MDL';
+}
+
+// Schimb tax — (obiect mai scump - obiect mai ieftin) / 2 * 12%
+var schSurchargeChecked=false;
+function toggleSchSurcharge(){
+  schSurchargeChecked=!schSurchargeChecked;
+  document.getElementById('sch-surcharge-box').classList.toggle('on',schSurchargeChecked);
+  document.getElementById('sch-surcharge-amount').style.display=schSurchargeChecked?'block':'none';
+  calcTaxSch();
+}
+
+function calcTaxSch(){
+  var v1=+document.getElementById('sch_v1').value;
+  var v2=+document.getElementById('sch_v2').value;
+  var res=document.getElementById('sch-result');
+  if(!v1||!v2){res.style.display='none';return;}
+  if(!schDecisionMade()){res.style.display='none';return;}
+  var high=Math.max(v1,v2);
+  var low=Math.min(v1,v2);
+  var diff=high-low;
+  var half=diff*0.5;
+  var tax=half*0.12;
+  res.style.display='block';
+  document.getElementById('s-high').textContent=fmt(high)+' MDL';
+  document.getElementById('s-low').textContent=fmt(low)+' MDL';
+  document.getElementById('s-diff').textContent=fmt(diff)+' MDL';
+  document.getElementById('s-half').textContent=fmt(half)+' MDL';
+  document.getElementById('s-tax').textContent=fmt(tax)+' MDL';
+}
+
+function schDecisionMade(){
+  // Calculul pornește doar după ce agentul a confirmat poziția privind sulta:
+  // fie a bifat (există plată suplimentară), fie a lăsat nebifat în mod conștient
+  // — aici considerăm decizia luată din momentul în care utilizatorul a interacționat cu bifa
+  // sau a completat ambele sume (cazul fără sultă este implicit valabil).
+  return true;
+}
+
+// Plata autentificare — 9 tranșe din Legea 271/2003
+function notaryFee(val){
+  var fee;
+  if(val<=20000)fee=Math.max(val*0.013,180);
+  else if(val<=50000)fee=val*0.010;
+  else if(val<=100000)fee=val*0.009;
+  else if(val<=200000)fee=val*0.008;
+  else if(val<=400000)fee=val*0.006;
+  else if(val<=600000)fee=val*0.005;
+  else if(val<=800000)fee=val*0.003;
+  else if(val<=1000000)fee=val*0.002;
+  else fee=val*0.001;
+  return Math.max(fee,120);
+}
+
+function notaryFeePct(val){
+  if(val<=20000)return'1,3%';
+  if(val<=50000)return'1,0%';
+  if(val<=100000)return'0,9%';
+  if(val<=200000)return'0,8%';
+  if(val<=400000)return'0,6%';
+  if(val<=600000)return'0,5%';
+  if(val<=800000)return'0,3%';
+  if(val<=1000000)return'0,2%';
+  return'0,1%';
+}
+
+function calcNotary(){
+  var val=+document.getElementById('notary_val').value;
+  if(!val)return;
+  var isJur=document.getElementById('blockJur')&&document.getElementById('blockJur').style.display!=='none';
+  var fee, feePct;
+  if(isJur){
+    // Persoane juridice tranșe
+    if(val<800000){fee=val*0.005;feePct='0,5%';}
+    else if(val<=1000000){fee=val*0.002;feePct='0,2%';}
+    else{fee=val*0.001;feePct='0,1%';}
+    fee=Math.max(fee,120);
+  } else {
+    fee=notaryFee(val);
+    feePct=notaryFeePct(val);
+  }
+  var duty=val*0.005; // taxa de stat 0.5% standard
+  document.getElementById('n-fee-pct').textContent=feePct;
+  document.getElementById('n-fee').textContent=fmt(fee)+' MDL';
+  document.getElementById('n-duty').textContent=fmt(duty)+' MDL (0,5%)';
+  document.getElementById('n-total').textContent=fmt(fee+duty)+' MDL';
+}
+
+function calcMortgage(){
+  var prop=+document.getElementById('prop_val').value;
+  var down=+document.getElementById('down_pay').value;
+  if(!prop||down>=prop)return;
+  var loan=prop-down;
+  [{rate:7.9,id:'maib-pay'},{rate:8.2,id:'vic-pay'},{rate:8.5,id:'otp-pay'}].forEach(function(b){
+    var r=b.rate/100/12,n=240;
+    document.getElementById(b.id).textContent=Math.round(loan*(r*Math.pow(1+r,n))/(Math.pow(1+r,n)-1))+' \u20ac/\u043c\u0435\u0441';
+  });
+}
+
+window._pillLabel='Vânzare-cumpărare';
+go(1);
+renderNext(1);
+updateStepPill();
+</script>
+<!-- ═══ MODAL: GARANȚIE DE CUMPĂRARE ═══ -->
+<div class="modal-overlay" id="modal-garantie" style="display:none;" onclick="if(event.target===this)closeModal('modal-garantie')">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h2>Garanție de cumpărare</h2>
+      <button class="btn" onclick="closeModal('modal-garantie')" style="padding:4px 10px;">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="modal-section">Agent / Reprezentant vânzător</div>
+      <div class="field-group"><label>Numele și prenumele agentului</label><input type="text" id="g_agent_nume" placeholder="Popescu Ion"></div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Buletin seria</label><input type="text" id="g_agent_buletin_seria" placeholder="A"></div>
+        <div class="field-group"><label>Buletin nr.</label><input type="text" id="g_agent_buletin_nr" placeholder="123456"></div>
+      </div>
+      <div class="field-group"><label>Domiciliu agent</label><input type="text" id="g_agent_domiciliu" placeholder="str. Independenței 1, Chișinău"></div>
+      <div class="field-group"><label>Contractul de intermediere nr.</label><input type="text" id="g_contract_intermediere_nr" placeholder="42"></div>
+      <div class="field-group"><label>Data contractului de intermediere</label><input type="date" id="g_contract_intermediere_data"></div>
+
+      <div class="modal-section">Vânzător (proprietar)</div>
+      <div class="field-group"><label>Numele și prenumele vânzătorului</label><input type="text" id="g_vanzator_nume" placeholder="Grosu Maria"></div>
+
+      <div class="modal-section">Cumpărător</div>
+      <div class="field-group"><label>Numele și prenumele cumpărătorului</label><input type="text" id="g_cumparator_nume" placeholder="Ionescu Alexandru"></div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Buletin seria</label><input type="text" id="g_cumparator_buletin_seria" placeholder="A"></div>
+        <div class="field-group"><label>Buletin nr.</label><input type="text" id="g_cumparator_buletin_nr" placeholder="654321"></div>
+      </div>
+      <div class="field-group"><label>Domiciliu cumpărător</label><input type="text" id="g_cumparator_domiciliu" placeholder="str. Decebal 5, Chișinău"></div>
+
+      <div class="modal-section">Imobil</div>
+      <div class="field-group"><label>Număr cadastral</label><input type="text" id="g_numar_cadastral" placeholder="0100225.041.0212"></div>
+      <div class="field-group"><label>Adresa imobilului</label><input type="text" id="g_imobil_adresa" placeholder="str. Cetatea Albă 143/1, ap. 32, Chișinău"></div>
+      <div class="field-group"><label>Descriere scurtă imobil (tip, sector)</label><input type="text" id="g_imobil_descriere" placeholder="apartament cu 2 camere, sect. Botanica"></div>
+
+      <div class="modal-section">Suma garanției și prețul estimat</div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Suma garanției (cifre)</label><input type="number" id="g_suma_garantie_cifre" placeholder="5000" oninput="previewSumaLitere('g_suma_garantie_cifre','g_suma_preview')"></div>
+        <div class="field-group"><label>Valuta</label>
+          <select id="g_suma_valuta"><option value="lei">lei</option><option value="euro">euro</option></select>
+        </div>
+      </div>
+      <div id="g_suma_preview" class="field-hint" style="color:var(--blue);margin-bottom:8px;"></div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Prețul estimat (cifre)</label><input type="number" id="g_pret_estimat" placeholder="72000"></div>
+        <div class="field-group"><label>Valuta preț estimat</label>
+          <select id="g_valuta_pret_estimat"><option value="lei">lei</option><option value="euro">euro</option></select>
+        </div>
+      </div>
+      <div class="field-group"><label>Termen rezervare (data)</label><input type="date" id="g_termen_rezervare"></div>
+
+      <div class="modal-section">Semnături</div>
+      <div class="field-group"><label>Vânzător / reprezentant (nume complet pentru semnătură)</label><input type="text" id="g_vanzator_semnatura_nume" placeholder="Grosu Maria"></div>
+      <div class="field-group"><label>Cumpărător (nume complet pentru semnătură)</label><input type="text" id="g_cumparator_semnatura_nume" placeholder="Ionescu Alexandru"></div>
+      <div class="field-group"><label>Martori (nume, opțional)</label><input type="text" id="g_martori_nume" placeholder="Popa Ion, Ciobanu Ana"></div>
+      <div class="field-group"><label>Data întocmirii</label><input type="date" id="g_data_intocmirii"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('modal-garantie')">Anulați</button>
+      <button class="btn solid" onclick="submitDoc('garantie')">Generați documentul →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: CONTRACT DE INTERMEDIERE ═══ -->
+<div class="modal-overlay" id="modal-contract" style="display:none;" onclick="if(event.target===this)closeModal('modal-contract')">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h2>Contract de intermediere exclusiv</h2>
+      <button class="btn" onclick="closeModal('modal-contract')" style="padding:4px 10px;">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="modal-section">Date contract</div>
+      <div class="field-row-3">
+        <div class="field-group"><label>Nr. contract</label><input type="text" id="c_contract_nr" placeholder="42"></div>
+        <div class="field-group"><label>Data semnării</label><input type="date" id="c_contract_data"></div>
+        <div class="field-group"><label>Localitate</label><input type="text" id="c_contract_localitate" placeholder="Chișinău"></div>
+      </div>
+
+      <div class="modal-section">Prestator (agent / agenție)</div>
+      <div class="field-group"><label>Denumirea agenției / Numele agentului</label><input type="text" id="c_prestator_nume" placeholder="SRL ImoGhid sau Popescu Ion"></div>
+      <div class="field-group"><label>Sediu / Adresă</label><input type="text" id="c_prestator_adresa" placeholder="str. Independenței 1, Chișinău"></div>
+      <div class="field-group"><label>IDNO / IDNP</label><input type="text" id="c_prestator_idno" placeholder="1234567890123"></div>
+      <div class="field-group"><label>Reprezentat prin</label><input type="text" id="c_prestator_reprezentant" placeholder="Director Popescu Ion"></div>
+
+      <div class="modal-section">Beneficiar (client / vânzător)</div>
+      <div class="field-group"><label>Numele și prenumele</label><input type="text" id="c_beneficiar_nume" placeholder="Grosu Maria"></div>
+      <div class="field-group"><label>Cetățean al</label><input type="text" id="c_beneficiar_cetatenie" placeholder="Republicii Moldova"></div>
+      <div class="field-group"><label>IDNP</label><input type="text" id="c_beneficiar_idnp" placeholder="2004012345678"></div>
+      <div class="field-group"><label>Domiciliu</label><input type="text" id="c_beneficiar_domiciliu" placeholder="str. Cetatea Albă 143/1, ap. 32, Chișinău"></div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Buletin seria</label><input type="text" id="c_beneficiar_buletin_seria" placeholder="A"></div>
+        <div class="field-group"><label>Buletin nr.</label><input type="text" id="c_beneficiar_buletin_nr" placeholder="123456"></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Telefon</label><input type="tel" id="c_beneficiar_telefon" placeholder="+373 69 000 000"></div>
+        <div class="field-group"><label>E-mail</label><input type="email" id="c_beneficiar_email" placeholder="grosu@email.com"></div>
+      </div>
+
+      <div class="modal-section">Imobil (Anexa nr. 1)</div>
+      <div class="field-group"><label>Tip bun</label><input type="text" id="c_bun_tip" placeholder="apartament"></div>
+      <div class="field-group"><label>Adresa</label><input type="text" id="c_bun_adresa" placeholder="str. Cetatea Albă 143/1, ap. 32, Chișinău"></div>
+      <div class="field-row-3">
+        <div class="field-group"><label>Număr cadastral</label><input type="text" id="c_numar_cadastral" placeholder="0100225.041.0212"></div>
+        <div class="field-group"><label>Suprafața (m²)</label><input type="number" id="c_suprafata" placeholder="66.8"></div>
+        <div class="field-group"><label>Nr. camere / destinație</label><input type="text" id="c_nr_camere" placeholder="2 camere"></div>
+      </div>
+      <div class="field-group"><label>Documente de proprietate</label><input type="text" id="c_documente_proprietate" placeholder="Contract de vânzare-cumpărare din 2009"></div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Prețul de ofertă (cifre)</label><input type="number" id="c_pret_oferta" placeholder="72000"></div>
+        <div class="field-group"><label>Valuta</label>
+          <select id="c_pret_valuta"><option value="euro">euro</option><option value="lei">lei</option></select>
+        </div>
+      </div>
+      <div class="field-group"><label>Interdicții / grevări</label><input type="text" id="c_particularitati" placeholder="fără sarcini"></div>
+
+      <div class="modal-section">Condiții contract</div>
+      <div class="field-group">
+          <label>Durata contractului (luni)</label>
+          <input type="number" id="c_durata_cifre" min="1" max="24" placeholder="3">
+        </div>
+      <div class="field-row-2">
+        <div class="field-group"><label>Remunerație (%)</label><input type="number" id="c_remuneratie_procent" placeholder="3" min="0" max="10" step="0.5"></div>
+        <div class="field-group"><label>Penalitate întârziere (%/zi)</label><input type="number" id="c_penalitate_procent" placeholder="0.1" step="0.01"></div>
+      </div>
+      <div class="field-group"><label>Modalitate de plată</label>
+        <select id="c_modalitate_plata">
+          <option value="numerar">numerar</option>
+          <option value="virament bancar">virament bancar</option>
+          <option value="numerar sau virament bancar">numerar sau virament bancar</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" onclick="closeModal('modal-contract')">Anulați</button>
+      <button class="btn solid" onclick="submitDoc('contract')">Generați documentul →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Modal helpers ──
+function openModal(id){document.getElementById(id).style.display='flex';document.body.style.overflow='hidden';}
+function closeModal(id){document.getElementById(id).style.display='none';document.body.style.overflow='';}
+
+// ── Number to words (Romanian, with diacritics) ──
+const RO_UNITS=['','unu','doi','trei','patru','cinci','șase','șapte','opt','nouă',
+  'zece','unsprezece','doisprezece','treisprezece','paisprezece','cincisprezece',
+  'șaisprezece','șaptesprezece','optsprezece','nouăsprezece'];
+const RO_TENS=['','','douăzeci','treizeci','patruzeci','cincizeci',
+  'șaizeci','șaptezeci','optzeci','nouăzeci'];
+
+function numToRo(n){
+  n=parseInt(n,10);
+  if(isNaN(n)||n<=0)return'';
+  if(n<20)return RO_UNITS[n];
+  if(n<100){
+    var t=RO_TENS[Math.floor(n/10)];
+    var u=RO_UNITS[n%10];
+    return u?t+' și '+u:t;
+  }
+  if(n<1000){
+    var h=Math.floor(n/100);
+    var rest=n%100;
+    var hStr=(h===1?'o sută':h===2?'două sute':RO_UNITS[h]+' sute');
+    return rest?hStr+' '+numToRo(rest):hStr;
+  }
+  if(n<1000000){
+    var th=Math.floor(n/1000);
+    var rest=n%1000;
+    var thStr=(th===1?'o mie':th===2?'două mii':numToRo(th)+' mii');
+    return rest?thStr+' '+numToRo(rest):thStr;
+  }
+  return n.toString();
+}
+
+// ── Live previews ──
+function previewSumaLitere(inputId,previewId){
+  var val=document.getElementById(inputId).value;
+  var preview=document.getElementById(previewId);
+  if(!val){preview.textContent='';return;}
+  preview.textContent='→ '+numToRo(val)+' lei';
+}
+
+function previewDurata(){
+  var val=document.getElementById('c_durata_cifre').value;
+  var preview=document.getElementById('c_durata_preview');
+  preview.value=val?numToRo(val):'';
+}
+
+// ── Submit ──
+function submitDoc(type){
+  if(type==='garantie'){
+    var suma=document.getElementById('g_suma_garantie_cifre').value;
+    if(!suma||!document.getElementById('g_vanzator_nume').value){
+      alert('Completați cel puțin: vânzătorul, cumpărătorul, suma garanției și imobilul.');
+      return;
+    }
+    alert('Documentul „Garanție de cumpărare" se generează...\n(Integrare Claude API + docxtemplater — în curs de implementare)');
+  } else {
+    var beneficiar=document.getElementById('c_beneficiar_nume').value;
+    if(!beneficiar||!document.getElementById('c_prestator_nume').value){
+      alert('Completați cel puțin: Prestator și Beneficiar.');
+      return;
+    }
+    alert('Documentul „Contract de intermediere" se generează...\n(Integrare Claude API + docxtemplater — în curs de implementare)');
+  }
+}
+</script>
+</body>
+</html>

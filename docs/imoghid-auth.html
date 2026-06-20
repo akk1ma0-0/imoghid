@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImoGhid · Autentificare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#111827;--ink2:#374151;--ink3:#6B7280;--ink4:#9CA3AF;
+  --line:#E5E7EB;--line2:#F3F4F6;--bg:#F8F9FA;--sur:#FFFFFF;
+  --blue:#1D4ED8;--blue2:#3B82F6;--blue-bg:#EFF6FF;--blue-br:#BFDBFE;
+  --green:#15803D;--green-bg:#F0FDF4;--green-br:#BBF7D0;
+  --amber:#92400E;--amber-bg:#FFFBEB;--amber-br:#FDE68A;
+  --red:#991B1B;--red-bg:#FEF2F2;--red-br:#FECACA;
+  --r:6px;--rl:10px;
+  --mono:"IBM Plex Mono",monospace;
+  --sans:"Inter",sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);font-size:14px;line-height:1.5;color:var(--ink);background:var(--bg);min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── NAV PILLS (переключение страниц в демо) ── */
+.demo-nav{background:var(--ink);padding:8px 16px;display:flex;gap:6px;align-items:center;}
+.demo-lbl{font-family:var(--mono);font-size:10px;color:#6B7280;letter-spacing:.06em;margin-right:4px;}
+.demo-pill{font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid #374151;color:#9CA3AF;cursor:pointer;background:none;transition:all .1s;}
+.demo-pill:hover{border-color:#6B7280;color:#fff;}
+.demo-pill.on{background:#fff;color:var(--ink);border-color:#fff;}
+
+/* ── LAYOUT ── */
+.page{display:none;flex:1;}
+.page.show{display:flex;}
+
+/* ── LEFT PANEL — бренд ── */
+.left{
+  width:420px;flex-shrink:0;
+  background:var(--ink);
+  padding:48px 40px;
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+}
+.left::before{
+  content:'';position:absolute;
+  top:-80px;right:-80px;
+  width:320px;height:320px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(59,130,246,.18) 0%, transparent 70%);
+  pointer-events:none;
+}
+.left::after{
+  content:'';position:absolute;
+  bottom:-60px;left:-60px;
+  width:240px;height:240px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(29,78,216,.15) 0%, transparent 70%);
+  pointer-events:none;
+}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:auto;}
+.logo-icon{width:36px;height:36px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink);}
+.logo-name{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.03em;}
+.logo-sub{font-size:11px;font-family:var(--mono);color:#6B7280;display:block;margin-top:-1px;}
+
+.brand-content{margin-bottom:auto;padding:40px 0;}
+.brand-tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#3B82F6;margin-bottom:14px;}
+.brand-title{font-size:28px;font-weight:700;color:#fff;letter-spacing:-.03em;line-height:1.25;margin-bottom:16px;}
+.brand-desc{font-size:14px;color:#9CA3AF;line-height:1.7;max-width:32ch;}
+
+.feat-list{display:flex;flex-direction:column;gap:10px;margin-top:32px;}
+.feat{display:flex;align-items:flex-start;gap:10px;}
+.feat-dot{width:6px;height:6px;border-radius:50%;background:var(--blue2);flex-shrink:0;margin-top:6px;}
+.feat-txt{font-size:13px;color:#D1D5DB;line-height:1.5;}
+
+.left-footer{font-family:var(--mono);font-size:10px;color:#4B5563;letter-spacing:.04em;}
+
+/* ── RIGHT PANEL — форма ── */
+.right{
+  flex:1;
+  display:flex;align-items:center;justify-content:center;
+  padding:40px 24px;
+}
+.form-box{width:100%;max-width:400px;}
+.form-head{margin-bottom:28px;}
+.form-title{font-size:22px;font-weight:700;letter-spacing:-.03em;margin-bottom:6px;}
+.form-sub{font-size:13px;color:var(--ink3);line-height:1.6;}
+
+/* ── FORM ELEMENTS ── */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--ink2);margin-bottom:5px;}
+.field input{
+  width:100%;font-family:var(--sans);font-size:14px;
+  border:1px solid var(--line);border-radius:var(--r);
+  padding:10px 12px;background:var(--sur);color:var(--ink);
+  transition:border-color .12s,box-shadow .12s;
+  outline:none;
+}
+.field input:focus{border-color:var(--blue2);box-shadow:0 0 0 3px var(--blue-bg);}
+.field input.error{border-color:var(--red);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.field-hint{font-size:11px;color:var(--ink4);margin-top:4px;}
+.field-optional{font-size:10px;font-family:var(--mono);color:var(--ink4);margin-left:6px;}
+
+.btn-primary{
+  width:100%;font-family:var(--sans);font-size:14px;font-weight:600;
+  background:var(--ink);color:#fff;border:none;
+  padding:11px 16px;border-radius:var(--r);
+  cursor:pointer;transition:background .12s;
+  margin-top:4px;
+}
+.btn-primary:hover{background:var(--ink2);}
+
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line);}
+.divider span{font-size:11px;font-family:var(--mono);color:var(--ink4);}
+
+.link-row{text-align:center;font-size:13px;color:var(--ink3);}
+.link-row a{color:var(--blue);text-decoration:none;font-weight:500;}
+.link-row a:hover{text-decoration:underline;}
+
+.error-msg{
+  background:var(--red-bg);border:1px solid var(--red-br);
+  border-radius:var(--r);padding:10px 12px;
+  font-size:12px;color:var(--red);margin-bottom:14px;
+  display:flex;gap:8px;align-items:flex-start;
+}
+
+.invite-block{
+  background:var(--blue-bg);border:1px dashed var(--blue-br);
+  border-radius:var(--r);padding:10px 12px;
+  margin-bottom:14px;
+}
+.invite-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);margin-bottom:6px;}
+.invite-desc{font-size:12px;color:var(--ink3);margin-bottom:8px;}
+
+.disclaimer{font-size:11px;color:var(--ink4);line-height:1.6;margin-top:16px;text-align:center;}
+.disclaimer a{color:var(--ink3);text-decoration:underline;}
+
+/* ── SUBSCRIBE PAGE ── */
+.sub-page{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;padding:60px 24px;
+}
+.sub-logo{display:flex;align-items:center;gap:9px;margin-bottom:48px;}
+.sub-logo-icon{width:32px;height:32px;background:var(--ink);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;color:#fff;}
+.sub-logo-name{font-size:16px;font-weight:700;letter-spacing:-.03em;}
+
+.sub-head{text-align:center;margin-bottom:40px;}
+.sub-head h1{font-size:26px;font-weight:700;letter-spacing:-.03em;margin-bottom:8px;}
+.sub-head p{font-size:14px;color:var(--ink3);max-width:44ch;margin:0 auto;line-height:1.6;}
+
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:680px;width:100%;}
+
+.plan-card{
+  background:var(--sur);border:1.5px solid var(--line);
+  border-radius:var(--rl);padding:28px;
+  display:flex;flex-direction:column;
+  transition:border-color .15s;
+  position:relative;
+}
+.plan-card:hover{border-color:var(--ink3);}
+.plan-card.featured{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);}
+
+.plan-badge{
+  position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  background:var(--blue);color:#fff;
+  padding:2px 12px;border-radius:20px;
+  white-space:nowrap;
+}
+.plan-name{font-size:13px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);margin-bottom:10px;}
+.plan-price{font-size:36px;font-weight:700;letter-spacing:-.04em;margin-bottom:4px;}
+.plan-price sup{font-size:18px;font-weight:500;vertical-align:super;margin-right:1px;}
+.plan-price sub{font-size:13px;font-weight:400;color:var(--ink3);vertical-align:baseline;margin-left:2px;}
+.plan-desc{font-size:12px;color:var(--ink3);margin-bottom:20px;line-height:1.6;min-height:36px;}
+
+.plan-features{list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:8px;flex:1;}
+.plan-features li{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink2);line-height:1.5;}
+.feat-check{color:var(--green);flex-shrink:0;font-size:14px;margin-top:1px;}
+.feat-x{color:var(--ink4);flex-shrink:0;font-size:14px;margin-top:1px;}
+.feat-x + span{color:var(--ink4);}
+
+.plan-btn{
+  width:100%;font-family:var(--sans);font-size:13px;font-weight:600;
+  padding:10px 16px;border-radius:var(--r);
+  cursor:pointer;transition:all .12s;border:1.5px solid var(--ink);
+  background:var(--sur);color:var(--ink);
+}
+.plan-btn:hover{background:var(--line2);}
+.plan-btn.primary{background:var(--ink);color:#fff;}
+.plan-btn.primary:hover{background:var(--ink2);}
+
+.sub-note{margin-top:28px;font-size:12px;color:var(--ink4);text-align:center;line-height:1.7;}
+.sub-note a{color:var(--ink3);}
+
+.invite-section{
+  margin-top:32px;max-width:680px;width:100%;
+  padding:16px 20px;
+  background:var(--blue-bg);border:1px dashed var(--blue-br);
+  border-radius:var(--rl);
+  display:flex;align-items:center;gap:16px;
+}
+.invite-section .inv-label{font-size:13px;color:var(--ink2);flex:1;line-height:1.5;}
+.invite-section .inv-label b{display:block;margin-bottom:2px;}
+.invite-inp-row{display:flex;gap:8px;width:260px;flex-shrink:0;}
+.invite-inp-row input{
+  flex:1;font-family:var(--mono);font-size:12px;
+  border:1px solid var(--blue-br);border-radius:var(--r);
+  padding:7px 10px;background:var(--sur);color:var(--ink);
+  outline:none;transition:border-color .12s;
+}
+.invite-inp-row input:focus{border-color:var(--blue2);}
+.invite-inp-row button{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  background:var(--blue);color:#fff;border:none;
+  padding:7px 12px;border-radius:var(--r);cursor:pointer;
+  white-space:nowrap;transition:background .12s;
+}
+.invite-inp-row button:hover{background:var(--blue2);}
+</style>
+</head>
+<body>
+
+<!-- Demo nav -->
+<div class="demo-nav">
+  <span class="demo-lbl">DEMO ·</span>
+  <button class="demo-pill on" onclick="show('login')">/ login</button>
+  <button class="demo-pill" onclick="show('register')">/ register</button>
+  <button class="demo-pill" onclick="show('subscribe')">/ subscribe</button>
+</div>
+
+<!-- ══════════ /login ══════════ -->
+<div class="page show" id="pg-login">
+  <div class="left">
+    <div class="logo">
+      <div class="logo-icon">IG</div>
+      <div>
+        <div class="logo-name">ImoGhid</div>
+        <span class="logo-sub">Platforma agentului imobiliar</span>
+      </div>
+    </div>
+
+    <div class="brand-content">
+      <div class="brand-tag">Moldova · 2025</div>
+      <div class="brand-title">Ghidul tău în fiecare tranzacție imobiliară</div>
+      <div class="brand-desc">De la încărcarea documentelor până la programarea la ASP — platforma verifică, semnalează și calculează.</div>
+
+      <div class="feat-list">
+        <div class="feat"><div class="feat-dot"></div><div class="feat-txt">Verificare automată a actelor prin AI</div></div>
+        <div class="feat"><div class="feat-dot"></div><div class="feat-txt">Anunțuri noi de la proprietari — 999.md în timp real</div></div>
+        <div class="feat"><div class="feat-dot"></div><div class="feat-txt">Calculator impozit · notariat · credit ipotecar</div></div>
+        <div class="feat"><div class="feat-dot"></div><div class="feat-txt">Raport PDF profesional pentru client</div></div>
+      </div>
+    </div>
+
+    <div class="left-footer">© 2025 ImoGhid · Legea 133/2011</div>
+  </div>
+
+  <div class="right">
+    <div class="form-box">
+      <div class="form-head">
+        <div class="form-title">Bună ziua</div>
+        <div class="form-sub">Introduceți datele de acces pentru a continua.</div>
+      </div>
+
+      <!-- Error state (ascuns implicit) -->
+      <div class="error-msg" id="login-err" style="display:none;">
+        <span>✕</span>
+        <span>Email sau parolă incorectă. Verificați datele și încercați din nou.</span>
+      </div>
+
+      <div class="field">
+        <label>Email</label>
+        <input type="email" placeholder="agent@exemplu.md" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Parolă</label>
+        <input type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <div style="text-align:right;margin-bottom:16px;">
+        <a href="#" style="font-size:12px;color:var(--ink3);text-decoration:none;">Am uitat parola</a>
+      </div>
+
+      <button class="btn-primary" onclick="showErr()">Intră în cont</button>
+
+      <div class="divider"><span>sau</span></div>
+
+      <div class="link-row">
+        Nu aveți cont? <a href="#" onclick="show('register');return false;">Înregistrați-vă</a>
+      </div>
+
+      <div class="disclaimer">
+        Prin accesarea platformei confirmați că ați citit
+        <a href="#">Termenii de utilizare</a> și <a href="#">Politica de confidențialitate</a>.
+        Responsabilitatea finală pentru tranzacție revine notarului și agentului.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ /register ══════════ -->
+<div class="page" id="pg-register">
+  <div class="left">
+    <div class="logo">
+      <div class="logo-icon">IG</div>
+      <div>
+        <div class="logo-name">ImoGhid</div>
+        <span class="logo-sub">Platforma agentului imobiliar</span>
+      </div>
+    </div>
+
+    <div class="brand-content">
+      <div class="brand-tag">Înregistrare</div>
+      <div class="brand-title">Începeți să lucrați mai eficient</div>
+      <div class="brand-desc">Creați contul în 60 de secunde. Accesul este activ imediat după plată.</div>
+
+      <div class="feat-list">
+        <div class="feat"><div class="feat-dot"></div><div class="feat-txt">BASIC — $10/lună · acces complet la platformă</div></div>
+        <div class="feat"><div class="feat-dot"></div><div class="feat-txt">PRO — $30/lună · + rapoarte PDF, CMA, AI generator</div></div>
+        <div class="feat"><div class="feat-dot"></div><div class="feat-txt">Anulați oricând, fără penalități</div></div>
+      </div>
+    </div>
+
+    <div class="left-footer">© 2025 ImoGhid · Legea 133/2011</div>
+  </div>
+
+  <div class="right">
+    <div class="form-box">
+      <div class="form-head">
+        <div class="form-title">Cont nou</div>
+        <div class="form-sub">Completați datele de mai jos. Veți alege planul la pasul următor.</div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Prenume</label>
+          <input type="text" placeholder="Ion" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label>Nume</label>
+          <input type="text" placeholder="Popescu" autocomplete="family-name">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Email</label>
+        <input type="email" placeholder="ion.popescu@exemplu.md" autocomplete="email">
+      </div>
+
+      <div class="field">
+        <label>Telefon</label>
+        <input type="tel" placeholder="+373 69 000 000" autocomplete="tel">
+      </div>
+
+      <div class="field">
+        <label>Parolă</label>
+        <input type="password" placeholder="Minimum 8 caractere" autocomplete="new-password">
+        <div class="field-hint">Cel puțin 8 caractere, o literă mare și un număr.</div>
+      </div>
+
+      <div class="field">
+        <label>Agenție imobiliară <span class="field-optional">opțional</span></label>
+        <input type="text" placeholder="RE/MAX, Proimobil, independent...">
+        <div class="field-hint">Va apărea pe rapoartele PDF generate pentru clienți.</div>
+      </div>
+
+      <div class="invite-block">
+        <div class="invite-lbl">Cod de invitație</div>
+        <div class="invite-desc">Dacă ați primit un cod de acces PRO — introduceți-l aici. Planul PRO se activează automat.</div>
+        <div class="field" style="margin-bottom:0;">
+          <input type="text" placeholder="ex: IMOTEST2025" style="font-family:var(--mono);font-size:13px;letter-spacing:.05em;">
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="show('subscribe')">Continuați → alegeți planul</button>
+
+      <div class="link-row" style="margin-top:16px;">
+        Aveți deja cont? <a href="#" onclick="show('login');return false;">Intrați</a>
+      </div>
+
+      <div class="disclaimer">
+        Prin înregistrare acceptați <a href="#">Termenii de utilizare</a>.
+        Datele sunt prelucrate conform <a href="#">Legii 133/2011</a>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ /subscribe ══════════ -->
+<div class="page" id="pg-subscribe" style="background:var(--bg);">
+  <div class="sub-page">
+    <div class="sub-logo">
+      <div class="sub-logo-icon">IG</div>
+      <div class="sub-logo-name">ImoGhid</div>
+    </div>
+
+    <div class="sub-head">
+      <h1>Alegeți planul potrivit</h1>
+      <p>Accesul la platformă necesită un abonament activ. Anulați oricând.</p>
+    </div>
+
+    <div class="plans">
+
+      <!-- BASIC -->
+      <div class="plan-card">
+        <div class="plan-name">Basic</div>
+        <div class="plan-price"><sup>$</sup>10<sub>/lună</sub></div>
+        <div class="plan-desc">Acces complet la toate funcțiile principale ale platformei.</div>
+        <ul class="plan-features">
+          <li><span class="feat-check">✓</span><span>Ghidul tranzacției — 8 pași</span></li>
+          <li><span class="feat-check">✓</span><span>Verificare automată acte prin AI</span></li>
+          <li><span class="feat-check">✓</span><span>Anunțuri 999.md în timp real</span></li>
+          <li><span class="feat-check">✓</span><span>Calculator impozit și notariat</span></li>
+          <li><span class="feat-check">✓</span><span>Calculator credit ipotecar</span></li>
+          <li><span class="feat-check">✓</span><span>Lista neagră · contacte private</span></li>
+          <li><span class="feat-x">✕</span><span>Rapoarte PDF pentru client</span></li>
+          <li><span class="feat-x">✕</span><span>Generator anunțuri AI</span></li>
+          <li><span class="feat-x">✕</span><span>Analiză de piață CMA</span></li>
+        </ul>
+        <button class="plan-btn">Alegeți Basic — $10</button>
+      </div>
+
+      <!-- PRO -->
+      <div class="plan-card featured">
+        <div class="plan-badge">Recomandat</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price"><sup>$</sup>30<sub>/lună</sub></div>
+        <div class="plan-desc">Toate funcțiile Basic plus instrumentele avansate pentru profesioniști.</div>
+        <ul class="plan-features">
+          <li><span class="feat-check">✓</span><span>Tot ce include Basic</span></li>
+          <li><span class="feat-check">✓</span><span>Rapoarte PDF branding pentru client</span></li>
+          <li><span class="feat-check">✓</span><span>Generator anunțuri AI (RO + RU)</span></li>
+          <li><span class="feat-check">✓</span><span>Analiză de piață CMA (999.md)</span></li>
+          <li><span class="feat-check">✓</span><span>Istoric extins prețuri anunțuri</span></li>
+          <li><span class="feat-check">✓</span><span>Obiectele mele — portofoliu complet</span></li>
+          <li><span class="feat-check">✓</span><span>Acte/Contracte — șabloane</span></li>
+          <li><span class="feat-check">✓</span><span>Suport prioritar</span></li>
+        </ul>
+        <button class="plan-btn primary">Alegeți Pro — $30</button>
+      </div>
+
+    </div>
+
+    <!-- Cod invitație -->
+    <div class="invite-section">
+      <div class="inv-label">
+        <b>Aveți cod de invitație PRO?</b>
+        Introduceți-l și planul PRO se activează automat, fără plată.
+      </div>
+      <div class="invite-inp-row">
+        <input type="text" placeholder="IMOTEST2025">
+        <button>Activați</button>
+      </div>
+    </div>
+
+    <div class="sub-note">
+      Plata se procesează securizat prin Stripe · Visa / Mastercard.<br>
+      Anulare oricând din contul dvs. · Fără angajamente pe termen lung.<br>
+      <a href="#">Termeni de utilizare</a> · <a href="#">Politică de confidențialitate</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function show(p){
+  document.querySelectorAll('.page').forEach(function(el){el.classList.remove('show');});
+  document.querySelectorAll('.demo-pill').forEach(function(el){el.classList.remove('on');});
+  document.getElementById('pg-'+p).classList.add('show');
+  var pills={'login':0,'register':1,'subscribe':2};
+  document.querySelectorAll('.demo-pill')[pills[p]].classList.add('on');
+}
+function showErr(){
+  var el=document.getElementById('login-err');
+  el.style.display='flex';
+}
+</script>
+</body>
+</html>
