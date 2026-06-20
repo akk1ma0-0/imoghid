@@ -124,6 +124,10 @@ model User {
   phone           String?
   role            UserRole         @default(AGENT)
 
+  // Blocare cont (din panoul admin). Utilizatorul blocat nu se poate autentifica.
+  isBlocked       Boolean          @default(false)
+  blockedAt       DateTime?
+
   // Agenție — câmp text simplu (tabel separat în v2)
   agencyName      String?
 

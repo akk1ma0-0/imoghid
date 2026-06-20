@@ -26,6 +26,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (!user) return null;
 
+        // Заблокированный администратором аккаунт не может войти.
+        if (user.isBlocked) return null;
+
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
@@ -36,6 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           plan: user.plan,
           planActive: isPlanActive(user),
+          role: user.role,
         };
       },
     }),

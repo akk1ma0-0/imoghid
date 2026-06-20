@@ -211,6 +211,20 @@ npm run prisma:studio    # GUI для БД
 
 ---
 
+## Модуль «Admin» (`/app/admin`)
+
+Служебная панель администратора. Доступ **только `session.user.role === 'ADMIN'`** (enum `UserRole`: AGENT/ADMIN).
+
+- **Гард страницы:** серверный компонент `app/app/admin/page.tsx` — `auth()`, при `role !== 'ADMIN'` → `notFound()` (404, чтобы не раскрывать существование панели). Гард API: `lib/admin-auth.ts → requireAdmin()` (401 без сессии, 403 не-админ).
+- **Role в сессии:** прокинут через `auth.ts` (authorize возвращает `role`), `auth.config.ts` (jwt/session колбэки), `types/next-auth.d.ts` (Session/User/JWT). ⚠️ Существующие JWT без `role` — нужно перелогиниться.
+- **Topbar:** кнопка «⚙️ Admin» (`.admin-btn`, фиолетовый стиль, отдельно от nav) рендерится в JSX **только если** `isAdmin` (не скрыта через CSS). На мобильном — только шестерёнка.
+- **Разделы (клиент `AdminPanel.tsx`, табы):** (1) **Utilizatori** — таблица User (email, имя, план, дата рег., кол-во транзакций, статус Activ/Blocat) + кнопки сменить план (BASIC↔PRO) и заблокировать/разблокировать; (2) **Tranzacții** — все сделки всех агентов с фильтром по агенту и статусу (клиентская фильтрация); (3) **Statistică** — кол-во пользователей, активных сделок, вызовов Claude API за текущий месяц и их стоимость.
+- **Действия:** `PATCH /api/admin/users/[id]` `{ plan?, isBlocked? }` — смена плана (если `planActivatedAt=null`, активирует сейчас) и блокировка (`isBlocked`+`blockedAt`). Админ **не может заблокировать себя** (400). После действия — `router.refresh()`.
+- **Блокировка:** поля `User.isBlocked`/`blockedAt` (миграция `add_user_blocked`). Заблокированный аккаунт не проходит `authorize` (login отклоняется). Существующие сессии живут до истечения JWT.
+- **Стоимость Claude (`lib/admin-stats.ts`):** генерация анонса — точно по токенам из `AnuntGeneration` (sonnet-4-6 $3/$15 за 1M); анализ документов — **оценка** (токены по-вызовно не логируются, есть только счётчик `User.analysisCount`), средние в `EST_ANALYSIS_TOKENS`. Итог помечен как «estimat».
+
+---
+
 ## Модуль «Instrumente» (`/app/instrumente`)
 
 Четыре карточки (дизайн `docs/imoghid-v4.html` #viewAI):

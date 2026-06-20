@@ -13,6 +13,9 @@ export function Topbar() {
   const onObjects = pathname.startsWith("/app/objects");
   const onListings = pathname.startsWith("/app/listings");
   const onTools = pathname.startsWith("/app/instrumente");
+  const onAdmin = pathname.startsWith("/app/admin");
+
+  const isAdmin = session?.user?.role === "ADMIN";
 
   const displayName = session?.user?.name || session?.user?.email || "";
   const initials =
@@ -65,6 +68,18 @@ export function Topbar() {
         </Link>
       </nav>
       <div className="topbar-r">
+        {/* Служебная кнопка админ-панели — рендерится ТОЛЬКО для ADMIN (не скрыта через CSS). */}
+        {isAdmin && (
+          <Link
+            href="/app/admin"
+            className={`admin-btn${onAdmin ? " active" : ""}`}
+            title="Panou de administrare"
+            aria-label="Panou de administrare"
+          >
+            <span aria-hidden>⚙️</span>
+            <span className="admin-btn-lb">Admin</span>
+          </Link>
+        )}
         {displayName && (
           <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink2)" }}>
             {displayName}

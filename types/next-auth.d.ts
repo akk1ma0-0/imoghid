@@ -1,4 +1,4 @@
-import type { SubscriptionPlan } from "@prisma/client";
+import type { SubscriptionPlan, UserRole } from "@prisma/client";
 import type { DefaultSession } from "next-auth";
 
 // Расширяем типы NextAuth, добавляя поля из нашей модели User.
@@ -8,12 +8,14 @@ declare module "next-auth" {
       id: string;
       plan: SubscriptionPlan;
       planActive: boolean;
+      role: UserRole;
     } & DefaultSession["user"];
   }
 
   interface User {
     plan: SubscriptionPlan;
     planActive: boolean;
+    role: UserRole;
   }
 }
 
@@ -24,5 +26,6 @@ declare module "@auth/core/jwt" {
     id: string;
     plan: SubscriptionPlan;
     planActive: boolean;
+    role: UserRole;
   }
 }

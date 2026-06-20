@@ -408,6 +408,36 @@
 .stat-lbl { font-size: 10.5px; color: var(--ink3); margin-top: 2px; }
 .doc-preview { background: var(--line2); border: 1px dashed var(--line); border-radius: var(--r); padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--ink2); white-space: pre-wrap; width: 100%; min-height: 220px; resize: vertical; }
 
+/* ── ADMIN ── */
+.admin-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--ink2); text-decoration: none;
+  border: 1px solid var(--line); border-radius: 20px;
+  padding: 4px 10px; background: var(--line2);
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.admin-btn:hover { border-color: var(--purple-br); color: var(--purple); background: var(--purple-bg); }
+.admin-btn.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+
+.adm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+
+.adm-tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--rl); background: var(--sur); -webkit-overflow-scrolling: touch; }
+.adm-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
+.adm-table th {
+  text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink3); font-weight: 600;
+  padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--line2);
+}
+.adm-table td { padding: 10px 12px; border-top: 1px solid var(--line2); vertical-align: middle; }
+.adm-table tbody tr:hover { background: var(--line2); }
+.adm-table tr.blocked { opacity: 0.55; }
+.adm-table .num { text-align: right; font-family: var(--mono); }
+.adm-table .nowrap { white-space: nowrap; }
+.adm-table th.act, .adm-table td.act { text-align: right; }
+.adm-acts { display: inline-flex; gap: 6px; justify-content: flex-end; }
+.adm-acts .btn { white-space: nowrap; }
+
 /* ── layout helpers (responsive-ready) ── */
 /* На десктопе nav-кнопки показывают полный текст; иконка и короткий лейбл — для мобильного bottom-bar. */
 .nav-ic,
@@ -483,6 +513,9 @@
   .logo-sub { display: none; }
   .topbar-r > span { display: none; }
   .avatar { width: 36px; height: 36px; }
+  /* На мобильном у admin-кнопки только шестерёнка (без текста) */
+  .admin-btn-lb { display: none; }
+  .admin-btn { padding: 5px 9px; }
 
   /* NAV → нижняя панель навигации (как в мобильных приложениях) */
   .nav {

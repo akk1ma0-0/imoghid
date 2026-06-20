@@ -36,6 +36,7 @@ export const authConfig = {
         token.id = user.id as string;
         token.plan = user.plan;
         token.planActive = user.planActive;
+        token.role = user.role;
       }
       // Клиент вызывает useSession().update({ plan, planActive }) после /subscribe.
       if (trigger === "update" && session) {
@@ -56,6 +57,7 @@ export const authConfig = {
       session.user.id = token.id;
       session.user.plan = token.plan;
       session.user.planActive = token.planActive;
+      session.user.role = token.role;
       return session;
     },
   },
