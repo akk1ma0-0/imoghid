@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "My Next App",
-  description: "Next.js + TypeScript + Tailwind + Prisma + PostgreSQL",
+  title: "ImoGhid · Platforma agentului imobiliar",
+  description: "Ghidul tranzacției imobiliare în Republica Moldova — verificare acte, cadastru, calcule.",
 };
 
 export default function RootLayout({
