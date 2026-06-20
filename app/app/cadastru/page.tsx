@@ -155,7 +155,7 @@ export default function CadastruPage() {
 
   return (
     <div style={{ display: "flex", justifyContent: "center", minHeight: "calc(100vh - 52px)" }}>
-      <main style={{ padding: "80px 24px 60px", maxWidth: 760, width: "100%" }}>
+      <main className="cad-main" style={{ maxWidth: 760, width: "100%" }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <h1 style={{ fontSize: 34, margin: "0 0 14px" }}>Verificați un obiect în cadastru</h1>
           <p className="sub" style={{ fontSize: 16, maxWidth: 560, margin: "0 auto" }}>
@@ -242,7 +242,7 @@ export default function CadastruPage() {
                     <tr><td className="k">Tip proprietate</td><td className="v">{record.record.prop}</td></tr>
                   </tbody>
                 </table>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
+                <div className="cad-flags" style={{ marginTop: 12 }}>
                   <FlagBox k="Alte drepturi reale" v={record.record.dr} />
                   <FlagBox k="Notări" v={record.record.not} />
                   <FlagBox k="Interdicții" v={record.record.int} />

@@ -195,7 +195,7 @@ export function Step1Date({
         </div>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div className="obj2-grid">
             {/* Obiect 1 */}
             <div className="card">
               <div className="card-hd">

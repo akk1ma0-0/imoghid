@@ -35,22 +35,33 @@ export function Topbar() {
       </div>
       <nav className="nav">
         <Link href="/app/cadastru" className={`nav-btn${onCadastru ? " active" : ""}`}>
-          Verificare imobil
+          <span className="nav-ic" aria-hidden>🔍</span>
+          <span className="nav-lb">Verificare imobil</span>
+          <span className="nav-lb-short" aria-hidden>Verificare</span>
         </Link>
         <Link
           href="/app/transactions/new"
           className={`nav-btn${onTransactions ? " active" : ""}`}
         >
-          Ghidul tranzacției
+          <span className="nav-ic" aria-hidden>🧭</span>
+          <span className="nav-lb">Ghidul tranzacției</span>
+          <span className="nav-lb-short" aria-hidden>Ghid</span>
         </Link>
         <Link href="/app/objects" className={`nav-btn${onObjects ? " active" : ""}`}>
-          Obiectele mele
+          <span className="nav-ic" aria-hidden>📁</span>
+          <span className="nav-lb">Obiectele mele</span>
+          <span className="nav-lb-short" aria-hidden>Obiecte</span>
         </Link>
         <Link href="/app/instrumente" className={`nav-btn${onTools ? " active" : ""}`}>
-          Instrumente
+          <span className="nav-ic" aria-hidden>🧰</span>
+          <span className="nav-lb">Instrumente</span>
+          <span className="nav-lb-short" aria-hidden>Unelte</span>
         </Link>
         <Link href="/app/listings" className={`nav-btn${onListings ? " active" : ""}`}>
-          Anunțuri 999 <span className="cnt">10</span>
+          <span className="nav-ic" aria-hidden>📰</span>
+          <span className="nav-lb">Anunțuri 999</span>
+          <span className="nav-lb-short" aria-hidden>Anunțuri</span>
+          <span className="cnt">10</span>
         </Link>
       </nav>
       <div className="topbar-r">

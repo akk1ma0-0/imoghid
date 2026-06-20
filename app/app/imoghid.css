@@ -408,12 +408,136 @@
 .stat-lbl { font-size: 10.5px; color: var(--ink3); margin-top: 2px; }
 .doc-preview { background: var(--line2); border: 1px dashed var(--line); border-radius: var(--r); padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--ink2); white-space: pre-wrap; width: 100%; min-height: 220px; resize: vertical; }
 
-/* ── responsive ── */
-@media (max-width: 1000px) {
+/* ── layout helpers (responsive-ready) ── */
+/* На десктопе nav-кнопки показывают полный текст; иконка и короткий лейбл — для мобильного bottom-bar. */
+.nav-ic,
+.nav-lb-short { display: none; }
+/* Эти классы заменили inline-grid'ы, чтобы media-queries могли их перестраивать. */
+.cad-main { padding: 80px 24px 60px; }
+.obj2-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.cad-flags { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+/* Аккордеон правой панели: тоггл скрыт на десктопе, тело всегда раскрыто. */
+.rrail-toggle { display: none; }
+.rrail-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* ════════════════ RESPONSIVE ════════════════ */
+
+/* ── TABLET и ниже (≤1024px): одна колонка, горизонтальный степпер, аккордеон ── */
+@media (max-width: 1024px) {
   .shell { grid-template-columns: 1fr; }
-  .lnav, .rrail { border: none; }
-  .lnav { border-bottom: 1px solid var(--line); }
+
+  /* Верхнее меню: горизонтальный скролл, если лейблы не помещаются */
+  .nav { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-btn { white-space: nowrap; flex: 0 0 auto; }
+
+  /* Левое меню шагов → липкий горизонтальный прогресс-степпер сверху */
+  .lnav {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    gap: 4px;
+    padding: 8px 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 52px;
+    z-index: 60;
+    scrollbar-width: none;
+  }
+  .lnav::-webkit-scrollbar { display: none; }
+  .lnav > .nav-lbl:first-child { display: none; }
+  .lnav .legend-block { display: none; }
+  .step-item {
+    grid-template-columns: auto;
+    width: auto;
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 4px 6px;
+    gap: 0;
+    place-items: center;
+  }
+  .step-item .step-txt,
+  .step-item .step-line { display: none; }
+
+  /* Правая панель → аккордеон под контентом */
+  .rrail { border-left: none; border-top: 1px solid var(--line); padding: 12px 14px 20px; }
+  .rrail-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; font-family: var(--sans); font-size: 14px; font-weight: 600;
+    color: var(--ink); background: var(--line2); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 11px 14px; cursor: pointer; min-height: 44px;
+  }
+  .rrail-body { display: none; margin-top: 12px; }
+  .rrail-body[data-open="true"] { display: flex; }
 }
-@media (max-width: 720px) {
-  .nav .nav-btn span.cnt { display: none; }
+
+/* ── MOBILE (≤767px): bottom-nav, узкие отступы, fullscreen-модалки ── */
+@media (max-width: 767px) {
+  /* Не допускаем горизонтальный скролл */
+  .ig-main, .ig-page { overflow-x: hidden; }
+
+  /* Компактный топбар: только лого + аватар */
+  .topbar { padding: 0 12px; }
+  .logo { padding-right: 12px; margin-right: 10px; }
+  .logo-sub { display: none; }
+  .topbar-r > span { display: none; }
+  .avatar { width: 36px; height: 36px; }
+
+  /* NAV → нижняя панель навигации (как в мобильных приложениях) */
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+    background: var(--sur); border-top: 1px solid var(--line);
+    gap: 0; padding: 4px 2px; padding-bottom: calc(4px + env(safe-area-inset-bottom));
+    justify-content: space-around; overflow: visible;
+    box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.05);
+  }
+  .nav-btn {
+    flex: 1; min-width: 0; flex-direction: column; gap: 2px;
+    padding: 5px 2px; min-height: 50px; justify-content: center;
+    border-radius: 8px; position: relative;
+  }
+  .nav-btn:hover { background: none; }
+  .nav-btn.active { background: none; color: var(--blue); }
+  .nav-ic { display: block; font-size: 19px; line-height: 1; }
+  .nav-lb { display: none; }
+  .nav-lb-short { display: block; font-size: 10px; font-weight: 500; line-height: 1.1; text-align: center; }
+  .nav .cnt { position: absolute; top: 3px; left: 50%; transform: translateX(6px); font-size: 8px; padding: 1px 4px; }
+
+  /* Контент не перекрывается нижней навигацией */
+  .ig-main { padding: 16px 14px 80px; }
+  .ig-page { padding: 16px 14px 80px; }
+  .cad-main { padding: 28px 16px 90px; }
+
+  .ig-main h1 { font-size: 19px; }
+  .sub { font-size: 14px; }
+  .card-bd { padding: 12px; }
+  .cad-main h1 { font-size: 24px !important; }
+
+  /* Двухколоночные ряды → одна колонка */
+  .field-row, .field-row-2, .field-row-3,
+  .obj2-grid, .cad-flags, .calc-grid, .cma-stats { grid-template-columns: 1fr; }
+
+  /* Сетки карточек → полная ширина */
+  .obj-grid, .listings { grid-template-columns: 1fr; }
+
+  /* Touch targets ≥ ~40px */
+  .btn { min-height: 40px; font-size: 12px; padding: 8px 14px; }
+  .type-btn, .toggle-opt, .chip, .obj-tab { min-height: 38px; }
+
+  /* Табы прокручиваются горизонтально, без переноса */
+  .obj-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .obj-tabs::-webkit-scrollbar { display: none; }
+  .obj-tab { white-space: nowrap; flex: 0 0 auto; }
+
+  /* Кнопки статуса в футере карточки — в одну строку */
+  .obj-card-ft { flex-wrap: nowrap; }
+  .obj-card-ft .btn, .lacts .btn { min-height: 38px; }
+
+  /* МОДАЛКИ на весь экран с липким футером */
+  .modal-overlay { padding: 0; align-items: stretch; }
+  .modal-box { max-width: 100%; width: 100%; max-height: 100%; height: 100dvh; border-radius: 0; }
+  .modal-bd { padding: 16px; }
+  .modal-ft { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .modal-ft .btn { flex: 1; justify-content: center; }
 }

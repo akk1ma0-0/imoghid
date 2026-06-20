@@ -632,3 +632,12 @@
     width: 100%;
   }
 }
+
+/* ── MOBILE (≤767px): меньше отступов, инпуты 16px (без iOS-zoom при фокусе) ── */
+@media (max-width: 767px) {
+  .right { padding: 28px 16px; align-items: flex-start; }
+  .form-box { max-width: 100%; }
+  .field input,
+  .invite-inp-row input { font-size: 16px; padding: 11px 12px; }
+  .form-title { font-size: 20px; }
+}
