@@ -104,6 +104,7 @@
 .nav-btn:hover { background: var(--line2); color: var(--ink); }
 .nav-btn.active { background: var(--ink); color: #fff; }
 .cnt { font-family: var(--mono); font-size: 10px; background: var(--red); color: #fff; border-radius: 20px; padding: 1px 6px; font-weight: 600; }
+.soon-badge { font-family: var(--mono); font-size: 9px; background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-br); border-radius: 20px; padding: 1px 6px; font-weight: 600; white-space: nowrap; letter-spacing: 0.02em; }
 .topbar-r { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .avatar {
   width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff;
@@ -548,6 +549,7 @@
   .nav-lb { display: none; }
   .nav-lb-short { display: block; font-size: 10px; font-weight: 500; line-height: 1.1; text-align: center; }
   .nav .cnt { position: absolute; top: 3px; left: 50%; transform: translateX(6px); font-size: 8px; padding: 1px 4px; }
+  .nav .soon-badge { display: none; } /* в нижней навигации не помещается — статус виден на самой странице */
 
   /* Контент не перекрывается нижней навигацией */
   .ig-main { padding: 16px 14px 28px; }

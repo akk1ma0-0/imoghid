@@ -45,7 +45,7 @@ function Trace({ steps }: { steps: TraceStep[] }) {
           marginBottom: 7,
         }}
       >
-        Acțiunile agentului
+        Pașii verificării
       </div>
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {steps.map((t, i) => (
@@ -172,7 +172,7 @@ export default function CadastruPage() {
               <div style={{ display: "flex", gap: 10 }}>
                 <input
                   type="text"
-                  placeholder="str. Independenței 42, ap. 7 sau 0100225.041.212"
+                  placeholder="Chișinău, str. Independenței 42, ap. 7 sau 0100225.041.212"
                   style={{ flex: 1, height: 54, fontSize: 17, padding: "0 18px" }}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}

@@ -91,7 +91,7 @@ export default function SubscribePage() {
             </li>
             <li>
               <span className="feat-check">✓</span>
-              <span>Verificare automată acte prin AI</span>
+              <span>Verificare automată acte</span>
             </li>
             <li>
               <span className="feat-check">✓</span>
@@ -115,7 +115,7 @@ export default function SubscribePage() {
             </li>
             <li>
               <span className="feat-x">✕</span>
-              <span>Generator anunțuri AI</span>
+              <span>Generator anunțuri</span>
             </li>
             <li>
               <span className="feat-x">✕</span>
@@ -153,7 +153,7 @@ export default function SubscribePage() {
             </li>
             <li>
               <span className="feat-check">✓</span>
-              <span>Generator anunțuri AI (RO + RU)</span>
+              <span>Generator anunțuri (RO + RU)</span>
             </li>
             <li>
               <span className="feat-check">✓</span>

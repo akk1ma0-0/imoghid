@@ -39,7 +39,7 @@ export function BrandPanel({
         </div>
       </div>
 
-      <div className="left-footer">© 2025 ImoGhid · Legea 133/2011</div>
+      <div className="left-footer">© 2026 ImoGhid · Legea 133/2011</div>
     </div>
   );
 }

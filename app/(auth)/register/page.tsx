@@ -84,7 +84,7 @@ export default function RegisterPage() {
         desc="Creați contul în 60 de secunde. Accesul este activ imediat după plată."
         features={[
           "BASIC — $10/lună · acces complet la platformă",
-          "PRO — $30/lună · + rapoarte PDF, CMA, AI generator",
+          "PRO — $30/lună · + rapoarte PDF, CMA, generator anunțuri",
           "Anulați oricând, fără penalități",
         ]}
       />
@@ -217,6 +217,13 @@ export default function RegisterPage() {
               {loading ? "Se creează contul…" : "Continuați → alegeți planul"}
             </button>
           </form>
+
+          <div className="trial-banner">
+            <span aria-hidden>🎁</span>
+            <span>
+              <b>Primele 7 zile — gratuit.</b> Fără card bancar necesar.
+            </span>
+          </div>
 
           <div className="link-row" style={{ marginTop: 16 }}>
             Aveți deja cont? <Link href="/login">Intrați</Link>

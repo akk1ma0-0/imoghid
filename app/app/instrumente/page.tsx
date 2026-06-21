@@ -364,7 +364,7 @@ export default function InstrumentePage() {
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="card-hd">
             <b>Generare anunț</b>
-            <span className="badge b-purple" style={{ marginLeft: "auto" }}>Claude API</span>
+            <span className="badge b-purple" style={{ marginLeft: "auto" }}>automat</span>
           </div>
           <div className="card-bd">
             <div className="field-group">

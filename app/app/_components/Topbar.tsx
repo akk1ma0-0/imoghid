@@ -64,7 +64,7 @@ export function Topbar() {
           <span className="nav-ic" aria-hidden>📰</span>
           <span className="nav-lb">Anunțuri 999</span>
           <span className="nav-lb-short" aria-hidden>Anunțuri</span>
-          <span className="cnt">10</span>
+          <span className="soon-badge">în curând</span>
         </Link>
       </nav>
       <div className="topbar-r">

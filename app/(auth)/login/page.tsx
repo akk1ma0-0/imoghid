@@ -54,11 +54,11 @@ function LoginForm() {
   return (
     <div className="page">
       <BrandPanel
-        tag="Moldova · 2025"
+        tag="Moldova · 2026"
         title="Ghidul tău în fiecare tranzacție imobiliară"
-        desc="De la încărcarea documentelor până la programarea la ASP — platforma verifică, semnalează și calculează."
+        desc="De la verificarea documentelor până la programarea la ASP — platforma verifică, semnalează și calculează."
         features={[
-          "Verificare automată a actelor prin AI",
+          "Verificare automată a actelor",
           "Anunțuri noi de la proprietari — 999.md în timp real",
           "Calculator impozit · notariat · credit ipotecar",
           "Raport PDF profesional pentru client",

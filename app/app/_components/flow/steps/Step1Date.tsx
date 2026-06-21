@@ -149,7 +149,7 @@ export function Step1Date({
               <label>Adresa obiectului</label>
               <input
                 type="text"
-                placeholder="str. Independenței 42, ap. 7, Chișinău"
+                placeholder="Chișinău, str. Independenței 42, ap. 7"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
@@ -206,7 +206,7 @@ export function Step1Date({
                   <label>Adresa obiectului</label>
                   <input
                     type="text"
-                    placeholder="str. Independenței 42, ap. 7, Chișinău"
+                    placeholder="Chișinău, str. Independenței 42, ap. 7"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                   />
@@ -240,7 +240,7 @@ export function Step1Date({
                   <label>Adresa obiectului</label>
                   <input
                     type="text"
-                    placeholder="str. Decebal 99/D, ap. 40, Chișinău"
+                    placeholder="Chișinău, str. Decebal 99/D, ap. 40"
                     value={address2}
                     onChange={(e) => setAddress2(e.target.value)}
                   />

@@ -193,7 +193,7 @@ export function Step2Upload({
         onClick={analyze}
         disabled={!hasDocs || analyzing}
       >
-        {analyzing ? "Se verifică actele… (Claude API)" : "Continuați → verificarea actelor"}
+        {analyzing ? "Se verifică actele…" : "Continuați → verificarea actelor"}
       </button>
       {!hasDocs && (
         <p style={{ fontSize: 12, color: "var(--ink3)", marginTop: 8 }}>
