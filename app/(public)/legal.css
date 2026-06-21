@@ -1,0 +1,94 @@
+/* Публичные юридические страницы (/despre /faq /confidentialitate /termeni).
+   Белый фон, чистая типографика в духе docs/imoghid-v4.html. Без app-навигации. */
+
+.legal-page {
+  --ink: #111827;
+  --ink2: #374151;
+  --ink3: #6b7280;
+  --ink4: #9ca3af;
+  --line: #e5e7eb;
+  --blue: #1d4ed8;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: #ffffff;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+.legal-page * { box-sizing: border-box; }
+
+.legal-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 26px 20px 64px;
+}
+
+/* Липкая полоса с кнопкой «назад» — остаётся вверху при прокрутке. */
+.legal-backbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #ffffff;
+  padding: 14px 0 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 8px -8px rgba(0, 0, 0, 0.18);
+}
+.legal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink3);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+.legal-back:hover { color: var(--ink); }
+
+/* ── Letterhead (BiSeeTh + ImoGhid) ── */
+.legal-head {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+  margin-bottom: 28px;
+}
+.legal-brand { display: flex; align-items: center; gap: 9px; }
+.legal-logo {
+  width: 30px; height: 30px; border-radius: 7px;
+  background: var(--ink); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px; font-weight: 600; flex-shrink: 0;
+}
+.legal-mark { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.legal-dot { margin: 0 6px; color: #d1d5db; }
+.legal-app { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+.legal-letter { font-size: 12px; color: var(--ink3); margin: 11px 0 0; }
+.legal-meta { font-size: 11px; color: var(--ink4); line-height: 1.6; margin: 6px 0 0; }
+
+/* ── Типографика контента ── */
+.legal-wrap h1 {
+  font-size: 28px; font-weight: 700; letter-spacing: -0.03em;
+  line-height: 1.2; margin: 0 0 20px;
+}
+.legal-wrap h2 {
+  font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+  margin: 28px 0 8px;
+}
+.legal-q { font-size: 15px; font-weight: 600; color: var(--ink); margin: 22px 0 4px; }
+.legal-wrap p { font-size: 15px; line-height: 1.75; color: var(--ink2); margin: 0 0 12px; }
+.legal-wrap ul { margin: 0 0 14px; padding-left: 20px; }
+.legal-wrap li { font-size: 15px; line-height: 1.7; color: var(--ink2); margin: 0 0 6px; }
+
+/* ── Перекрёстные ссылки внизу ── */
+.legal-foot {
+  border-top: 1px solid var(--line);
+  margin-top: 40px; padding-top: 18px;
+  font-size: 12px; color: var(--ink3); line-height: 1.9;
+}
+.legal-foot a { color: var(--ink3); text-decoration: none; }
+.legal-foot a:hover { text-decoration: underline; color: var(--ink); }
+.legal-foot .sep { margin: 0 6px; color: #d1d5db; }
+
+@media (max-width: 600px) {
+  .legal-wrap { padding: 20px 16px 56px; }
+  .legal-wrap h1 { font-size: 23px; }
+  .legal-wrap h2 { font-size: 16px; }
+}

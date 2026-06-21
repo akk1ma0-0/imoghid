@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import "./imoghid.css";
 import { Providers } from "@/components/Providers";
 import { Topbar } from "./_components/Topbar";
@@ -17,6 +18,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="ig-root">
           <Topbar />
           {children}
+          <footer className="app-footer">
+            <Link href="/despre">Despre ImoGhid</Link>
+            <span className="sep">·</span>
+            <Link href="/termeni">Termeni și Condiții</Link>
+            <span className="sep">·</span>
+            <Link href="/confidentialitate">Politică de confidențialitate</Link>
+            <span className="sep">·</span>
+            <Link href="/faq">Întrebări frecvente</Link>
+          </footer>
         </div>
       </Providers>
     </>
