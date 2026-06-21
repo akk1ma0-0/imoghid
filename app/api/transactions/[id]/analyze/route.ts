@@ -165,6 +165,24 @@ export async function POST(_req: Request, { params }: Params) {
       const stale = current.filter((o) => !keep.has(o.fullName.trim())).map((o) => o.id);
       if (stale.length) await db.propertyOwner.deleteMany({ where: { id: { in: stale } } });
     }
+
+    // Частичное распознавание: Claude сообщил, что часть данных не читается
+    // (некачественный скан / рукописный текст) → предупреждение на шаге 3.
+    if (analysis.escalations.length > 0) {
+      await db.transactionFlag.create({
+        data: {
+          transactionId: id,
+          objectIndex: 1,
+          severity: "AMBER",
+          zone: "VERIFICARE_MANUALA",
+          code: "SCAN_PARTIAL",
+          titleRo: "Unele câmpuri nu au putut fi citite automat din document scanat.",
+          descriptionRo: "Verificați și completați manual dacă este necesar.",
+          legalRef: null,
+          legalRefUrl: null,
+        },
+      });
+    }
   });
 
   // Свежее состояние для рендера шага 3.

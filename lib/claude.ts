@@ -268,10 +268,18 @@ function mediaTypeOf(mime: string): "image/jpeg" | "image/png" | null {
 }
 
 async function fileToBlock(doc: DocInput): Promise<Anthropic.ContentBlockParam | null> {
-  const abs = path.join(process.cwd(), "public", doc.fileUrl.replace(/^\//, ""));
   let data: string;
   try {
-    data = (await readFile(abs)).toString("base64");
+    if (/^https?:\/\//.test(doc.fileUrl)) {
+      // Vercel Blob (или иной внешний URL) — забираем байты по сети.
+      const res = await fetch(doc.fileUrl);
+      if (!res.ok) return null;
+      data = Buffer.from(await res.arrayBuffer()).toString("base64");
+    } else {
+      // Legacy: локально сохранённый файл в public/uploads.
+      const abs = path.join(process.cwd(), "public", doc.fileUrl.replace(/^\//, ""));
+      data = (await readFile(abs)).toString("base64");
+    }
   } catch {
     return null;
   }
@@ -304,7 +312,13 @@ export async function analyzeDocuments(
     const content: Anthropic.ContentBlockParam[] = [
       {
         type: "text",
-        text: `Tip tranzacție (dealType): ${dealType}. Analizează documentele de mai jos, grupate pe obiecte, și răspunde STRICT în JSON conform structurii cerute.`,
+        text:
+          `Tip tranzacție (dealType): ${dealType}. Documentele de mai jos pot fi PDF-uri scanate ` +
+          `(imagini) sau fotografii — citește-le prin recunoaștere optică. Analizează-le grupate pe ` +
+          `obiecte și răspunde STRICT în JSON conform structurii cerute. Dacă un document este un scan ` +
+          `de calitate slabă sau conține text scris de mână care nu poate fi citit cu certitudine, ` +
+          `adaugă o intrare în "escalations" (reason = ce anume nu a putut fi citit) și lasă câmpurile ` +
+          `respective cu value null.`,
       },
     ];
     let fileCount = 0;

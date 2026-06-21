@@ -1,5 +1,23 @@
+"use client";
+
 import { useRef, useState } from "react";
+import { upload as blobUpload } from "@vercel/blob/client";
 import type { FlowTx } from "../types";
+
+// Безопасно извлекает сообщение об ошибке загрузки. При превышении лимита тела
+// сервер/прокси может вернуть HTML/текст («Request Entity Too Large»), а не JSON —
+// тогда JSON.parse падает. Здесь это перехватывается и даётся понятное сообщение.
+async function readUploadError(r: Response, fileName: string): Promise<string> {
+  if (r.status === 413) {
+    return `Fișierul „${fileName}” este prea mare pentru încărcare. Comprimați documentul (max 15 MB) și încercați din nou.`;
+  }
+  try {
+    const d = (await r.json()) as { error?: string };
+    return d?.error || "Eroare la încărcare.";
+  } catch {
+    return `Nu s-a putut încărca „${fileName}”. Fișierul poate fi prea mare — comprimați-l și încercați din nou.`;
+  }
+}
 
 function DropZone({
   tx,
@@ -19,20 +37,42 @@ function DropZone({
 
   const docs = tx.documents.filter((d) => d.objectIndex === objectIndex);
 
-  async function upload(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function upload(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
     setError(null);
+    const files = Array.from(fileList);
+
+    // Валидация на клиенте: каждый файл ≤ 15 МБ (иначе упрёмся в лимит тела запроса).
+    const MAX_CLIENT = 15 * 1024 * 1024;
+    if (files.some((f) => f.size > MAX_CLIENT)) {
+      setError("Fișierul depășește limita de 15 MB. Comprimați documentul și încercați din nou.");
+      return;
+    }
+
     setBusy(true);
-    const fd = new FormData();
-    fd.append("objectIndex", String(objectIndex));
-    for (const f of Array.from(files)) fd.append("files", f);
     try {
-      const r = await fetch(`/api/transactions/${tx.id}/documents`, {
-        method: "POST",
-        body: fd,
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d?.error);
+      for (const f of files) {
+        // 1) Файл идёт НАПРЯМУЮ в Vercel Blob из браузера — минуя 4.5 МБ-лимит
+        //    тела serverless-функции и read-only ФС на проде.
+        const blob = await blobUpload(f.name, f, {
+          access: "public",
+          contentType: f.type,
+          handleUploadUrl: `/api/transactions/${tx.id}/documents/blob`,
+        });
+        // 2) Регистрируем документ в БД — только метадата (крошечный JSON).
+        const r = await fetch(`/api/transactions/${tx.id}/documents`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            blobUrl: blob.url,
+            fileName: f.name,
+            fileSize: f.size,
+            mimeType: f.type,
+            objectIndex,
+          }),
+        });
+        if (!r.ok) throw new Error(await readUploadError(r, f.name));
+      }
       await reload();
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Eroare la încărcare.");

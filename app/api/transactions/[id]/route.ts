@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { rm } from "node:fs/promises";
 import path from "node:path";
+import { del } from "@vercel/blob";
 import type { DealType, PartyType, TransactionStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -117,7 +118,7 @@ export async function DELETE(_req: Request, { params }: Params) {
   // Явная проверка прав: 404 если нет, 403 если чужая.
   const tx = await prisma.transaction.findUnique({
     where: { id },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, documents: { select: { fileUrl: true } } },
   });
   if (!tx) return notFound();
   if (tx.userId !== sess.userId) {
@@ -130,7 +131,9 @@ export async function DELETE(_req: Request, { params }: Params) {
     prisma.transaction.delete({ where: { id } }),
   ]);
 
-  // Физические файлы документов.
+  // Файлы документов: Vercel Blob (по URL) + legacy локальная папка.
+  const blobUrls = tx.documents.map((d) => d.fileUrl).filter((u) => /^https?:\/\//.test(u));
+  if (blobUrls.length) await del(blobUrls).catch(() => {});
   await rm(path.join(process.cwd(), "public", "uploads", id), {
     recursive: true,
     force: true,

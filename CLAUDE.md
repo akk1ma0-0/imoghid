@@ -206,7 +206,8 @@ npm run prisma:studio    # GUI для БД
 - **FlagSeverity:** только RED/AMBER/GREEN (без миграции); «оранжевый» вид задаётся по `code` в UI (`flagPresentation`).
 - **Шаг 5 (чеклист):** генерируется из dealType+флагов (`lib/checklist/catalog.ts`); legalRef из таблицы `LegalRule` (сидируется).
 - **Шаг 6 (калькуляторы):** `lib/calc.ts` — единый источник для фронта и `POST .../calculation` (налоги VC/донация/обмен, нотариат Legea 271/2003, ипотека).
-- **Файлы:** загрузка в `/public/uploads/[txId]/` (dev-хранилище, в `.gitignore`; прод — S3/Supabase).
+- **Файлы (шаг 2):** хранятся в **Vercel Blob**. Браузер грузит файл **напрямую** в Blob (`@vercel/blob/client` `upload()`) — минуя 4.5 МБ-лимит тела serverless-функции и read-only ФС Vercel. Поток: (1) `POST /api/transactions/[id]/documents/blob` (`handleUpload`, проверка сессии+владения, выдаёт подписанный токен); (2) клиент грузит файл в Blob; (3) `POST /api/transactions/[id]/documents` с метадатой `{ blobUrl, fileName, fileSize, mimeType, objectIndex }` создаёт `TransactionDocument` (`fileUrl` = полный https-URL Blob). Нужен `BLOB_READ_WRITE_TOKEN` в env (локально и в Vercel). Клиент валидирует ≤15 МБ; роут — ≤20 МБ. `lib/claude.ts` тянет файлы по URL (`fetch`) для анализа; legacy локальные пути (`/uploads/...`) ещё поддерживаются. DELETE транзакции чистит блобы (`del()`).
+- **Сканы PDF:** PDF уходят в Claude как нативные `document`-блоки — Claude сам OCR'ит отсканированные PDF/изображения. Отдельная растеризация (pdf2pic/poppler) НЕ нужна и не используется (на Vercel недоступна). Если часть скана нечитаема — Claude добавляет `escalations`, и шаг 3 показывает флаг `SCAN_PARTIAL` («Unele câmpuri nu au putut fi citite…»).
 - **Заглушки (как в дизайне):** PDF-отчёт шаг 7 (PRO-gate, BASIC → upsell), «Acord de avans» шаг 5, вкладки Anunțuri/Instrumente в topbar.
 
 ---
