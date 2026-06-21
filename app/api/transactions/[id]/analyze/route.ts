@@ -166,9 +166,15 @@ export async function POST(_req: Request, { params }: Params) {
       if (stale.length) await db.propertyOwner.deleteMany({ where: { id: { in: stale } } });
     }
 
-    // Частичное распознавание: Claude сообщил, что часть данных не читается
-    // (некачественный скан / рукописный текст) → предупреждение на шаге 3.
-    if (analysis.escalations.length > 0) {
+    // Частичное распознавание: показываем предупреждение ТОЛЬКО когда эскалация
+    // именно про нечитаемость (скан плохого качества / рукописный текст), а не про
+    // содержательные юридические вопросы (которые тоже идут через escalations).
+    const unreadable = analysis.escalations.some((e) =>
+      /nu (a|au) putut fi citit|ilizibil|calitate (slab|proast)|scris de m[âa]n|scanat|necitibil/i.test(
+        e.reason,
+      ),
+    );
+    if (unreadable) {
       await db.transactionFlag.create({
         data: {
           transactionId: id,
