@@ -42,6 +42,25 @@ async function main() {
     },
   });
 
+  // ── Notificări demo pentru admin (создаются вручную; авторассылки нет) ──
+  const adminUser = await prisma.user.findUnique({ where: { email: "admin@imoghid.md" } });
+  if (adminUser && (await prisma.notification.count({ where: { userId: adminUser.id } })) === 0) {
+    await prisma.notification.createMany({
+      data: [
+        {
+          userId: adminUser.id,
+          title: "Legea nr. 40/2026 — intrare în vigoare",
+          body: "Pe 23 ianuarie 2027 intră în vigoare legea privind activitatea agenților imobiliari. Vezi „Informații utile”.",
+        },
+        {
+          userId: adminUser.id,
+          title: "Bun venit în ImoGhid",
+          body: "Vă mulțumim că folosiți platforma. Configurați-vă profilul în secțiunea Cont.",
+        },
+      ],
+    });
+  }
+
   // ── Reguli juridice (editabile fără deploy) — folosite de motorul de semnale și checklist ──
   const legalRules = [
     {

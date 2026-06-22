@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 
 import { InfoMenu } from "./InfoMenu";
+import { NotifBell } from "./NotifBell";
 
 export function Topbar() {
   const pathname = usePathname();
@@ -82,19 +83,25 @@ export function Topbar() {
             <span className="admin-btn-lb">Admin</span>
           </Link>
         )}
+        <NotifBell />
         <InfoMenu />
         {displayName && (
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink2)" }}>
+          <Link
+            href="/app/profile"
+            className="topbar-name"
+            style={{ fontSize: 13, fontWeight: 500, color: "var(--ink2)", textDecoration: "none" }}
+          >
             {displayName}
-          </span>
+          </Link>
         )}
-        <button
+        <Link
+          href="/app/profile"
           className="avatar"
-          title="Ieșire din cont"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          title="Profilul meu"
+          style={{ textDecoration: "none" }}
         >
           {initials}
-        </button>
+        </Link>
       </div>
     </header>
   );

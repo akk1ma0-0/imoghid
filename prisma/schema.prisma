@@ -146,6 +146,9 @@ model User {
   analysisCount        Int             @default(0)
   analysisCountResetAt DateTime        @default(now())
 
+  // Настройки уведомлений
+  notifLegislatie      Boolean         @default(false)
+
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -156,6 +159,7 @@ model User {
   reports              Report[]
   anuntGenerations     AnuntGeneration[]
   inviteCodes          InviteCode[]
+  notifications        Notification[]
 
   @@map("users")
 }
@@ -642,4 +646,22 @@ model AnuntGeneration {
 
   @@index([userId])
   @@map("anunt_generations")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NOTIFICĂRI — создаются вручную (seed / admin), без авторассылки
+// ─────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title     String
+  body      String
+  createdAt DateTime  @default(now())
+  readAt    DateTime?  // null = непрочитано
+
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

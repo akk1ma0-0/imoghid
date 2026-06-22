@@ -226,6 +226,18 @@ npm run prisma:studio    # GUI для БД
 
 ---
 
+## Профиль и уведомления (`/app/profile` + колокольчик)
+
+- **`/app/profile`** (auth) — серверный гард (`auth()` → redirect `/login`), данные из БД → клиент `ProfilePanel`. Клик на имя в топбаре ведёт сюда. 5 секций:
+  - **Profil** — Nume (`User.name`), Agenție/Companie (переиспользует **`User.agencyName`**), Telefon (переиспользует **`User.phone`**); email read-only. `PATCH /api/user/profile` `{name?, agentie?, telefon?, notifLegislatie?}` (agentie→agencyName, telefon→phone). ⚠️ Отдельных `agentie`/`telefon` колонок НЕ добавляли — используются существующие.
+  - **Parolă** — `PATCH /api/user/password` `{currentPassword,newPassword,confirmPassword}`: проверка текущего (bcrypt), совпадение, мин. 8 символов.
+  - **Abonament** — план из `session.user.plan`, дата reînnoire — **hardcoded заглушка** (`RENEWAL_DATE`), прогресс-бар = `effectiveUsed`/`analysisLimit` (BASIC 30 / PRO 100), «Schimbați planul» → alert «în curând».
+  - **Notificări** — toggle `User.notifLegislatie` (через `PATCH /api/user/profile`, оптимистично).
+  - **Zonă periculoasă** — «Ștergeți contul» → `confirm()` → `DELETE /api/user` (удаляет все данные в FK-безопасном порядке + blob-файлы `del()`, каскады транзакций) → `signOut({callbackUrl:"/login"})`.
+- **Уведомления:** модель `Notification` (id, userId, title, body, createdAt, readAt?; `onDelete: Cascade`; миграция `add_notifications` + колонка `notifLegislatie`). Создаются вручную (seed/БД), авторассылки нет. Колокольчик `NotifBell` в топбаре (слева от «Informații utile»): дропдаун 340px, синяя точка=непрочитано/серая=прочитано, красный бейдж с числом непрочитанных, «Marchează toate citite». Эндпоинты: `GET /api/notifications` (последние 20 + unreadCount), `PATCH /api/notifications/[id]/read`, `PATCH /api/notifications/read-all`. Логика дропдауна (toggle + клик-снаружи) — как у `InfoMenu`.
+
+---
+
 ## Модуль «Instrumente» (`/app/instrumente`)
 
 Четыре карточки (дизайн `docs/imoghid-v4.html` #viewAI):
