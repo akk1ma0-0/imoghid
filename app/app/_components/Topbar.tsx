@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 
+import { InfoMenu } from "./InfoMenu";
+
 export function Topbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -80,6 +82,7 @@ export function Topbar() {
             <span className="admin-btn-lb">Admin</span>
           </Link>
         )}
+        <InfoMenu />
         {displayName && (
           <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink2)" }}>
             {displayName}

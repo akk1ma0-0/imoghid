@@ -409,6 +409,36 @@
 .stat-lbl { font-size: 10.5px; color: var(--ink3); margin-top: 2px; }
 .doc-preview { background: var(--line2); border: 1px dashed var(--line); border-radius: var(--r); padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--ink2); white-space: pre-wrap; width: 100%; min-height: 220px; resize: vertical; }
 
+/* ── INFO MENU (Informații utile) ── */
+.info-wrap { position: relative; }
+.info-btn { font-size: 12px; padding: 5px 11px; display: flex; align-items: center; gap: 5px; }
+.info-btn-ic { display: none; }
+.info-menu {
+  position: absolute; right: 0; top: 38px;
+  background: var(--sur); border: 1px solid var(--line); border-radius: var(--rl);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  width: 500px; max-width: calc(100vw - 20px);
+  z-index: 300; max-height: 72vh; overflow-y: auto;
+}
+.info-menu-hd {
+  padding: 12px 16px 6px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink3);
+}
+.info-acc { border-top: 1px solid var(--line); }
+.info-acc-hd {
+  width: 100%; text-align: left; padding: 11px 16px; background: none; border: none; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 600; color: var(--ink); font-family: var(--sans);
+}
+.info-acc-hd:hover { background: var(--line2); }
+.info-acc-ic { font-size: 10px; color: var(--ink3); transition: transform 0.15s; flex-shrink: 0; }
+.info-acc-ic.open { transform: rotate(180deg); }
+.info-acc-bd { padding: 4px 16px 14px; border-top: 1px solid var(--line); }
+.info-acc-bd .info-h { font-size: 13px; font-weight: 600; color: var(--ink); margin: 12px 0 5px; }
+.info-acc-bd .info-p { font-size: 13px; color: var(--ink2); line-height: 1.65; margin: 0 0 7px; }
+.info-acc-bd .info-ul { font-size: 13px; color: var(--ink2); line-height: 1.7; margin: 0 0 8px; padding-left: 18px; }
+.info-acc-bd .info-ul li { margin-bottom: 3px; }
+
 /* ── ADMIN ── */
 .admin-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -529,6 +559,11 @@
   /* На мобильном у admin-кнопки только шестерёнка (без текста) */
   .admin-btn-lb { display: none; }
   .admin-btn { padding: 5px 9px; }
+  /* «Informații utile» на мобильном — компактная иконка ℹ */
+  .info-btn-lb { display: none; }
+  .info-btn-ic { display: inline; font-size: 14px; line-height: 1; }
+  .info-btn { padding: 6px 9px; }
+  .info-menu { top: 42px; }
 
   /* NAV → нижняя панель навигации (как в мобильных приложениях) */
   .nav {

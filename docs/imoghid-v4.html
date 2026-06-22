@@ -341,8 +341,89 @@ h1{font-size:21px;font-weight:700;letter-spacing:-.03em;margin-bottom:5px;}
     <button class="nav-btn" id="tab-feed" onclick="setView('feed')">Anunțuri 999 <span class="cnt">14</span></button>
   </nav>
   <div class="topbar-r">
+    <div style="position:relative;" id="info-menu-wrap">
+      <button class="btn" id="info-btn" onclick="toggleInfoMenu()" style="font-size:12px;padding:5px 11px;display:flex;align-items:center;gap:5px;">
+        <span>Informații utile</span><span style="font-size:10px;">▾</span>
+      </button>
+      <div id="info-menu" style="display:none;position:absolute;right:0;top:36px;background:var(--sur);border:1px solid var(--line);border-radius:var(--rl);box-shadow:0 4px 20px rgba(0,0,0,.12);width:500px;z-index:300;max-height:72vh;overflow-y:auto;">
+        <div style="padding:12px 16px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);">Informații utile pentru agenți</div>
+
+        <!-- Lege 40/2026 -->
+        <div style="border-top:1px solid var(--line);">
+          <button onclick="toggleInfoPanel('p-lege')" style="width:100%;text-align:left;padding:11px 16px;background:none;border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--ink);font-family:var(--sans);">
+            📋 Legea nr. 40/2026 privind activitatea agenților imobiliari
+            <span id="p-lege-icon" style="font-size:10px;color:var(--ink3);transition:.15s;">▾</span>
+          </button>
+          <div id="p-lege" style="display:none;padding:0 16px 14px;border-top:1px solid var(--line);">
+            <div style="background:var(--blue-bg);border-left:3px solid var(--blue2);border-radius:4px;padding:7px 11px;margin:10px 0;font-size:12px;color:var(--blue);">
+              Intrare în vigoare: 23 ianuarie 2027 · Autoritate: AGCC
+            </div>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;"><b style="color:var(--ink);">Certificarea</b> — poți activa legal doar în baza certificatului de agent imobiliar, obținut după formarea profesională în domeniu. Cerere scrisă la AGCC.</p>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;"><b style="color:var(--ink);">Registrul public</b> — modulul „Agenți imobiliari" în sistemul Registrul prețurilor imobiliare. Obligație: actualizare date în 15 zile lucrătoare de la modificare.</p>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;"><b style="color:var(--ink);">Contractul cu clientul</b> — obligatoriu în formă scrisă, cu servicii și comision clar definite. Modificări — doar prin act adițional semnat de ambele părți.</p>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;"><b style="color:var(--ink);">Conduita profesională</b> — evitarea conflictelor de interese; nu reprezenta mai multe părți fără acordul lor; fără beneficii ascunse.</p>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;"><b style="color:var(--ink);">Supraveghere</b>: Serviciul Fiscal de Stat, CNDCPD, Consiliul Concurenței, Inspectoratul de Stat.</p>
+            <div style="background:var(--amber-bg);border-radius:4px;padding:7px 11px;margin-top:8px;font-size:12px;color:var(--amber);font-weight:500;">
+              ⚠ Termen: obțineți certificatul până la 23 ianuarie 2027
+            </div>
+          </div>
+        </div>
+
+        <!-- Statutul agentului -->
+        <div style="border-top:1px solid var(--line);">
+          <button onclick="toggleInfoPanel('p-statut')" style="width:100%;text-align:left;padding:11px 16px;background:none;border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--ink);font-family:var(--sans);">
+            👤 Statutul agentului imobiliar
+            <span id="p-statut-icon" style="font-size:10px;color:var(--ink3);">▾</span>
+          </button>
+          <div id="p-statut" style="display:none;padding:0 16px 14px;border-top:1px solid var(--line);">
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:10px 0 7px;">Agentul imobiliar este profesionistul care intermediază tranzacțiile cu bunuri imobile — verifică obiectul, pregătește dosarul tranzacției, însoțește părțile până la notar și contribuie la o tranzacție sigură și legală.</p>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;">Odată cu Legea nr. 40/2026, statutul devine reglementat: activitate posibilă doar în baza certificatului de agent imobiliar, cu înregistrare în registrul public verificabil de clienți.</p>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;"><b style="color:var(--ink);">Obligații de transparență:</b> informare corectă, evitarea conflictelor de interese, confidențialitatea datelor, fără beneficii ascunse. Încrederea este principalul capital profesional.</p>
+            <div style="border-left:3px solid var(--ink3);padding:7px 11px;margin-top:8px;font-size:12px;color:var(--ink3);font-style:italic;border-radius:0 4px 4px 0;">
+              Agentul nu este un simplu intermediar — competența, transparența și statutul legal sunt ceea ce îl deosebesc.
+            </div>
+          </div>
+        </div>
+
+        <!-- Acte notariale -->
+        <div style="border-top:1px solid var(--line);">
+          <button onclick="toggleInfoPanel('p-acte')" style="width:100%;text-align:left;padding:11px 16px;background:none;border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--ink);font-family:var(--sans);">
+            ⚖️ Acte notariale în imobiliare
+            <span id="p-acte-icon" style="font-size:10px;color:var(--ink3);">▾</span>
+          </button>
+          <div id="p-acte" style="display:none;padding:0 16px 14px;border-top:1px solid var(--line);">
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:10px 0 7px;"><b style="color:var(--ink);">De ce la notar?</b> Înstrăinarea bunurilor imobile (vânzare-cumpărare, donație, schimb) și ipoteca se încheie obligatoriu în formă autentică. Fără ea — actul este nul.</p>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 5px;"><b style="color:var(--ink);">Principalele acte notariale:</b></p>
+            <ul style="font-size:13px;color:var(--ink2);line-height:1.75;margin:0 0 7px;padding-left:18px;">
+              <li>Contract de vânzare-cumpărare</li>
+              <li>Contract de donație / schimb / ipotecă</li>
+              <li>Contract cu clauză de întreținere pe viață (rentă / abitație)</li>
+              <li>Procura autentică — pentru reprezentare la tranzacție</li>
+              <li>Declarația de consimțământ al soțului — pentru bunul comun</li>
+              <li>Certificatul de moștenitor — pentru bunuri dobândite prin moștenire</li>
+            </ul>
+            <p style="font-size:13px;color:var(--ink2);line-height:1.65;margin:0 0 7px;"><b style="color:var(--ink);">Ce verifică notarul:</b> identitatea și capacitatea părților, dreptul de proprietate, extrasul din RBI, consimțământul soțului, acordul coproprietarilor.</p>
+            <div style="background:var(--green-bg);border-left:3px solid var(--green);border-radius:0 4px 4px 0;padding:7px 11px;margin-top:8px;font-size:12px;color:var(--ink2);">
+              Dreptul de proprietate se dobândește la data <b>înregistrării în RBI</b> — nu la semnarea contractului.
+            </div>
+            <p style="font-size:11.5px;color:var(--ink4);margin:10px 0 0;font-style:italic;">Texte orientative. Procedurile exacte și costurile se confirmă la notar.</p>
+          </div>
+        </div>
+      </div>
+    </div>
     <span style="font-size:13.5px;font-weight:500;color:var(--ink2);">Ion Popescu</span>
     <div class="avatar" style="width:32px;height:32px;font-size:12px;">IP</div>
+  </div>
+
+  <!-- INFO PANEL MODAL (legacy — kept for compatibility) -->
+  <div id="info-panel-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;align-items:center;justify-content:center;" onclick="if(event.target===this)closeInfoPanel()">
+    <div style="background:var(--sur);border-radius:var(--rl);width:min(680px,94vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);">
+        <b id="info-panel-title" style="font-size:15px;color:var(--ink);"></b>
+        <button onclick="closeInfoPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink3);padding:0 4px;">✕</button>
+      </div>
+      <div id="info-panel-body" style="overflow-y:auto;padding:20px 24px;font-size:13.5px;line-height:1.7;color:var(--ink2);"></div>
+    </div>
   </div>
 </header>
 
@@ -1685,6 +1766,110 @@ function setObjStatus(btn,status){
   var activeTab=document.querySelector('.obj-tab.active');
   if(activeTab)filterObjects(activeTab.dataset.filter,activeTab);
 }
+
+// ── Informatii utile ──
+var INFO_CONTENT = {
+  lege: {
+    title: 'Legea nr. 40/2026 privind activitatea agenților imobiliari',
+    body: `
+      <div style="background:var(--line2);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--ink3);">
+        <b style="color:var(--ink2);">Date cheie:</b> Legea nr. 40 din 26 martie 2026 · Intrare în vigoare: 23 ianuarie 2027 · Perioadă de tranziție: 12 luni · Autoritate: AGCC
+      </div>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:0 0 6px;">Ce reglementează și pe cine vizează</h3>
+      <p>Legea reglementează activitatea de intermediere imobiliară: cadrul de acces în profesie, cerințele profesionale, drepturile și obligațiile, supravegherea și sancțiunile. Scopul — o piață mai transparentă și protecția clienților.</p>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">Condiția principală: certificarea</h3>
+      <p>Poți activa legal doar în baza <b>certificatului de agent imobiliar</b>, obținut după certificatul de competență profesională. Cerere scrisă la AGCC + documente → certificat + înregistrare.</p>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">Registrul public al agenților</h3>
+      <p>Se creează modulul „Agenți imobiliari" unde clientul poate verifica autorizarea. Obligație: actualizezi datele despre tranzacții în termen de <b>15 zile lucrătoare</b>.</p>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">Contractul și plata</h3>
+      <p>Contract scris obligatoriu. Nu poți percepe taxe pentru informarea precontractuală. Modificările de remunerație — doar prin act adițional semnat.</p>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">Conduita profesională</h3>
+      <p>Evită conflictele de interese · Nu reprezenta mai multe părți fără acordul lor · Nu accepta beneficii ascunse.</p>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">Ce trebuie să faci până la 23 ianuarie 2027</h3>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;">
+        <li>Urmează un program de formare profesională → obține certificatul de competență</li>
+        <li>Depune cererea la AGCC cu documentele necesare</li>
+        <li>Asigură-te că ești înregistrat în modulul „Agenți imobiliari"</li>
+        <li>Trecă la contracte scrise cu servicii și comision clar definite</li>
+        <li>Respectă regulile de conduită și protecția datelor (Legea nr. 133/2011)</li>
+      </ul>
+      <p style="margin-top:14px;font-size:12px;color:var(--ink3);font-style:italic;">Memo orientativ bazat pe informația publică despre Legea nr. 40/2026.</p>`
+  },
+  statut: {
+    title: 'Statutul și rolul agentului imobiliar',
+    body: `
+      <p>Agentul imobiliar este profesionistul care intermediază tranzacțiile cu bunuri imobile, conectând vânzătorii și cumpărătorii și asigurând buna desfășurare a procesului. Rolul său nu se rezumă la a găsi un client: el <b>verifică obiectul</b>, <b>pregătește dosarul tranzacției</b>, însoțește părțile până la notar și contribuie la o tranzacție sigură și legală.</p>
+      <p>Odată cu <b>Legea nr. 40/2026</b>, statutul agentului devine unul reglementat: activitatea poate fi desfășurată doar în baza certificatului de agent imobiliar, iar agentul este înscris într-un registru public, unde clientul îi poate verifica autorizarea. Profesia capătă un cadru clar — cu cerințe de competență, reguli de conduită și răspundere.</p>
+      <p>Prin natura rolului său, agentul are obligații de transparență față de client: să informeze corect, să evite conflictele de interese, să păstreze confidențialitatea datelor și să nu accepte beneficii ascunse. <b>Încrederea este principalul capital profesional.</b></p>
+      <div style="background:var(--line2);border-radius:var(--r);padding:12px 14px;margin-top:16px;font-size:13px;color:var(--ink2);font-style:italic;">
+        Agentul imobiliar nu este un simplu intermediar, ci un profesionist responsabil — competența, transparența și statutul legal sunt ceea ce îl deosebesc.
+      </div>`
+  },
+  notar: {
+    title: 'Informații utile — Acte notariale',
+    body: `
+      <p style="font-size:12px;color:var(--ink3);font-style:italic;margin-bottom:14px;">Texte orientative. Procedurile concrete, costurile și actele exacte se confirmă la notar și conform legislației în vigoare a Republicii Moldova.</p>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:0 0 6px;">De ce tranzacția se autentifică la notar</h3>
+      <p>Înstrăinarea bunurilor imobile (vânzare-cumpărare, donație, schimb), precum și ipoteca, se încheie în <b>formă autentică</b> — adică la notar. Forma autentică nu este opțională: nerespectarea ei atrage nulitatea actului.</p>
+      <p>La autentificare, notarul verifică identitatea și capacitatea părților, caracterul liber al consimțământului, dreptul de proprietate și grevările.</p>
+      <div style="background:#FEF3C7;border-radius:var(--r);padding:10px 13px;margin:10px 0;font-size:12.5px;color:#92400E;">⚠️ Forma autentică nu e o formalitate — fără ea, tranzacția imobiliară nu este valabilă.</div>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">Principalele acte notariale</h3>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;">
+        <li>Contract de vânzare-cumpărare</li>
+        <li>Contract de donație</li>
+        <li>Contract de schimb</li>
+        <li>Contract de ipotecă</li>
+        <li>Contract de înstrăinare cu clauză de întreținere pe viață</li>
+        <li>Procura autentică — pentru reprezentarea unei părți</li>
+        <li>Declarația de consimțământ al soțului — pentru bunul comun</li>
+        <li>Certificatul de moștenitor — pentru bunurile dobândite prin moștenire</li>
+      </ul>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">Ce verifică notarul</h3>
+      <p>Actele de identitate · Actul de proprietate · Extrasul din RBI · Consimțământul soțului (dacă bunul e comun) · Acordul coproprietarilor.</p>
+      <div style="background:var(--line2);border-radius:var(--r);padding:10px 13px;margin-top:10px;font-size:12.5px;color:var(--ink2);font-style:italic;">Cu cât dosarul este mai complet la prima vizită, cu atât tranzacția se finalizează mai repede.</div>
+      <h3 style="font-size:13.5px;font-weight:600;color:var(--ink);margin:14px 0 6px;">După semnare: înregistrarea dreptului</h3>
+      <p>Dreptul de proprietate se dobândește la data <b>înregistrării în Registrul bunurilor imobile</b> — nu doar la semnarea contractului. De regulă, notarul poate transmite cererea de înregistrare.</p>`
+  }
+};
+
+function toggleInfoMenu(){
+  var m=document.getElementById('info-menu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+
+function toggleInfoPanel(id){
+  var panel=document.getElementById(id);
+  var icon=document.getElementById(id+'-icon');
+  var isOpen=panel.style.display!=='none';
+  // close all panels first
+  ['p-lege','p-statut','p-acte'].forEach(function(p){
+    var el=document.getElementById(p);
+    var ic=document.getElementById(p+'-icon');
+    if(el){el.style.display='none';}
+    if(ic){ic.style.transform='';}
+  });
+  // open clicked if was closed
+  if(!isOpen){
+    panel.style.display='block';
+    if(icon)icon.style.transform='rotate(180deg)';
+  }
+}
+
+function openInfoPanel(key){
+  toggleInfoMenu();
+}
+
+function closeInfoPanel(){
+  document.getElementById('info-panel-overlay').style.display='none';
+}
+
+document.addEventListener('click',function(e){
+  var wrap=document.getElementById('info-menu-wrap');
+  var menu=document.getElementById('info-menu');
+  if(menu&&wrap&&!wrap.contains(e.target)){
+    menu.style.display='none';
+  }
+});
 
 function go(n){
   for(var i=1;i<=8;i++){var s=document.getElementById('s'+i);if(s)s.classList.remove('show');}
