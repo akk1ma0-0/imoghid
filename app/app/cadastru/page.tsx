@@ -41,10 +41,12 @@ const EXAMPLES = [
   { label: "număr cadastral", q: "0100110.477.05.040" },
 ];
 
-function FlagBox({ k, v }: { k: string; v: string }) {
+function FlagBox({ k, v, critical }: { k: string; v: string; critical?: boolean }) {
   const clear = v === "Nu există";
+  // Nu există → зелёный; Există → красный для блокеров (Interdicții), жёлтый для остальных.
+  const cls = clear ? "ok" : critical ? "bad" : "warn";
   return (
-    <div className={`fl2-box ${clear ? "ok" : "warn"}`}>
+    <div className={`fl2-box ${cls}`}>
       <div className="fl2-k">{k}</div>
       <div className="fl2-v">{(clear ? "✓ " : "! ") + v}</div>
     </div>
@@ -374,7 +376,7 @@ export default function CadastruPage() {
                 <div className="cad-flags" style={{ marginTop: 12 }}>
                   <FlagBox k="Alte drepturi reale" v={record.record.dr} />
                   <FlagBox k="Notări" v={record.record.not} />
-                  <FlagBox k="Interdicții" v={record.record.int} />
+                  <FlagBox k="Interdicții" v={record.record.int} critical />
                 </div>
                 <div className="note note-warn" style={{ marginTop: 10 }}>
                   Date orientative din Registrul bunurilor imobile. Persoanele cu date personale nu
@@ -425,7 +427,11 @@ export default function CadastruPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink2)" }}>
             <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--amber)", flexShrink: 0 }} />
-            Există — necesită clarificare
+            Alte drepturi / Notări — necesită verificare
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink2)" }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--red)", flexShrink: 0 }} />
+            Interdicții — blochează tranzacția
           </div>
         </div>
 
