@@ -3,18 +3,60 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+// Предобработка скриншота для OCR (Canvas): 2x при ширине < 1500px, grayscale, бинаризация.
+function preprocessImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      const scale = img.width < 1500 ? 2 : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("canvas"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        const val = avg > 128 ? 255 : 0; // порог контраста
+        data[i] = data[i + 1] = data[i + 2] = val;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("blob"))), "image/png");
+    };
+    img.onerror = () => reject(new Error("image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Нормализация флага: «Existã/Există/…» → «Există», «Nu există» → «Nu există».
+function normFlag(s: string): string {
+  if (!s) return "Nu există";
+  return /exist/i.test(s) && !/nu\s*exist/i.test(s) ? "Există" : "Nu există";
+}
+
 // Парсер кадастрального текста (вставка / OCR). Только client-side регулярки, без API.
 function parseCadastralText(text: string) {
   const grab = (re: RegExp) => {
     const m = text.match(re);
     return m ? m[1].trim() : "";
   };
+  // Числовые поля: убираем все пробелы внутри числа (артефакты OCR «3 59.70» → «359.70»).
+  const grabNum = (re: RegExp) => {
+    const m = text.match(re);
+    return m ? m[1].replace(/\s+/g, "").trim() : "";
+  };
   return {
     numarCadastral: grab(/numărul cadastral[:\s]+([0-9.]+)/i),
     adresa: grab(/adresa[:\s]+(.+)/i),
     destinatie: grab(/destinație[:\s]+(.+)/i),
-    suprafata: grab(/suprafața[:\s]+([\d.,]+)/i),
-    valoare: grab(/valoarea estimată[^:]*:[:\s]+([\d\s]+)/i).replace(/\s+/g, " ").trim(),
+    suprafata: grabNum(/suprafața[:\s]+([\d\s.,]+?)(?:\s*m\.?p\.?|$)/im),
+    valoare: grabNum(/valoarea[^:\n]*:[:\s]*([\d\s]+?)(?:\s*lei|\s*$|\n)/i),
     tipProprietate: grab(/tipul de proprietate[:\s]+(.+)/i),
     alteDrepturiReale: grab(/alte drepturi reale[:\s]+(.+)/i),
     notari: grab(/notări[:\s]+(.+)/i),
@@ -41,14 +83,31 @@ const EXAMPLES = [
   { label: "număr cadastral", q: "0100110.477.05.040" },
 ];
 
-function FlagBox({ k, v, critical }: { k: string; v: string; critical?: boolean }) {
+function FlagBox({
+  k,
+  v,
+  critical,
+  onChange,
+}: {
+  k: string;
+  v: string;
+  critical?: boolean;
+  onChange?: (val: string) => void;
+}) {
   const clear = v === "Nu există";
   // Nu există → зелёный; Există → красный для блокеров (Interdicții), жёлтый для остальных.
   const cls = clear ? "ok" : critical ? "bad" : "warn";
   return (
     <div className={`fl2-box ${cls}`}>
       <div className="fl2-k">{k}</div>
-      <div className="fl2-v">{(clear ? "✓ " : "! ") + v}</div>
+      {onChange ? (
+        <select className="fl2-sel" value={clear ? "Nu există" : "Există"} onChange={(e) => onChange(e.target.value)}>
+          <option>Nu există</option>
+          <option>Există</option>
+        </select>
+      ) : (
+        <div className="fl2-v">{(clear ? "✓ " : "! ") + v}</div>
+      )}
     </div>
   );
 }
@@ -115,6 +174,13 @@ export default function CadastruPage() {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [manualMode, setManualMode] = useState(false);
+  const [ocrRawText, setOcrRawText] = useState<string | null>(null);
+  const [parseWarn, setParseWarn] = useState<string | null>(null);
+
+  // Обновление одного поля редактируемой карточки.
+  function updateRec(field: keyof CadRecord, value: string) {
+    setRecord((r) => (r ? { ...r, record: { ...r.record, [field]: value } } : r));
+  }
 
   // Заполняет карточку результата из распарсенного текста.
   function applyParsed(text: string): boolean {
@@ -127,6 +193,15 @@ export default function CadastruPage() {
     setPicker(null);
     setFallback(null);
     setManualMode(true);
+
+    // Предупреждение: подозрительно большая площадь для квартиры (вероятно артефакт OCR).
+    const suprNum = parseFloat(p.suprafata.replace(",", "."));
+    setParseWarn(
+      Number.isFinite(suprNum) && suprNum > 500
+        ? `Suprafața recunoscută (${p.suprafata} m²) pare neobișnuit de mare — verificați (posibil artefact OCR).`
+        : null,
+    );
+
     setRecord({
       cadastralNo: p.numarCadastral || "—",
       record: {
@@ -135,9 +210,9 @@ export default function CadastruPage() {
         dest: p.destinatie || "—",
         val: p.valoare || "—",
         prop: p.tipProprietate || "—",
-        dr: p.alteDrepturiReale || "—",
-        not: p.notari || "—",
-        int: p.interdictii || "—",
+        dr: normFlag(p.alteDrepturiReale),
+        not: normFlag(p.notari),
+        int: normFlag(p.interdictii),
       },
     });
     setManualOpen(false);
@@ -150,14 +225,24 @@ export default function CadastruPage() {
     setOcrBusy(true);
     setOcrProgress(0);
     try {
+      // Предобработка (Canvas): апскейл + grayscale + бинаризация — заметно лучше для скриншотов.
+      let input: Blob = file;
+      try {
+        input = await preprocessImage(file);
+      } catch {
+        input = file; // если предобработка не удалась — OCR исходника
+      }
       const Tesseract = (await import("tesseract.js")).default;
-      const { data } = await Tesseract.recognize(file, "ron", {
+      const { data } = await Tesseract.recognize(input, "ron", {
         logger: (m: { status: string; progress: number }) => {
           if (m.status === "recognizing text") setOcrProgress(Math.round(m.progress * 100));
         },
-      });
+        tessedit_char_whitelist: "",
+        preserve_interword_spaces: "1",
+      } as Parameters<typeof Tesseract.recognize>[2]);
+      setOcrRawText(data.text);
       if (!applyParsed(data.text)) {
-        setOcrError("Nu am putut extrage datele din imagine. Încercați o imagine mai clară.");
+        setOcrError("Nu am putut extrage datele din imagine. Verificați textul recunoscut mai jos.");
       }
     } catch {
       setOcrError("Eroare la recunoașterea imaginii.");
@@ -174,6 +259,8 @@ export default function CadastruPage() {
     setPicker(null);
     setFallback(null);
     setManualMode(false);
+    setOcrRawText(null);
+    setParseWarn(null);
     setTrace([{ s: "run", title: "Recunosc datele introduse…" }]);
 
     let data: Record<string, unknown> | null = null;
@@ -363,21 +450,62 @@ export default function CadastruPage() {
                     comandați extrasul oficial din RBI.
                   </div>
                 )}
-                <table className="ftbl">
-                  <tbody>
-                    <tr><td className="k">Adresă</td><td className="v">{record.record.addr}</td></tr>
-                    <tr><td className="k">Număr cadastral</td><td className="v">{record.cadastralNo}</td></tr>
-                    <tr><td className="k">Suprafață</td><td className="v">{record.record.supr}</td></tr>
-                    <tr><td className="k">Destinație</td><td className="v">{record.record.dest}</td></tr>
-                    <tr><td className="k">Valoare (evaluare)</td><td className="v">{record.record.val}</td></tr>
-                    <tr><td className="k">Tip proprietate</td><td className="v">{record.record.prop}</td></tr>
-                  </tbody>
-                </table>
-                <div className="cad-flags" style={{ marginTop: 12 }}>
-                  <FlagBox k="Alte drepturi reale" v={record.record.dr} />
-                  <FlagBox k="Notări" v={record.record.not} />
-                  <FlagBox k="Interdicții" v={record.record.int} critical />
+                {parseWarn && (
+                  <div className="notice amber" style={{ marginBottom: 12 }}>
+                    <div className="notice-dot" />
+                    <div>
+                      <b>{parseWarn}</b>
+                    </div>
+                  </div>
+                )}
+
+                {/* Поля редактируемые — можно исправить ошибку OCR прямо здесь, до «Creați dosarul». */}
+                <div className="field-group">
+                  <label>Adresă</label>
+                  <input type="text" value={record.record.addr} onChange={(e) => updateRec("addr", e.target.value)} />
                 </div>
+                <div className="field-row">
+                  <div className="field-group">
+                    <label>Număr cadastral</label>
+                    <input
+                      type="text"
+                      value={record.cadastralNo}
+                      onChange={(e) => setRecord((r) => (r ? { ...r, cadastralNo: e.target.value } : r))}
+                    />
+                  </div>
+                  <div className="field-group">
+                    <label>Tip proprietate</label>
+                    <input type="text" value={record.record.prop} onChange={(e) => updateRec("prop", e.target.value)} />
+                  </div>
+                </div>
+                <div className="field-row">
+                  <div className="field-group">
+                    <label>Suprafață (m²)</label>
+                    <input type="text" value={record.record.supr} onChange={(e) => updateRec("supr", e.target.value)} />
+                  </div>
+                  <div className="field-group">
+                    <label>Valoare (evaluare)</label>
+                    <input type="text" value={record.record.val} onChange={(e) => updateRec("val", e.target.value)} />
+                  </div>
+                </div>
+                <div className="field-group">
+                  <label>Destinație</label>
+                  <input type="text" value={record.record.dest} onChange={(e) => updateRec("dest", e.target.value)} />
+                </div>
+
+                <div className="cad-flags" style={{ marginTop: 4 }}>
+                  <FlagBox k="Alte drepturi reale" v={record.record.dr} onChange={(val) => updateRec("dr", val)} />
+                  <FlagBox k="Notări" v={record.record.not} onChange={(val) => updateRec("not", val)} />
+                  <FlagBox k="Interdicții" v={record.record.int} critical onChange={(val) => updateRec("int", val)} />
+                </div>
+
+                {ocrRawText && (
+                  <details className="ocr-raw">
+                    <summary>Text recunoscut (verificați manual)</summary>
+                    <pre>{ocrRawText}</pre>
+                  </details>
+                )}
+
                 <div className="note note-warn" style={{ marginTop: 10 }}>
                   Date orientative din Registrul bunurilor imobile. Persoanele cu date personale nu
                   sunt afișate la acest pas (Legea 133/2011).
@@ -502,7 +630,10 @@ export default function CadastruPage() {
                       className="btn solid"
                       style={{ marginTop: 12 }}
                       disabled={!manualText.trim()}
-                      onClick={() => applyParsed(manualText)}
+                      onClick={() => {
+                        setOcrRawText(null); // вставка текста — без блока OCR
+                        applyParsed(manualText);
+                      }}
                     >
                       Analizați
                     </button>
