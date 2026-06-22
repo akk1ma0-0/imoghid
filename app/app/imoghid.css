@@ -345,6 +345,8 @@
 .fl2-box { border: 1px solid var(--line); border-radius: var(--r); padding: 10px 8px; text-align: center; background: var(--sur); }
 .fl2-box.bad { background: var(--red-bg); border-color: var(--red-br); }
 .fl2-box.bad .fl2-v { color: var(--red); }
+.fl2-box.warn { background: var(--amber-bg); border-color: var(--amber-br); }
+.fl2-box.warn .fl2-v { color: var(--amber); }
 .fl2-box.ok { background: var(--green-bg); border-color: var(--green-br); }
 .fl2-box.ok .fl2-v { color: var(--green); }
 .fl2-k { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink3); }

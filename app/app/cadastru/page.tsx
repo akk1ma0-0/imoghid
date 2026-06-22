@@ -1,7 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+// Парсер кадастрального текста (вставка / OCR). Только client-side регулярки, без API.
+function parseCadastralText(text: string) {
+  const grab = (re: RegExp) => {
+    const m = text.match(re);
+    return m ? m[1].trim() : "";
+  };
+  return {
+    numarCadastral: grab(/numărul cadastral[:\s]+([0-9.]+)/i),
+    adresa: grab(/adresa[:\s]+(.+)/i),
+    destinatie: grab(/destinație[:\s]+(.+)/i),
+    suprafata: grab(/suprafața[:\s]+([\d.,]+)/i),
+    valoare: grab(/valoarea estimată[^:]*:[:\s]+([\d\s]+)/i).replace(/\s+/g, " ").trim(),
+    tipProprietate: grab(/tipul de proprietate[:\s]+(.+)/i),
+    alteDrepturiReale: grab(/alte drepturi reale[:\s]+(.+)/i),
+    notari: grab(/notări[:\s]+(.+)/i),
+    interdictii: grab(/interdicții[:\s]+(.+)/i),
+  };
+}
 
 type TraceStep = { s: "ok" | "run" | "wait"; title: string; val?: string; step?: string };
 type CadRecord = {
@@ -25,7 +44,7 @@ const EXAMPLES = [
 function FlagBox({ k, v }: { k: string; v: string }) {
   const clear = v === "Nu există";
   return (
-    <div className={`fl2-box ${clear ? "ok" : "bad"}`}>
+    <div className={`fl2-box ${clear ? "ok" : "warn"}`}>
       <div className="fl2-k">{k}</div>
       <div className="fl2-v">{(clear ? "✓ " : "! ") + v}</div>
     </div>
@@ -85,6 +104,66 @@ export default function CadastruPage() {
   const [confirmed, setConfirmed] = useState<{ addr: string; cad: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // ── Ввод вручную (текст / скриншот OCR) ──
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTab, setManualTab] = useState<"text" | "image">("text");
+  const [manualText, setManualText] = useState("");
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+
+  // Заполняет карточку результата из распарсенного текста.
+  function applyParsed(text: string): boolean {
+    const p = parseCadastralText(text);
+    if (!p.numarCadastral && !p.adresa) {
+      setOcrError("Nu am putut extrage datele. Verificați formatul textului.");
+      return false;
+    }
+    setTrace(null);
+    setPicker(null);
+    setFallback(null);
+    setManualMode(true);
+    setRecord({
+      cadastralNo: p.numarCadastral || "—",
+      record: {
+        addr: p.adresa || "—",
+        supr: p.suprafata || "—",
+        dest: p.destinatie || "—",
+        val: p.valoare || "—",
+        prop: p.tipProprietate || "—",
+        dr: p.alteDrepturiReale || "—",
+        not: p.notari || "—",
+        int: p.interdictii || "—",
+      },
+    });
+    setManualOpen(false);
+    return true;
+  }
+
+  // OCR скриншота через Tesseract.js (язык 'ron'); динамический импорт — не грузим на старте.
+  async function runOcr(file: File) {
+    setOcrError(null);
+    setOcrBusy(true);
+    setOcrProgress(0);
+    try {
+      const Tesseract = (await import("tesseract.js")).default;
+      const { data } = await Tesseract.recognize(file, "ron", {
+        logger: (m: { status: string; progress: number }) => {
+          if (m.status === "recognizing text") setOcrProgress(Math.round(m.progress * 100));
+        },
+      });
+      if (!applyParsed(data.text)) {
+        setOcrError("Nu am putut extrage datele din imagine. Încercați o imagine mai clară.");
+      }
+    } catch {
+      setOcrError("Eroare la recunoașterea imaginii.");
+    } finally {
+      setOcrBusy(false);
+    }
+  }
+
   async function runLookup(rawQuery: string) {
     const raw = rawQuery.trim();
     if (!raw) return;
@@ -92,6 +171,7 @@ export default function CadastruPage() {
     setRecord(null);
     setPicker(null);
     setFallback(null);
+    setManualMode(false);
     setTrace([{ s: "run", title: "Recunosc datele introduse…" }]);
 
     let data: Record<string, unknown> | null = null;
@@ -218,6 +298,17 @@ export default function CadastruPage() {
                 >
                   Căutați →
                 </button>
+                <button
+                  className="btn"
+                  type="button"
+                  style={{ whiteSpace: "nowrap", height: 54, padding: "0 18px", fontSize: 14 }}
+                  onClick={() => {
+                    setOcrError(null);
+                    setManualOpen(true);
+                  }}
+                >
+                  ✎ Introduceți manual
+                </button>
               </div>
               <div style={{ display: "flex", gap: 7, alignItems: "center", marginTop: 16, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 13, color: "var(--ink4)" }}>Exemple:</span>
@@ -264,6 +355,12 @@ export default function CadastruPage() {
 
             {record && (
               <div style={{ marginTop: 18 }}>
+                {manualMode && (
+                  <div className="note note-warn" style={{ marginBottom: 12 }}>
+                    Date introduse manual — nu sunt verificate oficial. Pentru certitudine juridică
+                    comandați extrasul oficial din RBI.
+                  </div>
+                )}
                 <table className="ftbl">
                   <tbody>
                     <tr><td className="k">Adresă</td><td className="v">{record.record.addr}</td></tr>
@@ -327,10 +424,132 @@ export default function CadastruPage() {
             Nu există — fără obstacole
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink2)" }}>
-            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--red)", flexShrink: 0 }} />
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--amber)", flexShrink: 0 }} />
             Există — necesită clarificare
           </div>
         </div>
+
+        {/* ── MODAL: introducere manuală (Text / OCR captură) ── */}
+        {manualOpen && (
+          <div
+            className="modal-overlay"
+            onClick={(e) => e.target === e.currentTarget && setManualOpen(false)}
+          >
+            <div className="modal-box" style={{ maxWidth: 560 }}>
+              <div className="modal-hd">
+                <h2>Introduceți manual datele cadastrale</h2>
+                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setManualOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <div className="modal-bd">
+                <div className="lang-tabs" style={{ marginBottom: 12 }}>
+                  <button
+                    className={`lang-tab${manualTab === "text" ? " on" : ""}`}
+                    onClick={() => {
+                      setManualTab("text");
+                      setOcrError(null);
+                    }}
+                  >
+                    Text
+                  </button>
+                  <button
+                    className={`lang-tab${manualTab === "image" ? " on" : ""}`}
+                    onClick={() => {
+                      setManualTab("image");
+                      setOcrError(null);
+                    }}
+                  >
+                    Captură de ecran
+                  </button>
+                </div>
+
+                {ocrError && (
+                  <div className="notice red" style={{ marginBottom: 10 }}>
+                    <div className="notice-dot" />
+                    <div>
+                      <b>{ocrError}</b>
+                    </div>
+                  </div>
+                )}
+
+                {manualTab === "text" ? (
+                  <>
+                    <textarea
+                      className="doc-preview"
+                      style={{ minHeight: 200 }}
+                      placeholder={
+                        "Numărul cadastral: 0100110.477.02.040\n" +
+                        "Adresa: mun. Chișinău, bd. Decebal, 99/A ap.40\n" +
+                        "Destinație: Locativă\n" +
+                        "Suprafața: 59.70 m.p.\n" +
+                        "Valoarea estimată a bunului imobil, lei: 382 252\n" +
+                        "Tipul de proprietate: Privată\n" +
+                        "Alte drepturi reale: Nu există\n" +
+                        "Notări: Nu există\n" +
+                        "Interdicții: Nu există"
+                      }
+                      value={manualText}
+                      onChange={(e) => setManualText(e.target.value)}
+                    />
+                    <button
+                      className="btn solid"
+                      style={{ marginTop: 12 }}
+                      disabled={!manualText.trim()}
+                      onClick={() => applyParsed(manualText)}
+                    >
+                      Analizați
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className="drop"
+                      onClick={() => imgInputRef.current?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const f = e.dataTransfer.files?.[0];
+                        if (f) runOcr(f);
+                      }}
+                    >
+                      <div className="drop-big">Trageți imaginea aici</div>
+                      <div className="drop-sub">PNG · JPG — captură din e-Cadastru</div>
+                      <button className="drop-btn" type="button">
+                        Selectați imaginea
+                      </button>
+                      <input
+                        ref={imgInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) runOcr(f);
+                        }}
+                      />
+                    </div>
+                    {ocrBusy && (
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 6 }}>
+                          Recunoaștere text… {ocrProgress}%
+                        </div>
+                        <div className="prog">
+                          <div className="prog-fill" style={{ width: `${ocrProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <p style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 12, lineHeight: 1.6 }}>
+                  Date introduse manual — nu sunt verificate oficial. Pentru certitudine juridică
+                  comandați extrasul oficial din RBI.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
