@@ -51,12 +51,28 @@ function parseCadastralText(text: string) {
     const m = text.match(re);
     return m ? m[1].replace(/\s+/g, "").trim() : "";
   };
+  // Valoare устойчиво к OCR-артефактам (мусор в начале строки, запятая вместо двоеточия,
+  // искажённое «valoare»: «|. oarca estimată a bunului imobil, 382 252»). Ловим число в строке
+  // с estimat/valoare/bunului imobil; fallback — любое число > 10000 рядом с «lei».
+  const extractValoare = (): string => {
+    const m = text.match(/(?:estimat|valoare|bunului\s+imobil)[^0-9]*([\d\s]+)(?:\s*lei)?/i);
+    if (m) {
+      const num = m[1].replace(/\s+/g, "");
+      if (num) return num;
+    }
+    const f = text.match(/lei[:\s,|.]*([\d\s]{4,})/i);
+    if (f) {
+      const num = f[1].replace(/\s+/g, "");
+      if (num && Number(num) > 10000) return num;
+    }
+    return "";
+  };
   return {
     numarCadastral: grab(/numărul cadastral[:\s]+([0-9.]+)/i),
     adresa: grab(/adresa[:\s]+(.+)/i),
     destinatie: grab(/destinație[:\s]+(.+)/i),
     suprafata: grabNum(/suprafața[:\s]+([\d\s.,]+?)(?:\s*m\.?p\.?|$)/im),
-    valoare: grabNum(/valoarea[^:\n]*:[:\s]*([\d\s]+?)(?:\s*lei|\s*$|\n)/i),
+    valoare: extractValoare(),
     tipProprietate: grab(/tipul de proprietate[:\s]+(.+)/i),
     alteDrepturiReale: grab(/alte drepturi reale[:\s]+(.+)/i),
     notari: grab(/notări[:\s]+(.+)/i),
