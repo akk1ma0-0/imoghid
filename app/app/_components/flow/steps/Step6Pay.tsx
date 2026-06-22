@@ -154,7 +154,16 @@ export function Step6Pay({
                     </div>
                     <div className="field-group">
                       <label>Prețul de vânzare (MDL)</label>
-                      <input type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="1 400 000" />
+                      <input
+                        type="number"
+                        value={sellPrice}
+                        onChange={(e) => {
+                          // Auto-prefill «Valoarea tranzacției» (editabil ulterior, nu readonly).
+                          setSellPrice(e.target.value);
+                          setNotaryVal(e.target.value);
+                        }}
+                        placeholder="1 400 000"
+                      />
                     </div>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 6 }}>

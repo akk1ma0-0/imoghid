@@ -245,6 +245,11 @@
   color: var(--ink4);
   margin-top: 4px;
 }
+.field-error {
+  font-size: 12px;
+  color: var(--red);
+  margin-top: 4px;
+}
 .field-optional {
   font-size: 10px;
   font-family: var(--mono);

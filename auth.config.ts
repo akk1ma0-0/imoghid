@@ -1,6 +1,11 @@
 import type { NextAuthConfig } from "next-auth";
 import type { SubscriptionPlan } from "@prisma/client";
 
+// 30 дней — сессия живёт после закрытия браузера.
+const THIRTY_DAYS = 30 * 24 * 60 * 60;
+// secure-cookie только в проде (на localhost по http secure-cookie не передаётся → логин сломался бы).
+const useSecureCookies = process.env.NODE_ENV === "production";
+
 // Edge-safe конфигурация (без Prisma и bcrypt) — её использует middleware.
 // Полный конфиг с провайдером Credentials живёт в auth.ts (Node runtime).
 export const authConfig = {
@@ -9,6 +14,20 @@ export const authConfig = {
   },
   session: {
     strategy: "jwt",
+    maxAge: THIRTY_DAYS,
+  },
+  // Персистентная cookie на 30 дней (имя — конвенция Auth.js v5, чтобы существующие сессии не ломались).
+  cookies: {
+    sessionToken: {
+      name: `${useSecureCookies ? "__Secure-" : ""}authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        maxAge: THIRTY_DAYS,
+      },
+    },
   },
   providers: [],
   callbacks: {

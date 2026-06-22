@@ -141,16 +141,48 @@ export default function CadastruPage() {
     if (!record) return;
     const addr = record.record.addr.replace(" (demo)", "");
     setConfirmed({ addr, cad: record.cadastralNo });
-    const qs = new URLSearchParams({
-      from: "cadastru",
+
+    // ?target=object1 | object2 — какой объект Шага 1 заполнить (для Schimb).
+    const target =
+      new URLSearchParams(window.location.search).get("target") === "object2"
+        ? "object2"
+        : "object1";
+    const obj = {
       address: addr,
-      cad: record.cadastralNo,
-      objectType: "Apartament",
-      supr: record.record.supr ?? "",
-      dest: record.record.dest ?? "",
-      val: record.record.val ?? "",
-    });
-    setTimeout(() => router.push(`/app/transactions/new?${qs.toString()}`), 600);
+      cadastralNo: record.cadastralNo,
+      suprafata: record.record.supr ?? "",
+      destinatie: record.record.dest ?? "",
+      valoare: record.record.val ?? "",
+    };
+
+    // Мержим в существующий черновик Шага 1, сохраняя данные другого объекта.
+    let draft: Record<string, string | boolean> = {};
+    try {
+      draft = JSON.parse(sessionStorage.getItem("step1_draft") || "{}");
+    } catch {
+      draft = {};
+    }
+    draft.fromCadastru = true;
+    if (target === "object2") {
+      draft.dealType = "SCHIMB"; // второй объект имеет смысл только при обмене
+      draft.address2 = obj.address;
+      draft.cadastralNo2 = obj.cadastralNo;
+      draft.suprafata2 = obj.suprafata;
+      draft.destinatie2 = obj.destinatie;
+      draft.valoare2 = obj.valoare;
+    } else {
+      draft.address = obj.address;
+      draft.cadastralNo = obj.cadastralNo;
+      draft.suprafata = obj.suprafata;
+      draft.destinatie = obj.destinatie;
+      draft.valoare = obj.valoare;
+    }
+    try {
+      sessionStorage.setItem("step1_draft", JSON.stringify(draft));
+    } catch {
+      /* ignore */
+    }
+    setTimeout(() => router.push("/app/transactions/new"), 600);
   }
 
   return (

@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import type { SubscriptionPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { redeemInvite, InviteError } from "@/lib/invite";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Молдавский формат: +373 + 8 цифр или 0 + 8 цифр (после удаления пробелов/дефисов).
+const PHONE_RE = /^(\+373\d{8}|0\d{8})$/;
 
-// Минимум 8 символов, хотя бы одна заглавная буква и одна цифра.
-function isStrongPassword(pw: string): boolean {
-  return pw.length >= 8 && /[A-Z]/.test(pw) && /[0-9]/.test(pw);
-}
-
-// POST /api/auth/register
-// { name, email, phone, password, agencyName?, inviteCode? }
+// POST /api/auth/register — открытая регистрация (без кода приглашения).
+// { name, email, phone, password, agencyName? } → BASIC, неактивна (выбор плана на /subscribe).
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try {
@@ -23,17 +18,12 @@ export async function POST(request: Request) {
   }
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  const email =
-    typeof body.email === "string" ? body.email.toLowerCase().trim() : "";
+  const email = typeof body.email === "string" ? body.email.toLowerCase().trim() : "";
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
   const agencyName =
     typeof body.agencyName === "string" && body.agencyName.trim()
       ? body.agencyName.trim()
-      : null;
-  const inviteCode =
-    typeof body.inviteCode === "string" && body.inviteCode.trim()
-      ? body.inviteCode.trim()
       : null;
 
   // Валидация
@@ -43,18 +33,15 @@ export async function POST(request: Request) {
   if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ error: "Email invalid." }, { status: 400 });
   }
-  if (!phone) {
+  if (!PHONE_RE.test(phone.replace(/[\s\-()]/g, ""))) {
     return NextResponse.json(
-      { error: "Telefonul este obligatoriu." },
+      { error: "Telefon invalid. Format: +373 XX XXX XXX sau 0XX XXX XXX." },
       { status: 400 },
     );
   }
-  if (!isStrongPassword(password)) {
+  if (password.length < 8) {
     return NextResponse.json(
-      {
-        error:
-          "Parola trebuie să aibă minimum 8 caractere, o literă mare și o cifră.",
-      },
+      { error: "Parola trebuie să aibă minimum 8 caractere." },
       { status: 400 },
     );
   }
@@ -71,28 +58,10 @@ export async function POST(request: Request) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   try {
-    const user = await prisma.$transaction(async (tx) => {
-      let plan: SubscriptionPlan = "BASIC";
-      let planActivatedAt: Date | null = null;
-
-      // Валидный код приглашения → активирует PRO (или план кода) и инкрементит usedCount.
-      if (inviteCode) {
-        plan = await redeemInvite(tx, inviteCode);
-        planActivatedAt = new Date();
-      }
-
-      return tx.user.create({
-        data: {
-          name,
-          email,
-          phone,
-          passwordHash,
-          agencyName,
-          plan,
-          planActivatedAt,
-        },
-        select: { id: true, email: true, plan: true, planActivatedAt: true },
-      });
+    // Регистрация открытая: всегда BASIC, подписка неактивна (planActivatedAt: null).
+    const user = await prisma.user.create({
+      data: { name, email, phone, passwordHash, agencyName, plan: "BASIC" },
+      select: { id: true, email: true, plan: true, planActivatedAt: true },
     });
 
     return NextResponse.json(
@@ -105,13 +74,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof InviteError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
     console.error("register error:", error);
-    return NextResponse.json(
-      { error: "Nu s-a putut crea contul." },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Nu s-a putut crea contul." }, { status: 500 });
   }
 }
