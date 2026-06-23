@@ -16,18 +16,37 @@ const FALLBACK_STEP3_PROMPT =
   "flags:[{code,severity,zone,titleRo,descriptionRo,legalRef}]}], escalations:[], summary:{...} }.";
 
 function loadSystemPrompt(): string {
+  let prompt: string;
   try {
     const full = readFileSync(
       path.join(process.cwd(), "docs", "imoghid-reference.md"),
       "utf8",
     );
     const start = full.indexOf("## 3.");
-    if (start < 0) return FALLBACK_STEP3_PROMPT;
-    const end = full.indexOf("## 4.", start);
-    return full.slice(start, end < 0 ? undefined : end).trim();
+    if (start < 0) {
+      prompt = FALLBACK_STEP3_PROMPT;
+    } else {
+      const end = full.indexOf("## 4.", start);
+      prompt = full.slice(start, end < 0 ? undefined : end).trim();
+    }
   } catch {
-    return FALLBACK_STEP3_PROMPT;
+    prompt = FALLBACK_STEP3_PROMPT;
   }
+
+  // База знаний (нормативные акты + правила проверки) — доп. раздел промпта, если файл доступен.
+  try {
+    const baza = readFileSync(
+      path.join(process.cwd(), "docs", "baza_cunostinte.md"),
+      "utf8",
+    );
+    if (baza.trim()) {
+      prompt += "\n\n## Baza de cunoștințe — acte normative și reguli\n\n" + baza;
+    }
+  } catch {
+    /* база знаний опциональна — без неё используется базовый промпт */
+  }
+
+  return prompt;
 }
 
 // ── Структура ответа Claude (Pasul 3) ──
