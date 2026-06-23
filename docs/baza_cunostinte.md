@@ -112,3 +112,83 @@ Reper pentru analiza tranzacțiilor imobiliare în Republica Moldova
 | P8 | Cotă în proprietate comună | Dreptul preferențial al coproprietarilor | Codul civil 1107/2002 |
 | P9 | Impozit pe creștere de capital > 100.000 lei | Verificarea calculului | Codul fiscal 1163/1997 |
 
+
+## 05. Acte normative suplimentare (din baza Agentului 06)
+
+| Nr. | Act normativ | Nr./an | Domeniu | Ce reglementează | Statut |
+|-----|-------------|--------|---------|-----------------|--------|
+| 23 | Legea cu privire la condominiu | nr. 187/2022 | Condominiu | Vânzarea unităților în condominiu | Activ |
+| 24 | Codul funciar | nr. 22/2024 | Funciar | Regim, categorii, destinația terenurilor | Activ |
+| 25 | Legea privind prețul normativ și modul de vânzare-cumpărare a pământului | nr. 1308/1997 | Funciar | Prețul normativ al pământului | Activ |
+| 26 | Lege privind modificarea cadrului normativ în domeniul locuințelor | nr. 58/2026 | Locuințe | Modificări ale cadrului privind locuințele | Activ — din 09.05.2026 |
+| 27 | Legea medierii | — | Litigii | Medierea disputelor imobiliare | Activ |
+
+## 06. Scenarii tipice de tranzacție (algoritmi)
+
+### Vânzare-cumpărare
+- Verifică dreptul vânzătorului: extras RBI, fără grevări, notări, sechestru, ipotecă
+- Verifică: impozit pe creșterea de capital, regim rezidențial, AML
+- Formă autentică obligatorie (Legea 246/2018)
+- Dacă plată numerar ≥ 200.000 lei → notificare SPCSB (Legea 308/2017)
+- Înregistrare în RBI după autentificare (HG 201/2025)
+
+### Donație
+- Formă autentică obligatorie (Codul civil 1107/2002, Legea 246/2018)
+- Consecințe fiscale: impozit în funcție de gradul de rudenie (Codul fiscal 1163/1997)
+- Rude apropiate → scutire; alte persoane → impozit
+- Posibilitate de revocare: ingratitudine, nașterea unui copil, neexecutarea obligației
+
+### Schimb
+- Se aplică normele vânzării pentru fiecare parte (Codul civil 1107/2002)
+- Ambele părți sunt simultan vânzători și cumpărători
+- Impozit pe creșterea de capital pentru fiecare parte separat
+
+### Rentă viageră / Contract de întreținere pe viață
+- Transmiterea bunului imobil în schimbul întreținerii pe viață
+- Regim: Codul civil — contractul de înstrăinare cu condiția întreținerii pe viață
+- Posibilitate de rezoluțiune la neexecutare
+- Formă notarială obligatorie
+
+### Locațiune (arendă)
+- Locuință sau spațiu nelocativ; termen; obiect; preț
+- Norme generale: Codul civil 1107/2002
+- Locuință → Legea 75/2015
+- Înregistrare în RBI obligatorie dacă termenul > 3 ani
+- Formă notarială obligatorie dacă se înregistrează în RBI
+- Impozit: НДФЛ din plata chiriei (Codul fiscal)
+
+### Ipotecă
+- Ipotecă convențională (prin contract) și legală (prin lege)
+- Lege: Codul civil 1107/2002 + Legea 142/2008
+- Formă notarială + înregistrare în RBI obligatorie
+- Prima Casă (Legea 293/2017) — garanție de stat pentru primul credit ipotecar
+- Executare silită — procedură separată
+
+### Privatizare
+- Termen: Legea 1324/1993 — prelungit până la 31.05.2029
+- Condiții: locuire efectivă, fără privatizare anterioară (certificat de neprivatizare)
+- Cale standard: cerere la primărie → verificare → decizie → contract → înregistrare RBI
+- Contestare la refuz: Codul administrativ 116/2018
+
+### Moștenire (succesiuni)
+- Baza: Cartea IV Codul civil 1107/2002
+- Termen de acceptare: 6 luni de la deschiderea succesiunii (data decesului)
+- Tipuri: succesiunea legală (clase de moștenitori) sau testamentară
+- Rezerva succesorală — cotă obligatorie protejată
+- Partajul — împărțirea masei succesorale între moștenitori
+- Document final: certificat de moștenitor (emis de notar)
+- Înregistrare drepturi în RBI pe baza certificatului
+
+## 07. Puncte de oprire extinse
+
+| Cod | Situație | De ce se oprește | Temei |
+|-----|---------|-----------------|-------|
+| P1 | Înainte de autentificarea finală la notar | Ultima verificare a pachetului | — |
+| P2 | Plată în numerar > 200.000 lei | AML/CFT | Legea 308/2017 |
+| P3 | Nerezident / persoană juridică străină | Regim valutar, fiscalitate, documente suplimentare | — |
+| P4 | Tranzacție cu ipotecă > 1.000.000 lei | Verificare suplimentară bancă/notar | Legea 142/2008 |
+| P5 | Renunțare la moștenire | Acțiune ireversibilă | Codul civil 1107/2002 |
+| P6 | Bun imobil privatizat ≤ 3 ani anterior | Risc de contestare | Legea 1324/1993 |
+| P7 | Tranzacție între rude apropiate | Risc de reîncadrare fiscală | Codul fiscal 1163/1997 |
+| P8 | Cotă în proprietate comună | Drept de preemțiune al coproprietarilor | Codul civil 1107/2002 |
+| P9 | Impozit pe creșterea de capital > 100.000 lei | Calcul exact — contabil/notar | Codul fiscal 1163/1997 |
