@@ -15,7 +15,7 @@ export function Topbar() {
   const onTransactions = pathname.startsWith("/app/transactions");
   const onObjects = pathname.startsWith("/app/objects");
   const onListings = pathname.startsWith("/app/listings");
-  const onTools = pathname.startsWith("/app/instrumente");
+  const onTools = pathname.startsWith("/app/acte");
   const onCreator = pathname.startsWith("/app/creator");
   const onAdmin = pathname.startsWith("/app/admin");
 
@@ -59,10 +59,10 @@ export function Topbar() {
           <span className="nav-lb">Obiectele mele</span>
           <span className="nav-lb-short" aria-hidden>Obiecte</span>
         </Link>
-        <Link href="/app/instrumente" className={`nav-btn${onTools ? " active" : ""}`}>
+        <Link href="/app/acte" className={`nav-btn${onTools ? " active" : ""}`}>
           <span className="nav-ic" aria-hidden>🧰</span>
-          <span className="nav-lb">Instrumente</span>
-          <span className="nav-lb-short" aria-hidden>Unelte</span>
+          <span className="nav-lb">Actele mele</span>
+          <span className="nav-lb-short" aria-hidden>Acte</span>
         </Link>
         <Link href="/app/creator" className={`nav-btn${onCreator ? " active" : ""}`}>
           <span className="nav-ic" aria-hidden>✦</span>

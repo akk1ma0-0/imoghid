@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { numToRoWords } from "@/lib/ro-words";
 
 type TxOpt = { id: string; address: string | null; clientName: string | null };
-type Cma = { segment: string; avgPricePerM2: number; avgDaysToSell: number; count90d: number };
-// (Cma — статистика CMA из /api/tools/cma)
 
 type Field = {
   key: string;
@@ -304,12 +301,9 @@ function DocModal({ templateName, txs, onClose }: { templateName: TemplateName; 
   );
 }
 
-export default function InstrumentePage() {
+export default function ActePage() {
   const [txs, setTxs] = useState<TxOpt[]>([]);
-  const [cma, setCma] = useState<Cma | null>(null);
   const [modal, setModal] = useState<TemplateName | null>(null);
-
-  const [reportTx, setReportTx] = useState("");
 
   useEffect(() => {
     fetch("/api/transactions")
@@ -322,7 +316,6 @@ export default function InstrumentePage() {
         ),
       )
       .catch(() => {});
-    fetch("/api/tools/cma").then((r) => r.json()).then(setCma).catch(() => {});
   }, []);
 
   const TEMPLATE_CARDS = [
@@ -333,27 +326,9 @@ export default function InstrumentePage() {
   return (
     <div className="ig-page">
       <div className="ai-wrap">
-        <div className="crumb">Instrumente</div>
-        <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.03em", marginBottom: 16 }}>Instrumente</h1>
+        <div className="crumb">Actele mele</div>
+        <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.03em", marginBottom: 16 }}>Actele mele</h1>
 
-        {/* 1. Generare anunț — перенесено в Creator (платформа 999.md) */}
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="card-hd">
-            <b>Generare anunț</b>
-            <span className="badge b-purple" style={{ marginLeft: "auto" }}>mutat în Creator</span>
-          </div>
-          <div className="card-bd">
-            <p style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.6, marginBottom: 12 }}>
-              Generatorul de anunțuri (RO + RU) a fost mutat în <b>Creator</b> — platforma „999.md”.
-              Acolo puteți importa obiectul din dosar și genera textul anunțului.
-            </p>
-            <Link className="btn solid" href="/app/creator?platform=999">
-              Deschideți în Creator →
-            </Link>
-          </div>
-        </div>
-
-        {/* 2. Acte / Contracte */}
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="card-hd">
             <b>Acte / Contracte</b>
@@ -374,42 +349,6 @@ export default function InstrumentePage() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* 3. CMA */}
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="card-hd">
-            <b>Analiză de piață (CMA) — {cma?.segment ?? "sec. Ciocana, 2 odăi"}</b>
-            <span className="badge b-gray" style={{ marginLeft: "auto" }}>{cma ? `${cma.count90d} analize · date demo` : "date demo"}</span>
-          </div>
-          <div className="card-bd">
-            <div className="cma-stats">
-              <div className="stat-box"><div className="stat-val">{cma ? cma.avgPricePerM2.toLocaleString("ro-MD") : "—"}</div><div className="stat-lbl">€/m² medie</div></div>
-              <div className="stat-box"><div className="stat-val">{cma ? `${cma.avgDaysToSell} zile` : "—"}</div><div className="stat-lbl">timp mediu de vânzare</div></div>
-              <div className="stat-box"><div className="stat-val">{cma ? cma.count90d : "—"}</div><div className="stat-lbl">anunțuri în 90 zile</div></div>
-            </div>
-            <div className="note">Date demo bazate pe anunțurile din modulul 999. Utilizați-le ca argument la negocierea prețului cu proprietarul.</div>
-          </div>
-        </div>
-
-        {/* 4. Raport PDF */}
-        <div className="card">
-          <div className="card-hd">
-            <b>Raport pentru client (PDF)</b>
-          </div>
-          <div className="card-bd">
-            <div className="field-group">
-              <label>Selectați tranzacția</label>
-              <select value={reportTx} onChange={(e) => setReportTx(e.target.value)}>
-                <option value="">— alegeți —</option>
-                {txs.map((t) => <option key={t.id} value={t.id}>{t.address || "fără adresă"}{t.clientName ? ` · ${t.clientName}` : ""}</option>)}
-              </select>
-            </div>
-            <div style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 12 }}>
-              Raportul include: rezultatele verificării actelor, semnalele identificate, analiza de piață (CMA), datele de contact ale agentului și branding-ul agenției.
-            </div>
-            <button className="btn solid" onClick={() => alert("Generarea raportului PDF — în MVP.")}>⤓ Generați raportul</button>
           </div>
         </div>
       </div>

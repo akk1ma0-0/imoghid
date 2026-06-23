@@ -98,9 +98,26 @@ autorității tutelare, procură, act de identitate, taxa de stat, actualizat / 
 **Discrepanță suprafață** → `AREA_MISMATCH` / RED — suprafața din act de drept ≠ suprafața din
 extras (diferență peste o eroare de rotunjire rezonabilă).
 
-**Actualizare date proprietar (regula CAPS LOCK)** → `NOT_ACTUALIZED` / AMBER — nume integral
-MAJUSCULE = actualizat (`isActualized: true`); nume cu inițiale sau minuscule = neactualizat
-(`isActualized: false`). Evaluezi fiecare proprietar separat.
+**Actualizare date proprietar (regula CAPS LOCK)** → `DATE_NEACTUALIZATE` / AMBER. Evaluezi
+fiecare proprietar separat:
+- Nume **complet** în MAJUSCULE (prenume + nume, FĂRĂ inițiale, ex. „GALICI EVGHENII") = normal
+  pentru documentele oficiale din Republica Moldova → `isActualized: true`, **NU** genera flag.
+- Nume cu **inițiale** (ex. „GALICI E." sau „Galici E.V.") SAU nume **incomplet** →
+  `isActualized: false` și generează flag AMBER:
+
+```json
+{
+  "code": "DATE_NEACTUALIZATE",
+  "severity": "AMBER",
+  "zone": "VERIFICARE_MANUALA",
+  "titleRo": "Date neactualizate — nume incomplet",
+  "descriptionRo": "Proprietarul este indicat cu inițiale sau nume incomplet. Pentru confirmarea identității solicităm documentul de identitate al proprietarului și extrasul din RBI.",
+  "legalRef": "Legea cadastrului nr. 1543/1998"
+}
+```
+
+- Dacă lipsește extrasul din RBI → se afișează doar flagul existent `NO_EXTRAS_RBI` (AMBER),
+  fără modificări față de implementarea curentă.
 
 **Certificat de privatizare** → `PRIVATIZARE_CERT` / AMBER — dacă `temeiul_dreptului` conține
 „vânzare-cumpărare, transmitere-primire" (Legea 1324/1993), semnalezi necesitatea certificatului
