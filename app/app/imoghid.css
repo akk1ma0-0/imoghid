@@ -577,6 +577,12 @@
   font-family: var(--sans); font-size: 13px; border: 1px solid var(--line); border-radius: 4px;
   padding: 4px 7px; width: 100%;
 }
+.cr-slide-dl {
+  flex-shrink: 0; width: 24px; height: 24px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--sur); color: var(--ink2); cursor: pointer; font-size: 13px; line-height: 1;
+  display: grid; place-items: center; margin-top: 1px;
+}
+.cr-slide-dl:hover { border-color: var(--ink3); color: var(--ink); }
 @media (max-width: 860px) { .creator-grid { grid-template-columns: 1fr; } }
 
 /* ── layout helpers (responsive-ready) ── */

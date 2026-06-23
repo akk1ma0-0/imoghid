@@ -95,7 +95,6 @@ export default function CreatorPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [downloading, setDownloading] = useState(false);
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -179,53 +178,62 @@ export default function CreatorPage() {
     });
   }
 
-  async function downloadCarousel() {
-    if (!result?.slides) return;
-    setDownloading(true);
-    try {
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      for (let i = 0; i < result.slides.length; i++) {
-        const canvas = document.createElement("canvas");
-        canvas.width = 1080;
-        canvas.height = 1080;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) continue;
-        const [c1, c2] = SLIDE_GRADIENTS[i % SLIDE_GRADIENTS.length];
-        const grad = ctx.createLinearGradient(0, 0, 1080, 1080);
-        grad.addColorStop(0, c1);
-        grad.addColorStop(1, c2);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 1080, 1080);
-        // Текст слайда по центру (serif, белый).
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.font = "bold 58px Georgia, 'Times New Roman', serif";
-        wrapText(ctx, result.slides[i], 540, 540, 880, 78);
-        // Логотип + номер слайда.
-        ctx.font = "500 30px Georgia, serif";
-        ctx.textBaseline = "alphabetic";
-        ctx.textAlign = "left";
-        ctx.fillText("ImoGhid", 64, 1016);
-        ctx.textAlign = "right";
-        ctx.fillText(`${i + 1}/${result.slides.length}`, 1016, 1016);
-
-        const blob: Blob = await new Promise((res) =>
-          canvas.toBlob((b) => res(b as Blob), "image/png"),
-        );
-        zip.file(`slide-${i + 1}.png`, blob);
+  // Рендер одного слайда в PNG Blob (Canvas 1080×1080, градиент, serif-текст, лого, номер).
+  function renderSlidePng(text: string, i: number, total: number): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(null);
+        return;
       }
-      const content = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(content);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "imoghid-carusel.zip";
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setDownloading(false);
-    }
+      const [c1, c2] = SLIDE_GRADIENTS[i % SLIDE_GRADIENTS.length];
+      const grad = ctx.createLinearGradient(0, 0, 1080, 1080);
+      grad.addColorStop(0, c1);
+      grad.addColorStop(1, c2);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1080, 1080);
+      // Текст слайда по центру (serif, белый).
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "bold 58px Georgia, 'Times New Roman', serif";
+      wrapText(ctx, text, 540, 540, 880, 78);
+      // Логотип + номер слайда.
+      ctx.font = "500 30px Georgia, serif";
+      ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left";
+      ctx.fillText("ImoGhid", 64, 1016);
+      ctx.textAlign = "right";
+      ctx.fillText(`${i + 1}/${total}`, 1016, 1016);
+      canvas.toBlob((b) => resolve(b), "image/png");
+    });
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // Скачивание одного слайда как отдельного PNG.
+  async function downloadSlide(i: number) {
+    if (!result?.slides) return;
+    const blob = await renderSlidePng(result.slides[i], i, result.slides.length);
+    if (blob) triggerDownload(blob, `imoghid-slide-${i + 1}.png`);
+  }
+
+  // Скачивание всех слайдов по очереди (5 отдельных PNG), задержка 400ms — без ZIP.
+  function downloadAll() {
+    if (!result?.slides) return;
+    result.slides.forEach((_, i) => {
+      setTimeout(() => downloadSlide(i), i * 400);
+    });
   }
 
   // ── Хелперы редактирования результата ──
@@ -370,8 +378,16 @@ export default function CreatorPage() {
                           {editing ? (
                             <textarea rows={2} value={s} onChange={(e) => setSlide(i, e.target.value)} />
                           ) : (
-                            <span>{s}</span>
+                            <span style={{ flex: 1 }}>{s}</span>
                           )}
+                          <button
+                            type="button"
+                            className="cr-slide-dl"
+                            title="Descarcă slide-ul (PNG)"
+                            onClick={() => downloadSlide(i)}
+                          >
+                            ↓
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -430,8 +446,8 @@ export default function CreatorPage() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
                     <button className="btn" onClick={copyText}>{copied ? "✓ Copiat" : "Copiați textul"}</button>
                     {platform === "instagram" && result.slides && (
-                      <button className="btn" onClick={downloadCarousel} disabled={downloading}>
-                        {downloading ? "Se descarcă…" : "Descărcați caruselul"}
+                      <button className="btn" onClick={downloadAll}>
+                        Descărcați toate
                       </button>
                     )}
                     <button className="btn" onClick={() => setEditing((v) => !v)}>
