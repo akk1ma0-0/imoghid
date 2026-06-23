@@ -25,6 +25,12 @@ function norm(s: string | null | undefined): string {
   return stripDiacritics((s ?? "").toLowerCase());
 }
 
+// Имущество получено по наследству → личная собственность, согласие супруга НЕ требуется
+// (Cod civil RM, art. 371 alin. 1 lit. b). Определяем по «temeiul dreptului» (legal_basis).
+export function isInheritanceBasis(legalBasis: string | null | undefined): boolean {
+  return /mosten|succesiun|testament/.test(norm(legalBasis));
+}
+
 function parseArea(s: string | null): number | null {
   if (!s) return null;
   const cleaned = s.replace(",", ".").replace(/[^\d.]/g, "");

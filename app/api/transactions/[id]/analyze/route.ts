@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
 import { analysisLimit, isPastMonth } from "@/lib/analysis-limits";
 import { analyzeDocuments } from "@/lib/claude";
+import { isInheritanceBasis } from "@/lib/analyze/flags";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -121,10 +122,14 @@ export async function POST(_req: Request, { params }: Params) {
         (f) => f.fieldName === "owner_name" && f.value,
       );
       const hasLegalEntity = obj.flags.some((f) => f.code === "LEGAL_ENTITY_SELLER");
+      // Наследство → личная собственность: согласие супруга НЕ требуется (Cod civil 371(1)(b)).
+      const legalBasis = obj.extractedFields.find((f) => f.fieldName === "legal_basis")?.value ?? null;
+      const inherited = isInheritanceBasis(legalBasis);
       const needConsent =
-        obj.flags.some((f) => f.code === "MARRIED_CONSENT_NEEDED") ||
-        (tx.sellerType === "PERSOANA_FIZICA" &&
-          (tx.dealType === "VANZARE_CUMPARARE" || tx.dealType === "SCHIMB"));
+        !inherited &&
+        (obj.flags.some((f) => f.code === "MARRIED_CONSENT_NEEDED") ||
+          (tx.sellerType === "PERSOANA_FIZICA" &&
+            (tx.dealType === "VANZARE_CUMPARARE" || tx.dealType === "SCHIMB")));
       const keep = new Set(ownerEntries.map((e) => e.value!.trim()));
 
       for (const entry of ownerEntries) {
