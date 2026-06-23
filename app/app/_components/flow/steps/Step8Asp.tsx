@@ -1,27 +1,6 @@
-import { useEffect, useRef } from "react";
-import type { FlowTx } from "../types";
-
-export function Step8Asp({
-  tx,
-  reload,
-}: {
-  tx: FlowTx;
-  reload: () => Promise<void>;
-}) {
-  const marked = useRef(false);
-
-  // При входе на шаг 8 фиксируем завершение (completedAt) один раз.
-  useEffect(() => {
-    if (!tx.completedAt && !marked.current) {
-      marked.current = true;
-      fetch(`/api/transactions/${tx.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentStep: 8 }),
-      }).then(() => reload());
-    }
-  }, [tx.id, tx.completedAt, reload]);
-
+// Финал маршрута. Статус НЕ меняем автоматически — остаётся «В lucru»;
+// риелтор переводит в «Finisat» вручную со страницы «Obiectele mele».
+export function Step8Asp() {
   return (
     <div className="asp-hero">
       <div className="asp-icon">🏛</div>
@@ -32,11 +11,10 @@ export function Step8Asp({
       <a href="https://programare.asp.gov.md" className="asp-btn" target="_blank" rel="noopener noreferrer">
         Programați-vă pe ASP.gov.md →
       </a>
-      {tx.completedAt && (
-        <div style={{ marginTop: 16, fontSize: 12, color: "var(--green)" }}>
-          ✓ Traseu parcurs — tranzacția este marcată ca finalizată.
-        </div>
-      )}
+      <div style={{ marginTop: 16, fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.6, maxWidth: "44ch", marginInline: "auto" }}>
+        Dosarul tranzacției este complet. Puteți marca tranzacția drept „Finisat" din pagina
+        „Obiectele mele”, atunci când considerați necesar.
+      </div>
     </div>
   );
 }

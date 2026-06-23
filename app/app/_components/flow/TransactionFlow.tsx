@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 
 import { StepNav } from "./StepNav";
 import { RightRail } from "./RightRail";
@@ -35,7 +34,6 @@ export function TransactionFlow({
   };
 }) {
   const router = useRouter();
-  const { data: session } = useSession();
   const [tx, setTx] = useState<FlowTx | null>(null);
   const [step, setStep] = useState(initialStep);
   const [loading, setLoading] = useState(!!transactionId);
@@ -95,9 +93,9 @@ export function TransactionFlow({
       case 6:
         return <Step6Pay tx={tx} reload={reload} onNext={() => goStep(7)} />;
       case 7:
-        return <Step7Report plan={session?.user?.plan} />;
+        return <Step7Report />;
       case 8:
-        return <Step8Asp tx={tx} reload={reload} />;
+        return <Step8Asp />;
       default:
         return null;
     }

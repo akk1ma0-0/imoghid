@@ -92,18 +92,8 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
     }
   }
 
-  // ── Notificări ──
-  const [notif, setNotif] = useState(initial.notifLegislatie);
-  async function toggleNotif() {
-    const next = !notif;
-    setNotif(next); // оптимистично
-    const r = await fetch("/api/user/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notifLegislatie: next }),
-    }).catch(() => null);
-    if (!r || !r.ok) setNotif(!next); // откат при ошибке
-  }
+  // Уведомления о законодательстве всегда включены — переключатель убран из UI
+  // (поле User.notifLegislatie в БД сохранено).
 
   // ── Ștergere cont ──
   const [delBusy, setDelBusy] = useState(false);
@@ -131,7 +121,7 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
     <div className="ig-page" style={{ maxWidth: 720 }}>
       <div className="crumb">Cont</div>
       <h1>Profilul meu</h1>
-      <p className="sub">Gestionați datele contului, parola, abonamentul și notificările.</p>
+      <p className="sub">Gestionați datele contului, parola și abonamentul.</p>
 
       <button
         className="btn"
@@ -218,27 +208,6 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
         </div>
       </div>
 
-      {/* ── NOTIFICĂRI ── */}
-      <div className="card">
-        <div className="card-hd"><b>Notificări</b></div>
-        <div className="card-bd">
-          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, cursor: "pointer" }}>
-            <span>
-              <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)", display: "block" }}>Actualizări legislație</span>
-              <span style={{ fontSize: 12, color: "var(--ink3)" }}>Primiți notificări despre modificări legislative relevante.</span>
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={notif}
-              className={`switch${notif ? " on" : ""}`}
-              onClick={toggleNotif}
-            >
-              <span className="switch-knob" />
-            </button>
-          </label>
-        </div>
-      </div>
 
       {/* ── ZONĂ PERICULOASĂ ── */}
       <div className="card" style={{ borderColor: "var(--red-br)" }}>

@@ -51,8 +51,8 @@ export function Topbar() {
           className={`nav-btn${onTransactions ? " active" : ""}`}
         >
           <span className="nav-ic" aria-hidden>🧭</span>
-          <span className="nav-lb">Ghid tranzacție</span>
-          <span className="nav-lb-short" aria-hidden>Ghid</span>
+          <span className="nav-lb">Crează Dosar</span>
+          <span className="nav-lb-short" aria-hidden>Dosar</span>
         </Link>
         <Link href="/app/objects" className={`nav-btn${onObjects ? " active" : ""}`}>
           <span className="nav-ic" aria-hidden>📁</span>

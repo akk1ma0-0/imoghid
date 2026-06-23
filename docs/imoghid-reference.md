@@ -132,6 +132,12 @@ explicit ca absente.
 **Coproprietate / căsătorie** → `MARRIED_CONSENT_NEEDED` / RED — mai mulți proprietari SAU un
 singur proprietar dar contextul sugerează achiziție în timpul căsătoriei.
 
+**Excepție — bun moștenit (proprietate personală).** Dacă proprietarul a dobândit bunul prin
+moștenire (temei: certificat de moștenitor, testament autentificat) — NU se solicită și NU se
+menționează consimțământul soțului/soției, deoarece bunul dobândit prin moștenire este proprietate
+personală, nu comună (Codul civil al RM, art. 371 alin. 1 lit. b). În acest caz nu genera
+`MARRIED_CONSENT_NEEDED` pentru acest proprietar.
+
 **Minor în lista de proprietari** → `MINOR_OWNER` / RED.
 
 **Procură** → `PROCURA_CHECK` / AMBER — verifici: procură specială, formă notarială, termen activ.

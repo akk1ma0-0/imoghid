@@ -77,11 +77,8 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     const stepNum = body.currentStep as number;
     data.currentStep = numberToStep(stepNum);
-    // Шаг 8 — фиксируем завершение (set-once) и помечаем «Finisat».
-    if (stepNum === 8 && !existing.completedAt) {
-      data.completedAt = new Date();
-      data.status = "DONE";
-    }
+    // Авто-финализация убрана: статус НЕ меняется при достижении шага 8.
+    // Риелтор переводит транзакцию в «Finisat» вручную из «Obiectele mele».
   }
 
   // Смена статуса из «Obiectele mele» (active/waiting/done/archive).

@@ -24,11 +24,13 @@ function DropZone({
   objectIndex,
   reload,
   compact,
+  skippable,
 }: {
   tx: FlowTx;
   objectIndex: number;
   reload: () => Promise<void>;
   compact?: boolean;
+  skippable?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -36,6 +38,21 @@ function DropZone({
   const [error, setError] = useState<string | null>(null);
 
   const docs = tx.documents.filter((d) => d.objectIndex === objectIndex);
+  // Pentru Schimb, „Nu sunt la moment" e bifat implicit (dacă nu sunt documente încărcate).
+  const [skip, setSkip] = useState(skippable ? docs.length === 0 : false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function deleteDoc(docId: string) {
+    setDeleting(docId);
+    try {
+      await fetch(`/api/transactions/${tx.id}/documents/${docId}`, { method: "DELETE" });
+      await reload();
+    } catch {
+      /* ignore */
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function upload(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -83,42 +100,57 @@ function DropZone({
 
   return (
     <>
-      <div
-        className={`drop${over ? " over" : ""}`}
-        style={compact ? { padding: "18px 14px" } : undefined}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setOver(true);
-        }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setOver(false);
-          upload(e.dataTransfer.files);
-        }}
-      >
-        <div style={{ fontSize: compact ? 18 : 22, color: "var(--ink4)", marginBottom: compact ? 5 : 7 }}>⬆</div>
-        <div className="drop-big" style={compact ? { fontSize: 13 } : undefined}>
-          {busy ? "Se încarcă…" : compact ? `Documente Obiect ${objectIndex}` : "Trageți fișierele aici"}
+      {skippable && (
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 12.5, color: "var(--ink2)", cursor: "pointer" }}
+        >
+          <input type="checkbox" checked={skip} onChange={(e) => setSkip(e.target.checked)} style={{ width: "auto" }} />
+          Nu sunt la moment
+        </label>
+      )}
+
+      {skip ? (
+        <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
+          Documentele vor fi adăugate ulterior. Debifați „Nu sunt la moment” pentru a le încărca acum.
         </div>
-        <div className="drop-sub">
-          {compact ? "Act de drept · Extras · Contract" : (
-            <>Contract · Extras din registru · Act de drept<br />PDF · JPG · PNG — până la 20 MB</>
-          )}
+      ) : (
+        <div
+          className={`drop${over ? " over" : ""}`}
+          style={compact ? { padding: "18px 14px" } : undefined}
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setOver(true);
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOver(false);
+            upload(e.dataTransfer.files);
+          }}
+        >
+          <div style={{ fontSize: compact ? 18 : 22, color: "var(--ink4)", marginBottom: compact ? 5 : 7 }}>⬆</div>
+          <div className="drop-big" style={compact ? { fontSize: 13 } : undefined}>
+            {busy ? "Se încarcă…" : compact ? `Documente Obiect ${objectIndex}` : "Trageți fișierele aici"}
+          </div>
+          <div className="drop-sub">
+            {compact ? "Act de drept · Extras · Contract" : (
+              <>Contract · Extras din registru · Act de drept<br />PDF · JPG · PNG — până la 20 MB</>
+            )}
+          </div>
+          <button className="drop-btn" type="button" style={compact ? { marginTop: 8 } : undefined}>
+            + selectați fișiere
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept="application/pdf,image/jpeg,image/png"
+            style={{ display: "none" }}
+            onChange={(e) => upload(e.target.files)}
+          />
         </div>
-        <button className="drop-btn" type="button" style={compact ? { marginTop: 8 } : undefined}>
-          + selectați fișiere
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept="application/pdf,image/jpeg,image/png"
-          style={{ display: "none" }}
-          onChange={(e) => upload(e.target.files)}
-        />
-      </div>
+      )}
 
       {error && (
         <div className="notice red" style={{ marginTop: 8 }}>
@@ -134,11 +166,20 @@ function DropZone({
           {docs.map((d) => (
             <div className="doc-row" key={d.id}>
               <div className="doc-ic">{d.mimeType === "application/pdf" ? "PDF" : "IMG"}</div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div className="doc-name">{d.fileName}</div>
                 <div className="doc-meta">Tip determinat automat</div>
               </div>
               <span className="badge b-green">det.</span>
+              <button
+                type="button"
+                className="doc-del"
+                title="Șterge documentul"
+                disabled={deleting === d.id}
+                onClick={() => deleteDoc(d.id)}
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>
@@ -195,7 +236,7 @@ export function Step2Upload({
               <b style={{ color: "var(--blue)" }}>Obiect 1</b>
             </div>
             <div className="card-bd">
-              <DropZone tx={tx} objectIndex={1} reload={reload} compact />
+              <DropZone tx={tx} objectIndex={1} reload={reload} compact skippable />
             </div>
           </div>
           <div className="card" style={{ marginBottom: 0 }}>
@@ -203,7 +244,7 @@ export function Step2Upload({
               <b style={{ color: "var(--purple)" }}>Obiect 2</b>
             </div>
             <div className="card-bd">
-              <DropZone tx={tx} objectIndex={2} reload={reload} compact />
+              <DropZone tx={tx} objectIndex={2} reload={reload} compact skippable />
             </div>
           </div>
         </div>
