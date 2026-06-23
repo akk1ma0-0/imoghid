@@ -583,6 +583,12 @@
   display: grid; place-items: center; margin-top: 1px;
 }
 .cr-slide-dl:hover { border-color: var(--ink3); color: var(--ink); }
+.cr-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.cr-thumb { position: relative; width: 60px; height: 60px; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); }
+.cr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cr-thumb-n { position: absolute; left: 3px; bottom: 3px; background: rgba(0,0,0,0.6); color: #fff; font-family: var(--mono); font-size: 9px; padding: 0 4px; border-radius: 3px; }
+.cr-thumb-x { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border: none; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+.cr-thumb-x:hover { background: var(--red); }
 @media (max-width: 860px) { .creator-grid { grid-template-columns: 1fr; } }
 
 /* ── layout helpers (responsive-ready) ── */

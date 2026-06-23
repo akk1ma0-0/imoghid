@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { numToRoWords } from "@/lib/ro-words";
 
 type TxOpt = { id: string; address: string | null; clientName: string | null };
@@ -308,13 +309,6 @@ export default function InstrumentePage() {
   const [cma, setCma] = useState<Cma | null>(null);
   const [modal, setModal] = useState<TemplateName | null>(null);
 
-  const [aiInput, setAiInput] = useState(
-    "Ciocana, 2 camere, reparație medie, centrală autonomă, mobilat, 4/9, lângă școală",
-  );
-  const [lang, setLang] = useState<"ro" | "ru">("ro");
-  const [aiOut, setAiOut] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [reportTx, setReportTx] = useState("");
 
   useEffect(() => {
@@ -331,24 +325,6 @@ export default function InstrumentePage() {
     fetch("/api/tools/cma").then((r) => r.json()).then(setCma).catch(() => {});
   }, []);
 
-  async function generateAnunt() {
-    setAiBusy(true);
-    setCopied(false);
-    try {
-      const r = await fetch("/api/tools/generate-anunt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: aiInput, lang }),
-      });
-      const d = await r.json();
-      setAiOut(r.ok ? d.text : d.error || "Eroare la generare.");
-    } catch {
-      setAiOut("Eroare la generare.");
-    } finally {
-      setAiBusy(false);
-    }
-  }
-
   const TEMPLATE_CARDS = [
     { key: "garantie" as const, label: "Garanție de cumpărare", subtitle: "Recipisă privind primirea sumei de garanție" },
     { key: "contract" as const, label: "Contract de intermediere", subtitle: "Cu clauză de exclusivitate · contract cu clientul" },
@@ -360,28 +336,20 @@ export default function InstrumentePage() {
         <div className="crumb">Instrumente</div>
         <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.03em", marginBottom: 16 }}>Instrumente</h1>
 
-        {/* 1. Generare anunț */}
+        {/* 1. Generare anunț — перенесено в Creator (платформа 999.md) */}
         <div className="card" style={{ marginBottom: 14 }}>
           <div className="card-hd">
             <b>Generare anunț</b>
-            <span className="badge b-purple" style={{ marginLeft: "auto" }}>automat</span>
+            <span className="badge b-purple" style={{ marginLeft: "auto" }}>mutat în Creator</span>
           </div>
           <div className="card-bd">
-            <div className="field-group">
-              <label>Caracteristici pe scurt</label>
-              <textarea rows={2} value={aiInput} onChange={(e) => setAiInput(e.target.value)} />
-            </div>
-            <div className="lang-tabs">
-              <button className={`lang-tab${lang === "ro" ? " on" : ""}`} onClick={() => setLang("ro")}>Română</button>
-              <button className={`lang-tab${lang === "ru" ? " on" : ""}`} onClick={() => setLang("ru")}>Rusă</button>
-            </div>
-            <div className="ai-output">{aiBusy ? "Se generează…" : aiOut || "Textul generat va apărea aici."}</div>
-            <div style={{ marginTop: 10, display: "flex", gap: 7 }}>
-              <button className="btn primary" onClick={generateAnunt} disabled={aiBusy || !aiInput.trim()}>Generați →</button>
-              <button className="btn" disabled={!aiOut} onClick={() => { navigator.clipboard.writeText(aiOut); setCopied(true); }}>
-                {copied ? "Copiat ✓" : "Copiați"}
-              </button>
-            </div>
+            <p style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.6, marginBottom: 12 }}>
+              Generatorul de anunțuri (RO + RU) a fost mutat în <b>Creator</b> — platforma „999.md”.
+              Acolo puteți importa obiectul din dosar și genera textul anunțului.
+            </p>
+            <Link className="btn solid" href="/app/creator?platform=999">
+              Deschideți în Creator →
+            </Link>
           </div>
         </div>
 

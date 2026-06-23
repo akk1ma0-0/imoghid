@@ -7,12 +7,14 @@ import {
   type Platform,
   type Topic,
 } from "@/lib/social-creator";
+import { generateAnunt } from "@/lib/tools-claude";
 
-const PLATFORMS: Platform[] = ["instagram", "tiktok", "facebook"];
+const SOCIAL_PLATFORMS: Platform[] = ["instagram", "tiktok", "facebook"];
 const TOPICS: Topic[] = ["price", "check", "law40", "object"];
 
-// POST /api/tools/creator — генерация контента для соцсетей (Claude).
-// В Claude уходит только кешированный системный промпт + параметры запроса.
+// POST /api/tools/creator
+// platform "999" → анонс для 999.md (RO + RU, тот же генератор, что /generate-anunt).
+// иначе → контент для соцсетей (slides/reels/post).
 export async function POST(request: Request) {
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
@@ -24,8 +26,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Corp invalid." }, { status: 400 });
   }
 
-  const platform = PLATFORMS.includes(body.platform as Platform)
-    ? (body.platform as Platform)
+  const platform = body.platform;
+
+  // ── 999.md — анонс на двух языках ──
+  if (platform === "999") {
+    const od = (body.objectData ?? {}) as Record<string, unknown>;
+    const description = typeof od.description === "string" ? od.description.trim() : "";
+    const price = typeof od.price === "string" ? od.price.trim() : "";
+    const notes = typeof od.notes === "string" ? od.notes.trim() : "";
+    if (!description) {
+      return NextResponse.json(
+        { error: "Completați descrierea obiectului." },
+        { status: 400 },
+      );
+    }
+    const input = [description, price ? `Preț: ${price}` : "", notes]
+      .filter(Boolean)
+      .join(". ");
+    const [ro, ru] = await Promise.all([
+      generateAnunt(input, "ro"),
+      generateAnunt(input, "ru"),
+    ]);
+    return NextResponse.json({ result: { kind: "anunt", ro, ru } });
+  }
+
+  // ── Соцсети ──
+  const socialPlatform = SOCIAL_PLATFORMS.includes(platform as Platform)
+    ? (platform as Platform)
     : "instagram";
   const language: Language = body.language === "ru" ? "ru" : "ro";
   const topic = TOPICS.includes(body.topic as Topic) ? (body.topic as Topic) : null;
@@ -49,6 +76,11 @@ export async function POST(request: Request) {
     }
   }
 
-  const result = await generateSocial({ platform, language, topic, objectData });
-  return NextResponse.json({ result });
+  const social = await generateSocial({
+    platform: socialPlatform,
+    language,
+    topic,
+    objectData,
+  });
+  return NextResponse.json({ result: { kind: "social", ...social } });
 }
