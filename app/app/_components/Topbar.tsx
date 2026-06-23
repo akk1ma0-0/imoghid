@@ -16,6 +16,7 @@ export function Topbar() {
   const onObjects = pathname.startsWith("/app/objects");
   const onListings = pathname.startsWith("/app/listings");
   const onTools = pathname.startsWith("/app/instrumente");
+  const onCreator = pathname.startsWith("/app/creator");
   const onAdmin = pathname.startsWith("/app/admin");
 
   const isAdmin = session?.user?.role === "ADMIN";
@@ -50,7 +51,7 @@ export function Topbar() {
           className={`nav-btn${onTransactions ? " active" : ""}`}
         >
           <span className="nav-ic" aria-hidden>🧭</span>
-          <span className="nav-lb">Ghidul tranzacției</span>
+          <span className="nav-lb">Ghid tranzacție</span>
           <span className="nav-lb-short" aria-hidden>Ghid</span>
         </Link>
         <Link href="/app/objects" className={`nav-btn${onObjects ? " active" : ""}`}>
@@ -62,6 +63,11 @@ export function Topbar() {
           <span className="nav-ic" aria-hidden>🧰</span>
           <span className="nav-lb">Instrumente</span>
           <span className="nav-lb-short" aria-hidden>Unelte</span>
+        </Link>
+        <Link href="/app/creator" className={`nav-btn${onCreator ? " active" : ""}`}>
+          <span className="nav-ic" aria-hidden>✦</span>
+          <span className="nav-lb">Creator</span>
+          <span className="nav-lb-short" aria-hidden>Creator</span>
         </Link>
         <Link href="/app/listings" className={`nav-btn${onListings ? " active" : ""}`}>
           <span className="nav-ic" aria-hidden>📰</span>

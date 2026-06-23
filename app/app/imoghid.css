@@ -64,10 +64,10 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding-right: 18px;
+  gap: 8px;
+  padding-right: 12px;
   border-right: 1px solid var(--line);
-  margin-right: 16px;
+  margin-right: 12px;
 }
 .logo-icon {
   width: 28px;
@@ -82,14 +82,14 @@
   font-size: 11px;
   font-weight: 600;
 }
-.logo-name { font-size: 15px; font-weight: 700; letter-spacing: -0.03em; }
+.logo-name { font-size: 14px; font-weight: 700; letter-spacing: -0.03em; }
 .logo-sub { font-size: 10px; font-family: var(--mono); color: var(--ink3); display: block; margin-top: -1px; }
 .nav { display: flex; gap: 2px; }
 .nav-btn {
   font-family: var(--sans);
-  font-size: 16px;
+  font-size: 13.5px;
   font-weight: 500;
-  padding: 5px 12px;
+  padding: 5px 9px;
   border-radius: var(--r);
   border: none;
   background: none;
@@ -113,7 +113,7 @@
 }
 
 /* ── SHELL (flow) ── */
-.shell { display: grid; grid-template-columns: 220px 1fr 290px; min-height: calc(100vh - 52px); }
+.shell { display: grid; grid-template-columns: 180px 1fr 290px; min-height: calc(100vh - 52px); }
 
 /* ── LEFT NAV ── */
 .lnav { background: var(--sur); border-right: 1px solid var(--line); padding: 16px 10px; display: flex; flex-direction: column; }
@@ -546,6 +546,38 @@
 .app-footer a { color: inherit; text-decoration: none; }
 .app-footer a:hover { text-decoration: underline; }
 .app-footer .sep { margin: 0 6px; color: var(--line2); }
+
+/* ── CREATOR (conținut social) ── */
+.creator-grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; align-items: start; }
+.import-menu {
+  position: absolute; left: 0; top: 38px; z-index: 200; width: 300px; max-width: calc(100vw - 40px);
+  background: var(--sur); border: 1px solid var(--line); border-radius: var(--rl);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12); max-height: 320px; overflow-y: auto;
+}
+.import-empty { padding: 16px 14px; font-size: 12.5px; color: var(--ink3); text-align: center; }
+.import-item {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+  background: none; border: none; border-top: 1px solid var(--line2); padding: 9px 13px;
+  cursor: pointer; font-family: var(--sans);
+}
+.import-item:first-child { border-top: none; }
+.import-item:hover { background: var(--line2); }
+.import-addr { font-size: 13px; font-weight: 600; color: var(--ink); }
+.import-meta { font-size: 11px; color: var(--ink3); font-family: var(--mono); }
+.cr-section { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink4); margin-bottom: 6px; }
+.cr-slide { display: flex; gap: 9px; align-items: flex-start; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 13px; color: var(--ink2); }
+.cr-slide:first-of-type { border-top: none; }
+.cr-slide-n { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; background: var(--ink); color: #fff; font-family: var(--mono); font-size: 10px; display: grid; place-items: center; margin-top: 1px; }
+.cr-reel { border: 1px solid var(--line); border-radius: var(--r); padding: 9px 11px; margin-bottom: 8px; }
+.cr-reel-t { font-family: var(--mono); font-size: 11px; color: var(--blue); font-weight: 600; margin-bottom: 4px; }
+.cr-reel-b { font-size: 12.5px; color: var(--ink2); line-height: 1.5; }
+.cr-reel-b b { color: var(--ink); }
+.cr-reel-scene, .cr-reel-vo { margin-bottom: 2px; }
+.cr-reel input, .cr-slide textarea {
+  font-family: var(--sans); font-size: 13px; border: 1px solid var(--line); border-radius: 4px;
+  padding: 4px 7px; width: 100%;
+}
+@media (max-width: 860px) { .creator-grid { grid-template-columns: 1fr; } }
 
 /* ── layout helpers (responsive-ready) ── */
 /* На десктопе nav-кнопки показывают полный текст; иконка и короткий лейбл — для мобильного bottom-bar. */
