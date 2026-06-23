@@ -99,31 +99,15 @@ const EXAMPLES = [
   { label: "număr cadastral", q: "0100110.477.05.040" },
 ];
 
-function FlagBox({
-  k,
-  v,
-  critical,
-  onChange,
-}: {
-  k: string;
-  v: string;
-  critical?: boolean;
-  onChange?: (val: string) => void;
-}) {
+// Флаг — только для чтения; значение приходит из парсера, пользователь его не меняет.
+function FlagBox({ k, v, critical }: { k: string; v: string; critical?: boolean }) {
   const clear = v === "Nu există";
   // Nu există → зелёный; Există → красный для блокеров (Interdicții), жёлтый для остальных.
   const cls = clear ? "ok" : critical ? "bad" : "warn";
   return (
     <div className={`fl2-box ${cls}`}>
       <div className="fl2-k">{k}</div>
-      {onChange ? (
-        <select className="fl2-sel" value={clear ? "Nu există" : "Există"} onChange={(e) => onChange(e.target.value)}>
-          <option>Nu există</option>
-          <option>Există</option>
-        </select>
-      ) : (
-        <div className="fl2-v">{(clear ? "✓ " : "! ") + v}</div>
-      )}
+      <div className="fl2-v">{(clear ? "✓ " : "! ") + v}</div>
     </div>
   );
 }
@@ -193,9 +177,25 @@ export default function CadastruPage() {
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
   const [parseWarn, setParseWarn] = useState<string | null>(null);
 
-  // Обновление одного поля редактируемой карточки.
+  // Флаги (alte drepturi / notări / interdicții) — readonly, всегда из парсера сырого OCR-текста.
+  // При любом ручном изменении поля пересчитываем их заново (для поиска raw нет — флаги из API).
+  function recomputeFlags(rec: { cadastralNo: string; record: CadRecord }) {
+    if (!ocrRawText) return rec;
+    const p = parseCadastralText(ocrRawText);
+    return {
+      ...rec,
+      record: {
+        ...rec.record,
+        dr: normFlag(p.alteDrepturiReale),
+        not: normFlag(p.notari),
+        int: normFlag(p.interdictii),
+      },
+    };
+  }
+
+  // Обновление одного поля редактируемой карточки (+ пересчёт readonly-флагов).
   function updateRec(field: keyof CadRecord, value: string) {
-    setRecord((r) => (r ? { ...r, record: { ...r.record, [field]: value } } : r));
+    setRecord((r) => (r ? recomputeFlags({ ...r, record: { ...r.record, [field]: value } }) : r));
   }
 
   // Заполняет карточку результата из распарсенного текста.
@@ -486,7 +486,7 @@ export default function CadastruPage() {
                     <input
                       type="text"
                       value={record.cadastralNo}
-                      onChange={(e) => setRecord((r) => (r ? { ...r, cadastralNo: e.target.value } : r))}
+                      onChange={(e) => setRecord((r) => (r ? recomputeFlags({ ...r, cadastralNo: e.target.value }) : r))}
                     />
                   </div>
                   <div className="field-group">
@@ -510,9 +510,9 @@ export default function CadastruPage() {
                 </div>
 
                 <div className="cad-flags" style={{ marginTop: 4 }}>
-                  <FlagBox k="Alte drepturi reale" v={record.record.dr} onChange={(val) => updateRec("dr", val)} />
-                  <FlagBox k="Notări" v={record.record.not} onChange={(val) => updateRec("not", val)} />
-                  <FlagBox k="Interdicții" v={record.record.int} critical onChange={(val) => updateRec("int", val)} />
+                  <FlagBox k="Alte drepturi reale" v={record.record.dr} />
+                  <FlagBox k="Notări" v={record.record.not} />
+                  <FlagBox k="Interdicții" v={record.record.int} critical />
                 </div>
 
                 {ocrRawText && (
