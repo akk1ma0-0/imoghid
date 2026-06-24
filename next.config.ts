@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
     "/api/tools/generate-anunt": ["./docs/templates/anunt-generator-prompt.md"],
     // Заполнение .docx-шаблонов (docxtemplater читает файлы из docs/templates/).
     "/api/tools/generate-doc": ["./docs/templates/**/*"],
+    // «Actele mele» — оригиналы шаблонов читаются с сервера (mammoth/SheetJS).
+    "/api/documents/[slug]": ["./docs/templates/**/*"],
   },
 };
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { numToRoWords } from "@/lib/ro-words";
+import { ACTE_TEMPLATES_META } from "@/lib/acte-templates-meta";
 
 type TxOpt = { id: string; address: string | null; clientName: string | null };
 
@@ -301,9 +302,275 @@ function DocModal({ templateName, txs, onClose }: { templateName: TemplateName; 
   );
 }
 
+function downloadBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Шрифт DejaVu Sans Mono (Unicode, поддержка ș ț ă â î) для jsPDF — селектируемый текст.
+// Кешируется в памяти модуля: TTF тянем из /public один раз, не на каждый экспорт.
+let dejaVuBase64: string | null = null;
+async function loadDejaVuBase64(): Promise<string> {
+  if (dejaVuBase64) return dejaVuBase64;
+  const res = await fetch("/fonts/DejaVuSansMono.ttf");
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  dejaVuBase64 = btoa(bin);
+  return dejaVuBase64;
+}
+
+// Редактор шаблонного документа (Actele mele): загрузка версии пользователя или оригинала,
+// правка в textarea, сохранение в БД, сброс к оригиналу, экспорт в .docx / .pdf (client-side).
+function EditorModal({
+  slug,
+  title,
+  onClose,
+}: {
+  slug: string;
+  title: string;
+  onClose: () => void;
+}) {
+  const [content, setContent] = useState("");
+  const [personalized, setPersonalized] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [dlOpen, setDlOpen] = useState(false);
+  const dlRef = useRef<HTMLDivElement>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/documents/${slug}`);
+      const d = await r.json();
+      if (r.ok) {
+        setContent(d.content ?? "");
+        setPersonalized(!!d.personalized);
+      } else {
+        setToast("Eroare la încărcarea documentului.");
+      }
+    } catch {
+      setToast("Eroare la încărcarea documentului.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  useEffect(() => {
+    if (!dlOpen) return;
+    function onDown(e: MouseEvent) {
+      if (dlRef.current && !dlRef.current.contains(e.target as Node)) setDlOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [dlOpen]);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  }
+
+  async function save() {
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/documents/${slug}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!r.ok) throw new Error();
+      setPersonalized(true);
+      showToast("Salvat ✓");
+    } catch {
+      showToast("Eroare la salvare.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetToOriginal() {
+    if (!confirm("Resetați la șablonul original? Versiunea dvs. salvată va fi ștearsă.")) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/documents/${slug}`, { method: "DELETE" });
+      if (!r.ok) throw new Error();
+      await load();
+      showToast("Resetat la original.");
+    } catch {
+      showToast("Eroare la resetare.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadDocx() {
+    setDlOpen(false);
+    const { Document, Packer, Paragraph, TextRun } = await import("docx");
+    const doc = new Document({
+      sections: [
+        {
+          children: content.split("\n").map(
+            (line) => new Paragraph({ children: [new TextRun(line)] }),
+          ),
+        },
+      ],
+    });
+    const blob = await Packer.toBlob(doc);
+    downloadBlob(blob, `${slug}.docx`);
+  }
+
+  // PDF с встроенным TTF (DejaVu Sans Mono) → текст селектируемый, диакритика (ș ț ă â î) корректна.
+  async function downloadPdf() {
+    setDlOpen(false);
+    setBusy(true);
+    try {
+      const [{ jsPDF }, b64] = await Promise.all([import("jspdf"), loadDejaVuBase64()]);
+      const pdf = new jsPDF({ unit: "pt", format: "a4" });
+      pdf.addFileToVFS("DejaVuSansMono.ttf", b64);
+      pdf.addFont("DejaVuSansMono.ttf", "DejaVuSansMono", "normal");
+      pdf.setFont("DejaVuSansMono");
+      pdf.setFontSize(9);
+
+      const margin = 40;
+      const lh = 12;
+      const maxW = pdf.internal.pageSize.getWidth() - margin * 2;
+      const pageH = pdf.internal.pageSize.getHeight() - margin;
+      // Таб → 2 пробела (jsPDF не поддерживает табуляцию); перенос длинных строк по ширине.
+      const lines = pdf.splitTextToSize((content || " ").replace(/\t/g, "  "), maxW) as string[];
+      let y = margin;
+      for (const line of lines) {
+        if (y > pageH) {
+          pdf.addPage();
+          pdf.setFont("DejaVuSansMono");
+          y = margin;
+        }
+        pdf.text(line, margin, y);
+        y += lh;
+      }
+      pdf.save(`${slug}.pdf`);
+    } catch {
+      showToast("Eroare la generarea PDF.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 760, width: "100%" }}>
+        <div className="modal-hd">
+          <h2 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {title}
+            {personalized && (
+              <span className="badge b-purple" style={{ fontWeight: 500 }}>
+                Versiune personalizată
+              </span>
+            )}
+          </h2>
+          <button className="btn" style={{ padding: "4px 10px" }} onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-bd">
+          {loading ? (
+            <p style={{ fontSize: 13, color: "var(--ink3)" }}>Se încarcă…</p>
+          ) : (
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              spellCheck={false}
+              style={{
+                width: "100%",
+                minHeight: 420,
+                fontFamily: "var(--mono, ui-monospace, monospace)",
+                fontSize: 12.5,
+                lineHeight: 1.6,
+                whiteSpace: "pre",
+                overflowWrap: "normal",
+                overflowX: "auto",
+              }}
+            />
+          )}
+        </div>
+        <div className="modal-ft" style={{ justifyContent: "space-between" }}>
+          <button className="btn" onClick={resetToOriginal} disabled={busy || loading || !personalized}>
+            Resetează la original
+          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button className="btn" onClick={onClose} disabled={busy}>Anulare</button>
+            <div ref={dlRef} style={{ position: "relative" }}>
+              <button className="btn" onClick={() => setDlOpen((v) => !v)} disabled={loading}>
+                ⬇ Descarcă ▾
+              </button>
+              {dlOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "calc(100% + 6px)",
+                    right: 0,
+                    background: "var(--card, #fff)",
+                    border: "1px solid var(--line, #e2e8f0)",
+                    borderRadius: 8,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                    minWidth: 160,
+                    zIndex: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <button className="import-item" type="button" style={{ width: "100%", textAlign: "left", padding: "9px 12px", fontSize: 13 }} onClick={downloadDocx}>
+                    Word (.docx)
+                  </button>
+                  <button className="import-item" type="button" style={{ width: "100%", textAlign: "left", padding: "9px 12px", fontSize: 13 }} onClick={downloadPdf}>
+                    PDF
+                  </button>
+                </div>
+              )}
+            </div>
+            <button className="btn solid" onClick={save} disabled={busy || loading}>
+              {busy ? "Se salvează…" : "Salvează"}
+            </button>
+          </div>
+        </div>
+        {toast && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 70,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "var(--ink, #1c2630)",
+              color: "#fff",
+              padding: "8px 16px",
+              borderRadius: 8,
+              fontSize: 13,
+              zIndex: 20,
+            }}
+          >
+            {toast}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ActePage() {
   const [txs, setTxs] = useState<TxOpt[]>([]);
   const [modal, setModal] = useState<TemplateName | null>(null);
+  const [editorSlug, setEditorSlug] = useState<string | null>(null);
+  const editorMeta = ACTE_TEMPLATES_META.find((t) => t.slug === editorSlug);
 
   useEffect(() => {
     fetch("/api/transactions")
@@ -351,9 +618,36 @@ export default function ActePage() {
             </div>
           </div>
         </div>
+
+        {/* Documente editabile (șabloane din docs/templates) */}
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-hd">
+            <b>Documente șablon</b>
+            <span className="badge b-gray" style={{ marginLeft: "auto" }}>editabile</span>
+          </div>
+          <div className="card-bd">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {ACTE_TEMPLATES_META.map((t, i) => (
+                <div key={t.slug} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "9px 0", borderBottom: i < ACTE_TEMPLATES_META.length - 1 ? "1px dashed var(--line)" : "none",
+                }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{t.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink3)" }}>{t.subtitle}</div>
+                  </div>
+                  <button className="btn" onClick={() => setEditorSlug(t.slug)}>Deschide</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {modal && <DocModal templateName={modal} txs={txs} onClose={() => setModal(null)} />}
+      {editorSlug && editorMeta && (
+        <EditorModal slug={editorSlug} title={editorMeta.title} onClose={() => setEditorSlug(null)} />
+      )}
     </div>
   );
 }
