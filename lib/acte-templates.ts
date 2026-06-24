@@ -24,7 +24,7 @@ export type ActeSheet = { name: string; rows: ActeCell[][] };
 
 // slug → реальное имя файла на диске (отдельно от клиентских метаданных).
 const FILE_BY_SLUG: Record<string, string> = {
-  "registrul-tranzactiilor": "Registrul Tranzacțiilor.xlsx",
+  // «Registrul tranzacțiilor» убран из реестра (файл оставлен физически).
   "check-list-acte": "CHECK-LIST acte.docx",
   "tipuri-acte-imobil": "Tipuri de acte imobilului.xlsx",
   "contract-hub-coworking": "Contract_Hub_coworking_RO.docx",

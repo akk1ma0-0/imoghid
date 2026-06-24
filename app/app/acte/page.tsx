@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { upload as blobUpload } from "@vercel/blob/client";
 import { numToRoWords } from "@/lib/ro-words";
 import { ACTE_TEMPLATES_META } from "@/lib/acte-templates-meta";
 
@@ -869,6 +870,179 @@ function EditorModal({
   );
 }
 
+type UserFile = {
+  id: string;
+  fileName: string;
+  blobUrl: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: string;
+};
+
+function fileIconLabel(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return "PDF";
+  if (ext === "doc" || ext === "docx") return "DOC";
+  if (ext === "xls" || ext === "xlsx") return "XLS";
+  return "FIȘ";
+}
+function fmtBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${Math.round(b / 1024)} KB`;
+  return `${(b / 1024 / 1024).toFixed(1)} MB`;
+}
+function fmtUploaded(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
+// Секция «Documentele mele»: загрузка личных файлов в Vercel Blob + список с скачиванием/удалением.
+function MyFilesSection() {
+  const [files, setFiles] = useState<UserFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/user-files");
+      const d = await r.json();
+      if (r.ok) setFiles(d.files ?? []);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function onPick(fl: FileList | null) {
+    if (!fl || fl.length === 0) return;
+    setError(null);
+    const arr = Array.from(fl);
+    const MAX = 15 * 1024 * 1024;
+    if (arr.some((f) => f.size > MAX)) {
+      setError("Fiecare fișier trebuie să fie ≤ 15 MB.");
+      return;
+    }
+    setBusy(true);
+    try {
+      let done = 0;
+      for (const f of arr) {
+        setProgress(`${done + 1}/${arr.length}`);
+        const ct = f.type || "application/octet-stream";
+        const blob = await blobUpload(f.name, f, {
+          access: "public",
+          contentType: ct,
+          handleUploadUrl: "/api/user-files/blob",
+        });
+        const r = await fetch("/api/user-files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blobUrl: blob.url, fileName: f.name, fileSize: f.size, mimeType: ct }),
+        });
+        if (!r.ok) {
+          const e = await r.json().catch(() => ({}));
+          throw new Error(e?.error || `Nu s-a putut încărca „${f.name}”.`);
+        }
+        done++;
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : "Eroare la încărcare.");
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Ștergeți acest document?")) return;
+    setFiles((p) => p.filter((x) => x.id !== id));
+    try {
+      await fetch(`/api/user-files/${id}`, { method: "DELETE" });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card-hd">
+        <b>Documentele mele</b>
+        <button
+          className="btn solid"
+          style={{ marginLeft: "auto" }}
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+        >
+          {busy ? `Se încarcă… ${progress ?? ""}` : "+ Încarcă actele tale"}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            onPick(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      <div className="card-bd">
+        {error && (
+          <div className="notice red" style={{ marginBottom: 10 }}>
+            <div className="notice-dot" />
+            <div><b>{error}</b></div>
+          </div>
+        )}
+        {busy && (
+          <div className="prog" style={{ marginBottom: 10 }}>
+            <div className="prog-fill" style={{ width: "100%", opacity: 0.6 }} />
+          </div>
+        )}
+        {loading ? (
+          <p style={{ fontSize: 13, color: "var(--ink3)" }}>Se încarcă…</p>
+        ) : files.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--ink3)" }}>Nu aveți documente încărcate încă</p>
+        ) : (
+          <div>
+            {files.map((f) => (
+              <div className="doc-row" key={f.id}>
+                <div className="doc-ic">{fileIconLabel(f.fileName)}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div className="doc-name">{f.fileName}</div>
+                  <div className="doc-meta">{fmtBytes(f.fileSize)} · {fmtUploaded(f.uploadedAt)}</div>
+                </div>
+                <a
+                  className="btn"
+                  href={`${f.blobUrl}${f.blobUrl.includes("?") ? "&" : "?"}download=1`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: 12 }}
+                >
+                  ⬇ Descarcă
+                </a>
+                <button className="doc-del" title="Șterge documentul" onClick={() => remove(f.id)}>
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ActePage() {
   const [txs, setTxs] = useState<TxOpt[]>([]);
   const [modal, setModal] = useState<TemplateName | null>(null);
@@ -939,12 +1113,24 @@ export default function ActePage() {
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{t.title}</div>
                     <div style={{ fontSize: 11, color: "var(--ink3)" }}>{t.subtitle}</div>
                   </div>
-                  <button className="btn" onClick={() => setEditorSlug(t.slug)}>Deschide</button>
+                  {t.slug === "tipuri-acte-imobil" ? (
+                    <a
+                      className="btn"
+                      href={`/api/documents/${t.slug}/original?download=1`}
+                    >
+                      ⬇ Descarcă
+                    </a>
+                  ) : (
+                    <button className="btn" onClick={() => setEditorSlug(t.slug)}>Deschide</button>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         </div>
+
+        {/* Documentele mele — личные файлы пользователя */}
+        <MyFilesSection />
       </div>
 
       {modal && <DocModal templateName={modal} txs={txs} onClose={() => setModal(null)} />}

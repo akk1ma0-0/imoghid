@@ -162,6 +162,7 @@ model User {
   notifications        Notification[]
   userDocuments        UserDocument[]
   creatorPosts         CreatorPost[]
+  userFiles            UserFile[]
 
   @@map("users")
 }
@@ -199,6 +200,21 @@ model CreatorPost {
   @@index([userId])
   @@index([expiresAt])
   @@map("creator_posts")
+}
+
+// Личные документы агента (Documentele mele на /app/acte) — файлы в Vercel Blob.
+model UserFile {
+  id         String   @id @default(cuid())
+  userId     String
+  fileName   String // оригинальное имя файла
+  blobUrl    String // URL в Vercel Blob
+  fileSize   Int // размер в байтах
+  mimeType   String
+  uploadedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_files")
 }
 
 // ─────────────────────────────────────────────────────────────────

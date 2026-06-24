@@ -9,12 +9,6 @@ export type ActeTemplateMeta = {
 
 export const ACTE_TEMPLATES_META: ActeTemplateMeta[] = [
   {
-    slug: "registrul-tranzactiilor",
-    title: "Registrul tranzacțiilor",
-    subtitle: "Registru pentru evidența tranzacțiilor imobiliare",
-    type: "xlsx",
-  },
-  {
     slug: "check-list-acte",
     title: "Check-list acte",
     subtitle: "Listă de verificare a actelor pentru tranzacție",
