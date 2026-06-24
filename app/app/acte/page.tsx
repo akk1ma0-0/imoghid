@@ -1113,16 +1113,7 @@ export default function ActePage() {
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{t.title}</div>
                     <div style={{ fontSize: 11, color: "var(--ink3)" }}>{t.subtitle}</div>
                   </div>
-                  {t.slug === "tipuri-acte-imobil" ? (
-                    <a
-                      className="btn"
-                      href={`/api/documents/${t.slug}/original?download=1`}
-                    >
-                      ⬇ Descarcă
-                    </a>
-                  ) : (
-                    <button className="btn" onClick={() => setEditorSlug(t.slug)}>Deschide</button>
-                  )}
+                  <button className="btn" onClick={() => setEditorSlug(t.slug)}>Deschide</button>
                 </div>
               ))}
             </div>
