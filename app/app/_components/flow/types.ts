@@ -31,6 +31,7 @@ export type FlowOwner = {
   fullName: string;
   shareNumerator: number;
   shareDenominator: number;
+  cota: string | null;
   isActualized: boolean | null;
   isMinor: boolean;
   isLegalEntity: boolean;

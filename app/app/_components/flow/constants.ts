@@ -20,7 +20,7 @@ export const STEP_NAV: { n: number; title: string; sub: string }[] = [
   { n: 4, title: "Coproprietari", sub: "acorduri și drepturi" },
   { n: 5, title: "Lista pentru notar", sub: "dosar pentru notar" },
   { n: 6, title: "Plăți la tranzacție", sub: "impozit și cheltuieli" },
-  { n: 7, title: "Descărcați raport", sub: "PDF" },
+  { n: 7, title: "Fișa obiectului", sub: "raport complet" },
   { n: 8, title: "Programare ASP", sub: "înregistrare stat" },
 ];
 
@@ -34,7 +34,7 @@ export const STEP_META: Record<
   4: { crumb: "Pasul 4 / 8", h1: "Coproprietari și acorduri", sub: "Platforma a determinat componența proprietarilor și ce acorduri sunt necesare.", progress: 57 },
   5: { crumb: "Pasul 5 / 8", h1: "Lista de documente pentru notar", sub: "Lista depinde de tipul tranzacției și statutul părților. Platforma indică ce este disponibil și ce lipsește.", progress: 71 },
   6: { crumb: "Pasul 6 / 8", h1: "Plăți la tranzacție", sub: "Impozit pe creșterea de capital, cheltuieli notariale și calculator credit ipotecar. Sumele sunt orientative.", progress: 75 },
-  7: { crumb: "Pasul 7 / 8", h1: "Descărcați raportul", sub: "Raportul complet al tranzacției — rezultatele verificării, semnale, calcule, dosar pentru notar.", progress: 87 },
+  7: { crumb: "Pasul 7 / 8", h1: "Fișa obiectului", sub: "Raportul complet al tranzacției — rezultatele verificării, semnale, calcule, dosar pentru notar.", progress: 87 },
   8: { crumb: "Pasul 8 / 8", h1: "Programare la ASP", sub: "Ultimul pas — programarea pentru înregistrarea de stat a tranzacției.", progress: 100 },
 };
 
@@ -45,8 +45,8 @@ export const NEXT_CARD: Record<number, { t: string; a: NextAct[]; n: number | nu
   3: { t: "Eliminați discrepanțele", a: [{ on: true, tx: "Acte verificate" }, { on: false, tx: "Actualizați datele neactualizate", s: "Cadastru" }, { on: false, tx: "Clarificați suprafața" }], n: 4 },
   4: { t: "Finalizați acordurile", a: [{ on: false, tx: "Obțineți acordul soțului/coproprietarilor" }, { on: false, tx: "Actualizați datele proprietarilor" }], n: 5 },
   5: { t: "2 documente lipsesc", a: [{ on: false, tx: "Atașați documentele lipsă" }, { on: false, tx: "Calculați impozitul", s: "pasul 6" }], n: 6 },
-  6: { t: "Descărcați raportul", a: [{ on: false, tx: "Verificați calculele" }, { on: false, tx: "Descărcați raportul PDF", s: "pasul 7" }], n: 7 },
-  7: { t: "Programați-vă la ASP", a: [{ on: false, tx: "Descărcați raportul", s: "PDF" }, { on: false, tx: "Programați-vă la ASP", s: "pasul 8" }], n: 8 },
+  6: { t: "Fișa obiectului", a: [{ on: false, tx: "Verificați calculele" }, { on: false, tx: "Descărcați fișa obiectului", s: "pasul 7" }], n: 7 },
+  7: { t: "Programați-vă la ASP", a: [{ on: false, tx: "Descărcați fișa obiectului" }, { on: false, tx: "Programați-vă la ASP", s: "pasul 8" }], n: 8 },
   8: { t: "Traseu parcurs ✓", a: [{ on: true, tx: "Documente colectate" }, { on: true, tx: "Impozite calculate" }, { on: false, tx: "Înregistrați tranzacția la ASP" }], n: null },
 };
 

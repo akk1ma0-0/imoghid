@@ -38,8 +38,9 @@ function DropZone({
   const [error, setError] = useState<string | null>(null);
 
   const docs = tx.documents.filter((d) => d.objectIndex === objectIndex);
-  // Pentru Schimb, „Nu sunt la moment" e bifat implicit (dacă nu sunt documente încărcate).
-  const [skip, setSkip] = useState(skippable ? docs.length === 0 : false);
+  // „Nu sunt la moment" e DEBIFAT implicit — se propune încărcarea documentelor.
+  // Agentul bifează manual dacă nu are documente pentru acest obiect.
+  const [skip, setSkip] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   async function deleteDoc(docId: string) {

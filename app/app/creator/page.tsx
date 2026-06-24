@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type Platform = "instagram" | "tiktok" | "facebook" | "999";
 type Language = "ro" | "ru";
-type Topic = "price" | "check" | "law40" | "object";
 type ReelFrame = { timing: string; scene: string; voiceover: string };
 type CreatorResult =
   | { kind: "social"; slides: string[] | null; reels: ReelFrame[] | null; post: string; hashtags: string }
@@ -18,12 +17,17 @@ const PLATFORMS: { code: Platform; label: string }[] = [
   { code: "facebook", label: "Facebook" },
   { code: "999", label: "999.md" },
 ];
-const TOPICS: { code: Topic; label: string }[] = [
-  { code: "price", label: "Analiză prețuri" },
-  { code: "check", label: "Cum verifici un apartament" },
-  { code: "law40", label: "Legea 40/2026" },
-  { code: "object", label: "Prezintă obiectul meu" },
+// Темы контента (минимум 7) + произвольная тема через поле ввода.
+const TOPICS: string[] = [
+  "Analiză prețuri sector",
+  "Top greșeli la cumpărarea unui apartament",
+  "Cum verifici un apartament înainte de cumpărare",
+  "Ce documente sunt necesare la vânzare",
+  "Legea 40/2026 — ce se schimbă pentru agenți",
+  "De ce să lucrezi cu un agent imobiliar",
+  "Sfat săptămânal pentru cumpărători",
 ];
+const CUSTOM_TOPIC = "__custom__";
 const SLIDE_GRADIENTS: [string, string][] = [
   ["#1d4ed8", "#3b82f6"],
   ["#15803d", "#22c55e"],
@@ -97,7 +101,8 @@ function wrapText(
 export default function CreatorPage() {
   const [platform, setPlatform] = useState<Platform>("instagram");
   const [language, setLanguage] = useState<Language>("ro");
-  const [topic, setTopic] = useState<Topic>("price");
+  const [topic, setTopic] = useState<string>(TOPICS[0]);
+  const [customTopic, setCustomTopic] = useState("");
 
   const [objectDesc, setObjectDesc] = useState("");
   const [objectPrice, setObjectPrice] = useState("");
@@ -111,6 +116,7 @@ export default function CreatorPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [result, setResult] = useState<CreatorResult | null>(null);
+  const [slidePreviews, setSlidePreviews] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -123,7 +129,6 @@ export default function CreatorPage() {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get("platform") === "999") {
       setPlatform("999");
-      setTopic("object");
     }
   }, []);
 
@@ -155,7 +160,6 @@ export default function CreatorPage() {
     setPlatform(code);
     setResult(null);
     setEditing(false);
-    if (code === "999") setTopic("object");
   }
 
   async function selectTransaction(id: string) {
@@ -191,11 +195,17 @@ export default function CreatorPage() {
     });
   }
 
+  const effectiveTopic = topic === CUSTOM_TOPIC ? customTopic.trim() : topic;
+
   async function generate() {
     setError(null);
     setEditing(false);
-    if ((is999 || topic === "object") && !objectDesc.trim()) {
+    if (is999 && !objectDesc.trim()) {
       setError("Completați descrierea obiectului sau importați din dosar.");
+      return;
+    }
+    if (!is999 && topic === CUSTOM_TOPIC && !customTopic.trim()) {
+      setError("Scrieți tema dvs. în câmpul liber.");
       return;
     }
     setBusy(true);
@@ -206,11 +216,10 @@ export default function CreatorPage() {
         body: JSON.stringify({
           platform,
           language,
-          topic: is999 ? "object" : topic,
-          objectData:
-            is999 || topic === "object"
-              ? { description: objectDesc, price: objectPrice, notes: objectNotes }
-              : undefined,
+          topic: is999 ? "object" : effectiveTopic,
+          objectData: is999
+            ? { description: objectDesc, price: objectPrice, notes: objectNotes }
+            : undefined,
         }),
       });
       const d = await r.json().catch(() => ({}));
@@ -230,8 +239,8 @@ export default function CreatorPage() {
     });
   }
 
-  // ── Рендер слайда в PNG (фон: фото cover + полупрозрачный градиент, иначе градиент) ──
-  async function renderSlidePng(text: string, i: number, total: number): Promise<Blob | null> {
+  // ── Рендер слайда на Canvas (фон: фото cover + полупрозрачный градиент, иначе градиент) ──
+  const renderSlideCanvas = useCallback(async (text: string, i: number, total: number): Promise<HTMLCanvasElement | null> => {
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
     canvas.height = 1080;
@@ -278,8 +287,9 @@ export default function CreatorPage() {
     ctx.fillText("ImoGhid", 64, 1016);
     ctx.textAlign = "right";
     ctx.fillText(`${i + 1}/${total}`, 1016, 1016);
-    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
-  }
+    return canvas;
+  }, [photos]);
+
   function triggerDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -290,13 +300,36 @@ export default function CreatorPage() {
   }
   async function downloadSlide(i: number) {
     if (!result || result.kind !== "social" || !result.slides) return;
-    const blob = await renderSlidePng(result.slides[i], i, result.slides.length);
-    if (blob) triggerDownload(blob, `imoghid-slide-${i + 1}.png`);
+    const canvas = await renderSlideCanvas(result.slides[i], i, result.slides.length);
+    if (!canvas) return;
+    canvas.toBlob((b) => b && triggerDownload(b, `imoghid-slide-${i + 1}.png`), "image/png");
   }
   function downloadAll() {
     if (!result || result.kind !== "social" || !result.slides) return;
     result.slides.forEach((_, i) => setTimeout(() => downloadSlide(i), i * 400));
   }
+
+  // Превью каруселя: рендерим каждый слайд в dataURL для показа на странице.
+  useEffect(() => {
+    let cancelled = false;
+    async function build() {
+      if (!result || result.kind !== "social" || !result.slides) {
+        setSlidePreviews([]);
+        return;
+      }
+      const slides = result.slides;
+      const urls: string[] = [];
+      for (let i = 0; i < slides.length; i++) {
+        const canvas = await renderSlideCanvas(slides[i], i, slides.length);
+        urls.push(canvas ? canvas.toDataURL("image/png") : "");
+      }
+      if (!cancelled) setSlidePreviews(urls);
+    }
+    build();
+    return () => {
+      cancelled = true;
+    };
+  }, [result, renderSlideCanvas]);
 
   // ── Редактирование результата ──
   const setSlide = (i: number, val: string) =>
@@ -358,20 +391,37 @@ export default function CreatorPage() {
                 <div className="filters" style={{ marginBottom: 0 }}>
                   {TOPICS.map((t) => (
                     <button
-                      key={t.code}
+                      key={t}
                       type="button"
-                      className={`chip${topic === t.code ? " on" : ""}`}
-                      onClick={() => setTopic(t.code)}
+                      className={`chip${topic === t ? " on" : ""}`}
+                      onClick={() => setTopic(t)}
                     >
-                      {t.label}
+                      {t}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    className={`chip${topic === CUSTOM_TOPIC ? " on" : ""}`}
+                    onClick={() => setTopic(CUSTOM_TOPIC)}
+                  >
+                    ✏️ Temă proprie...
+                  </button>
                 </div>
+                {topic === CUSTOM_TOPIC && (
+                  <div className="field-group" style={{ marginTop: 12 }}>
+                    <input
+                      type="text"
+                      placeholder="Scrieți tema dvs. aici..."
+                      value={customTopic}
+                      onChange={(e) => setCustomTopic(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {(is999 || topic === "object") && (
+          {is999 && (
             <div className="card">
               <div className="card-hd"><b>Datele obiectului</b>{is999 && <span className="badge b-gray" style={{ marginLeft: "auto" }}>anunț RO + RU</span>}</div>
               <div className="card-bd">
@@ -400,7 +450,7 @@ export default function CreatorPage() {
                 </div>
                 <div className="field-group">
                   <label>Preț</label>
-                  <input type="text" placeholder="ex: 1 400 000 lei" value={objectPrice} onChange={(e) => setObjectPrice(e.target.value)} />
+                  <input type="text" placeholder="Valoarea în lei" value={objectPrice} onChange={(e) => setObjectPrice(e.target.value)} />
                 </div>
                 <div className="field-group">
                   <label>Particularități <span style={{ fontWeight: 400, color: "var(--ink3)" }}>opțional</span></label>
@@ -507,17 +557,30 @@ export default function CreatorPage() {
                   {platform === "instagram" && result.slides && (
                     <div style={{ marginBottom: 14 }}>
                       <div className="cr-section">Carusel · {result.slides.length} slide-uri{photos.length > 0 ? ` · ${photos.length} foto fundal` : ""}</div>
-                      {result.slides.map((s, i) => (
-                        <div className="cr-slide" key={i}>
-                          <span className="cr-slide-n">{i + 1}</span>
-                          {editing ? (
-                            <textarea rows={2} value={s} onChange={(e) => setSlide(i, e.target.value)} />
-                          ) : (
-                            <span style={{ flex: 1 }}>{s}</span>
-                          )}
-                          <button type="button" className="cr-slide-dl" title="Descarcă slide-ul (PNG)" onClick={() => downloadSlide(i)}>↓</button>
-                        </div>
-                      ))}
+                      {/* Vizualizare slide-uri ca imagini (320×320) — scroll orizontal */}
+                      <div style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 0 10px" }}>
+                        {result.slides.map((s, i) => (
+                          <div key={i} style={{ flex: "0 0 auto", width: 320 }}>
+                            <div style={{ position: "relative", width: 320, height: 320, borderRadius: 10, overflow: "hidden", background: "var(--bg2, #f1f5f9)", border: "1px solid var(--line, #e2e8f0)" }}>
+                              {slidePreviews[i] ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={slidePreviews[i]} alt={`slide ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              ) : (
+                                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--ink4)" }}>
+                                  Se randează…
+                                </div>
+                              )}
+                              <span style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.55)", color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: 12 }}>{i + 1}</span>
+                            </div>
+                            {editing && (
+                              <textarea rows={2} style={{ width: "100%", marginTop: 6, fontSize: 12 }} value={s} onChange={(e) => setSlide(i, e.target.value)} />
+                            )}
+                            <button type="button" className="btn" style={{ width: "100%", justifyContent: "center", marginTop: 6, fontSize: 12 }} title="Descarcă slide-ul (PNG)" onClick={() => downloadSlide(i)}>
+                              ↓ Descarcă
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 

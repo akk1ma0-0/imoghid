@@ -60,6 +60,7 @@ export async function PATCH(request: Request, { params }: Params) {
     "suprafata",
     "destinatie",
     "valoare",
+    "verificareImobil",
     "clientName",
     "clientPhone",
     "clientContractRef",

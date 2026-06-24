@@ -137,7 +137,7 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
         <div className="card-bd">
           <div className="field-group">
             <label>Nume și prenume</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Popescu Ion" />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nume Prenume" />
           </div>
           <div className="field-row">
             <div className="field-group">

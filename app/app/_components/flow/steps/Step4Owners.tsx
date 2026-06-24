@@ -87,7 +87,7 @@ function OwnerCard({
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{owner.fullName}</div>
             <div style={{ fontSize: 11, color: "var(--ink3)" }}>
-              Cotă: {owner.shareNumerator}/{owner.shareDenominator}
+              Cotă: {owner.cota ?? "–"}
             </div>
           </div>
         </div>

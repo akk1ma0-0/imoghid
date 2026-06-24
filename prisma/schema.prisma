@@ -203,6 +203,9 @@ model Transaction {
   suprafata   String?         // m² (opțional, prefill din Verificare imobil)
   destinatie  String?         // Locativă etc. (opțional)
   valoare     String?         // valoare evaluare (opțional)
+  // Date din modulul «Verificare imobil» (JSON): substitut al extrasului RBI la pasul 3.
+  // { alteDrepturiReale, notari, interdictii, suprafata, destinatie, valoare }
+  verificareImobil String?    @db.Text
   dealType    DealType        @default(VANZARE_CUMPARARE)
   sellerType  PartyType       @default(PERSOANA_FIZICA)
   buyerType   PartyType       @default(PERSOANA_FIZICA)
@@ -347,6 +350,8 @@ model PropertyOwner {
   // Cotă: 1/2 → numerator=1, denominator=2; 1/1 → 1,1
   shareNumerator   Int      @default(1)
   shareDenominator Int      @default(1)
+  // Cotă afișată, extrasă din documente ("1/2"). null → necunoscută, se afișează "–".
+  cota          String?
 
   isActualized        Boolean?  // null=necunoscut, true=CAPSLOCK, false=inițiale
   isMinor             Boolean   @default(false)

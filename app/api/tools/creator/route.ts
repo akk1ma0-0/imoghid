@@ -5,12 +5,10 @@ import {
   generateSocial,
   type Language,
   type Platform,
-  type Topic,
 } from "@/lib/social-creator";
 import { generateAnunt } from "@/lib/tools-claude";
 
 const SOCIAL_PLATFORMS: Platform[] = ["instagram", "tiktok", "facebook"];
-const TOPICS: Topic[] = ["price", "check", "law40", "object"];
 
 // POST /api/tools/creator
 // platform "999" → анонс для 999.md (RO + RU, тот же генератор, что /generate-anunt).
@@ -55,32 +53,15 @@ export async function POST(request: Request) {
     ? (platform as Platform)
     : "instagram";
   const language: Language = body.language === "ru" ? "ru" : "ro";
-  const topic = TOPICS.includes(body.topic as Topic) ? (body.topic as Topic) : null;
+  const topic = typeof body.topic === "string" ? body.topic.trim() : "";
   if (!topic) {
     return NextResponse.json({ error: "Alegeți o temă." }, { status: 400 });
-  }
-
-  let objectData: { description: string; price: string; notes: string } | undefined;
-  if (topic === "object") {
-    const od = (body.objectData ?? {}) as Record<string, unknown>;
-    objectData = {
-      description: typeof od.description === "string" ? od.description.trim() : "",
-      price: typeof od.price === "string" ? od.price.trim() : "",
-      notes: typeof od.notes === "string" ? od.notes.trim() : "",
-    };
-    if (!objectData.description) {
-      return NextResponse.json(
-        { error: "Completați descrierea obiectului." },
-        { status: 400 },
-      );
-    }
   }
 
   const social = await generateSocial({
     platform: socialPlatform,
     language,
     topic,
-    objectData,
   });
   return NextResponse.json({ result: { kind: "social", ...social } });
 }

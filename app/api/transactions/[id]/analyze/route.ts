@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
 import { analysisLimit, isPastMonth } from "@/lib/analysis-limits";
-import { analyzeDocuments } from "@/lib/claude";
-import { isInheritanceBasis } from "@/lib/analyze/flags";
+import { analyzeDocuments, type VerificareImobilData } from "@/lib/claude";
+import { isInheritanceBasis, parseOwnerCota } from "@/lib/analyze/flags";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -62,6 +62,16 @@ export async function POST(_req: Request, { params }: Params) {
   const indices = tx.dealType === "SCHIMB" ? [1, 2] : [1];
   const docByIndex = (idx: number) => tx.documents.filter((d) => d.objectIndex === idx);
 
+  // Данные Verificare imobil (substitut выписки RBI) для основного объекта (objectIndex=1).
+  let verificareByIndex: Record<number, VerificareImobilData | null> | undefined;
+  if (tx.verificareImobil) {
+    try {
+      verificareByIndex = { 1: JSON.parse(tx.verificareImobil) as VerificareImobilData };
+    } catch {
+      verificareByIndex = undefined;
+    }
+  }
+
   // Один вызов Claude на всю транзакцию (для SCHIMB — оба объекта). Вне DB-транзакции.
   const analysis = await analyzeDocuments(
     indices.map((idx) => ({
@@ -73,6 +83,7 @@ export async function POST(_req: Request, { params }: Params) {
       })),
     })),
     tx.dealType,
+    verificareByIndex,
   );
 
   const rules = await prisma.legalRule.findMany();
@@ -98,6 +109,33 @@ export async function POST(_req: Request, { params }: Params) {
           isActualized: f.isActualized,
         }));
       if (efRows.length) await db.extractedField.createMany({ data: efRows });
+
+      // ── Flag-uri din Verificare imobil (substitut extras RBI) ──
+      // Dacă există drepturi/notări/interdicții → semnal concret, nu «necunoscut».
+      const ver = verificareByIndex?.[idx];
+      if (ver) {
+        const verFlags: { on: boolean; code: string; severity: "AMBER" | "RED"; titleRo: string; descriptionRo: string }[] = [
+          { on: !!ver.alteDrepturiReale, code: "VER_ALTE_DREPTURI", severity: "AMBER", titleRo: "Alte drepturi reale — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat alte drepturi reale. Clarificați natura lor înainte de notar." },
+          { on: !!ver.notari, code: "VER_NOTARI", severity: "AMBER", titleRo: "Notări — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat notări în registru. Verificați conținutul lor." },
+          { on: !!ver.interdictii, code: "VER_INTERDICTII", severity: "RED", titleRo: "Interdicții — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat interdicții. Acestea pot bloca tranzacția — clarificați obligatoriu." },
+        ];
+        for (const vf of verFlags) {
+          if (!vf.on) continue;
+          await db.transactionFlag.create({
+            data: {
+              transactionId: id,
+              objectIndex: idx,
+              severity: vf.severity,
+              zone: "VERIFICARE_MANUALA",
+              code: vf.code,
+              titleRo: vf.titleRo,
+              descriptionRo: vf.descriptionRo,
+              legalRef: null,
+              legalRefUrl: null,
+            },
+          });
+        }
+      }
 
       // ── TransactionFlag ── (severity/zone уже нормализованы; legalRefUrl — из LegalRule по code) ──
       for (const f of obj.flags) {
@@ -130,12 +168,18 @@ export async function POST(_req: Request, { params }: Params) {
         (obj.flags.some((f) => f.code === "MARRIED_CONSENT_NEEDED") ||
           (tx.sellerType === "PERSOANA_FIZICA" &&
             (tx.dealType === "VANZARE_CUMPARARE" || tx.dealType === "SCHIMB")));
-      const keep = new Set(ownerEntries.map((e) => e.value!.trim()));
+      // Извлекаем имя + долю (cotă) из каждого owner_name. Доля не найдена → null («–»).
+      const parsedOwners = ownerEntries
+        .map((e) => {
+          const { name, cota } = parseOwnerCota(e.value!.trim());
+          return { name, cota, isActualized: e.isActualized };
+        })
+        .filter((o) => o.name);
+      const keep = new Set(parsedOwners.map((o) => o.name));
 
-      for (const entry of ownerEntries) {
-        const fullName = entry.value!.trim();
-        if (!fullName) continue;
-        const actualized = entry.isActualized;
+      for (const po of parsedOwners) {
+        const fullName = po.name;
+        const actualized = po.isActualized;
         const existing = await db.propertyOwner.findFirst({
           where: { transactionId: id, objectIndex: idx, fullName },
         });
@@ -145,6 +189,7 @@ export async function POST(_req: Request, { params }: Params) {
             data: {
               isActualized: actualized,
               isLegalEntity: hasLegalEntity,
+              cota: po.cota,
               dataActualizationRequired: actualized === false,
             },
           });
@@ -154,6 +199,7 @@ export async function POST(_req: Request, { params }: Params) {
               transactionId: id,
               objectIndex: idx,
               fullName,
+              cota: po.cota,
               isActualized: actualized,
               isLegalEntity: hasLegalEntity,
               acordSotRequired: needConsent,

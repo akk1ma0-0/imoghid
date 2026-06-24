@@ -11,7 +11,8 @@ const SOCIAL_SYSTEM_PROMPT =
 
 export type Platform = "instagram" | "tiktok" | "facebook";
 export type Language = "ro" | "ru";
-export type Topic = "price" | "check" | "law40" | "object";
+// Тема — произвольный текст (одна из предложенных тем или своя).
+export type Topic = string;
 export type ReelFrame = { timing: string; scene: string; voiceover: string };
 export type SocialResult = {
   slides: string[] | null;
@@ -53,13 +54,7 @@ const RESULT_SCHEMA = {
 // ── Stub (без ключа / при ошибке) — чтобы поток работал и тестировался без реального вызова ──
 function stubSocial(req: SocialRequest): SocialResult {
   const ro = req.language === "ro";
-  const titles: Record<Topic, string> = {
-    price: ro ? "Analiza prețurilor pe piață" : "Анализ цен на рынке",
-    check: ro ? "Cum verifici un apartament" : "Как проверить квартиру",
-    law40: ro ? "Legea 40/2026 — ce trebuie să știi" : "Закон 40/2026 — что нужно знать",
-    object: req.objectData?.description || (ro ? "Obiect de vânzare" : "Объект на продажу"),
-  };
-  const t = titles[req.topic];
+  const t = req.topic.trim() || req.objectData?.description || (ro ? "Conținut imobiliar" : "Контент о недвижимости");
   const hashtags = "#imobil #chisinau #imoghid #imobiliare #agentimobiliar";
   const post = ro
     ? `${t}. Detalii și consultanță — scrie-mi în privat. (text demo — fără cheie Claude)`
@@ -121,10 +116,10 @@ export async function generateSocial(req: SocialRequest): Promise<SocialResult> 
       platform: req.platform,
       language: req.language,
       topic: req.topic,
-      objectData: req.topic === "object" ? req.objectData : undefined,
+      objectData: req.objectData,
     };
     const user =
-      `Generează conținut pentru rețele sociale. Date:\n${JSON.stringify(payload)}\n\n` +
+      `Generează conținut pentru rețele sociale pe tema „${req.topic}”. Date:\n${JSON.stringify(payload)}\n\n` +
       `Reguli de format JSON:\n` +
       `- instagram: "slides" = EXACT 5 stringuri (texte de slide-uri), "reels" = null, "post" = caption.\n` +
       `- tiktok: "reels" = EXACT 4 obiecte {timing, scene, voiceover}, "slides" = null, "post" = descriere scurtă.\n` +

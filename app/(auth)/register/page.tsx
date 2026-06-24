@@ -152,7 +152,7 @@ export default function RegisterPage() {
                 <input
                   id="nume"
                   type="text"
-                  placeholder="Popescu"
+                  placeholder="Numele"
                   autoComplete="family-name"
                   required
                   value={form.nume}

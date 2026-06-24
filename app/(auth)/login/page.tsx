@@ -61,7 +61,7 @@ function LoginForm() {
           "Verificare automată a actelor",
           "Anunțuri noi de la proprietari — 999.md în timp real",
           "Calculator impozit · notariat · credit ipotecar",
-          "Raport PDF profesional pentru client",
+          "Fișa obiectului — raport profesional pentru client",
         ]}
       />
 

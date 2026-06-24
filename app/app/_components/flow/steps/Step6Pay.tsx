@@ -162,7 +162,7 @@ export function Step6Pay({
                           setSellPrice(e.target.value);
                           setNotaryVal(e.target.value);
                         }}
-                        placeholder="1 400 000"
+                        placeholder="Valoarea în lei"
                       />
                     </div>
                   </div>
@@ -204,7 +204,7 @@ export function Step6Pay({
                 <>
                   <div className="field-group">
                     <label>Valoarea bunului donat (MDL)</label>
-                    <input type="number" value={donVal} onChange={(e) => setDonVal(e.target.value)} placeholder="1 400 000" />
+                    <input type="number" value={donVal} onChange={(e) => setDonVal(e.target.value)} placeholder="Valoarea în lei" />
                   </div>
                   <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 6 }}>Formula: Valoarea ÷ 2 × 12%</div>
                   <table className="calc">
@@ -284,7 +284,7 @@ export function Step6Pay({
         <div className="card-bd">
           <div className="field-group" style={{ maxWidth: 300 }}>
             <label>Valoarea tranzacției (MDL)</label>
-            <input type="number" value={notaryVal} onChange={(e) => setNotaryVal(e.target.value)} placeholder="1 400 000" />
+            <input type="number" value={notaryVal} onChange={(e) => setNotaryVal(e.target.value)} placeholder="Valoarea în lei" />
           </div>
           <table className="calc">
             <tbody>

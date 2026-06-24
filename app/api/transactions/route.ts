@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       suprafata: str(body.suprafata),
       destinatie: str(body.destinatie),
       valoare: str(body.valoare),
+      verificareImobil: str(body.verificareImobil),
       dealType,
       sellerType,
       buyerType,

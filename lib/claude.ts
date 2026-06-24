@@ -69,6 +69,15 @@ export type AnalysisObject = {
   extractedFields: AnalysisFieldEntry[];
   flags: AnalysisFlag[];
 };
+// Данные из модуля «Verificare imobil» — substitut выписки RBI (по objectIndex).
+export type VerificareImobilData = {
+  alteDrepturiReale?: boolean;
+  notari?: boolean;
+  interdictii?: boolean;
+  suprafata?: string;
+  destinatie?: string;
+  valoare?: string;
+};
 export type ClaudeAnalysis = {
   objects: AnalysisObject[];
   escalations: { reason: string; specialist: string }[];
@@ -318,6 +327,7 @@ async function fileToBlock(doc: DocInput): Promise<Anthropic.ContentBlockParam |
 export async function analyzeDocuments(
   objects: { objectIndex: number; docs: DocInput[] }[],
   dealType: string,
+  verificareByIndex?: Record<number, VerificareImobilData | null>,
 ): Promise<ClaudeAnalysis> {
   const indices = objects.map((o) => o.objectIndex);
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -343,6 +353,16 @@ export async function analyzeDocuments(
     let fileCount = 0;
     for (const obj of objects) {
       content.push({ type: "text", text: `=== Obiect ${obj.objectIndex} ===` });
+      // Date din Verificare imobil = substitut al extrasului RBI (cota/grevări/suprafață).
+      const ver = verificareByIndex?.[obj.objectIndex];
+      if (ver) {
+        content.push({
+          type: "text",
+          text:
+            `Date din Verificare imobil (substitut extras RBI) pentru Obiect ${obj.objectIndex}: ` +
+            JSON.stringify(ver),
+        });
+      }
       for (const doc of obj.docs) {
         const b = await fileToBlock(doc);
         if (b) {

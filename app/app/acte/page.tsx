@@ -19,19 +19,19 @@ const GARANTIE: Section[] = [
   {
     title: "Agent / Reprezentant vânzător",
     rows: [
-      { fields: [{ key: "agent_nume", label: "Numele și prenumele agentului", ph: "Popescu Ion" }] },
+      { fields: [{ key: "agent_nume", label: "Numele și prenumele agentului", ph: "Nume Prenume" }] },
       { fields: [
         { key: "agent_buletin_seria", label: "Buletin seria", ph: "A" },
         { key: "agent_buletin_nr", label: "Buletin nr.", ph: "123456" },
       ] },
-      { fields: [{ key: "agent_domiciliu", label: "Domiciliu agent", ph: "str. Independenței 1, Chișinău" }] },
+      { fields: [{ key: "agent_domiciliu", label: "Domiciliu agent", ph: "Localitate, stradă, nr." }] },
       { fields: [{ key: "contract_intermediere_nr", label: "Contractul de intermediere nr.", ph: "42" }] },
       { fields: [{ key: "contract_intermediere_data", label: "Data contractului de intermediere", type: "date" }] },
     ],
   },
   {
     title: "Vânzător (proprietar)",
-    rows: [{ fields: [{ key: "vanzator_nume", label: "Numele și prenumele vânzătorului", ph: "Grosu Maria" }] }],
+    rows: [{ fields: [{ key: "vanzator_nume", label: "Numele și prenumele vânzătorului", ph: "Nume Prenume" }] }],
   },
   {
     title: "Cumpărător",
@@ -48,7 +48,7 @@ const GARANTIE: Section[] = [
     title: "Imobil",
     rows: [
       { fields: [{ key: "numar_cadastral", label: "Număr cadastral", ph: "0100225.041.0212" }] },
-      { fields: [{ key: "imobil_adresa", label: "Adresa imobilului", ph: "str. Cetatea Albă 143/1, ap. 32, Chișinău" }] },
+      { fields: [{ key: "imobil_adresa", label: "Adresa imobilului", ph: "Localitate, stradă, nr., ap." }] },
       { fields: [{ key: "imobil_descriere", label: "Descriere scurtă imobil (tip, sector)", ph: "apartament cu 2 camere, sect. Botanica" }] },
     ],
   },
@@ -73,7 +73,7 @@ const GARANTIE: Section[] = [
   {
     title: "Semnături",
     rows: [
-      { fields: [{ key: "vanzator_semnatura_nume", label: "Vânzător / reprezentant (nume pentru semnătură)", ph: "Grosu Maria" }] },
+      { fields: [{ key: "vanzator_semnatura_nume", label: "Vânzător / reprezentant (nume pentru semnătură)", ph: "Nume Prenume" }] },
       { fields: [{ key: "cumparator_semnatura_nume", label: "Cumpărător (nume pentru semnătură)", ph: "Ionescu Alexandru" }] },
       { fields: [{ key: "martori_nume", label: "Martori (nume, opțional)", ph: "Popa Ion, Ciobanu Ana" }] },
       { fields: [{ key: "data_intocmirii", label: "Data întocmirii", type: "date" }] },
@@ -95,19 +95,19 @@ const CONTRACT: Section[] = [
   {
     title: "Prestator (agent / agenție)",
     rows: [
-      { fields: [{ key: "prestator_nume", label: "Denumirea agenției / Numele agentului", ph: "SRL ImoGhid sau Popescu Ion" }] },
-      { fields: [{ key: "prestator_adresa", label: "Sediu / Adresă", ph: "str. Independenței 1, Chișinău" }] },
+      { fields: [{ key: "prestator_nume", label: "Denumirea agenției / Numele agentului", ph: "Denumirea sau numele" }] },
+      { fields: [{ key: "prestator_adresa", label: "Sediu / Adresă", ph: "Localitate, stradă, nr." }] },
       { fields: [{ key: "prestator_idno", label: "IDNO / IDNP", ph: "1234567890123" }] },
-      { fields: [{ key: "prestator_reprezentant", label: "Reprezentat prin", ph: "Director Popescu Ion" }] },
+      { fields: [{ key: "prestator_reprezentant", label: "Reprezentat prin", ph: "Funcția, Nume Prenume" }] },
     ],
   },
   {
     title: "Beneficiar (client / vânzător)",
     rows: [
-      { fields: [{ key: "beneficiar_nume", label: "Numele și prenumele", ph: "Grosu Maria" }] },
+      { fields: [{ key: "beneficiar_nume", label: "Numele și prenumele", ph: "Nume Prenume" }] },
       { fields: [{ key: "beneficiar_cetatenie", label: "Cetățean al", ph: "Republicii Moldova" }] },
       { fields: [{ key: "beneficiar_idnp", label: "IDNP", ph: "2004012345678" }] },
-      { fields: [{ key: "beneficiar_domiciliu", label: "Domiciliu", ph: "str. Cetatea Albă 143/1, ap. 32, Chișinău" }] },
+      { fields: [{ key: "beneficiar_domiciliu", label: "Domiciliu", ph: "Localitate, stradă, nr., ap." }] },
       { fields: [
         { key: "beneficiar_buletin_seria", label: "Buletin seria", ph: "A" },
         { key: "beneficiar_buletin_nr", label: "Buletin nr.", ph: "123456" },
@@ -122,7 +122,7 @@ const CONTRACT: Section[] = [
     title: "Imobil (Anexa nr. 1)",
     rows: [
       { fields: [{ key: "bun_tip", label: "Tip bun", ph: "apartament" }] },
-      { fields: [{ key: "bun_adresa", label: "Adresa", ph: "str. Cetatea Albă 143/1, ap. 32, Chișinău" }] },
+      { fields: [{ key: "bun_adresa", label: "Adresa", ph: "Localitate, stradă, nr., ap." }] },
       { fields: [
         { key: "numar_cadastral", label: "Număr cadastral", ph: "0100225.041.0212" },
         { key: "suprafata", label: "Suprafața (m²)", type: "number", ph: "66.8" },

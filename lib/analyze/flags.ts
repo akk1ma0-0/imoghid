@@ -31,6 +31,17 @@ export function isInheritanceBasis(legalBasis: string | null | undefined): boole
   return /mosten|succesiun|testament/.test(norm(legalBasis));
 }
 
+// Извлекает долю (cotă) из значения owner_name. Claude по §3 добавляет к имени
+// «| cotă: 1/2», когда доля указана в документах. Если доли нет → null (показываем «–»).
+export function parseOwnerCota(raw: string): { name: string; cota: string | null } {
+  const m = raw.match(/cot[ăa]\s*[:=]?\s*(\d+\s*\/\s*\d+)/i);
+  const cota = m ? m[1].replace(/\s+/g, "") : null;
+  const name = raw
+    .replace(/[|·,;–-]*\s*cot[ăa]\s*[:=]?\s*\d+\s*\/\s*\d+.*/i, "")
+    .trim();
+  return { name: name || raw.trim(), cota };
+}
+
 function parseArea(s: string | null): number | null {
   if (!s) return null;
   const cleaned = s.replace(",", ".").replace(/[^\d.]/g, "");

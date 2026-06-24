@@ -45,6 +45,9 @@ export function Step1Date({
   const [suprafata2, setSuprafata2] = useState("");
   const [destinatie2, setDestinatie2] = useState("");
   const [valoare2, setValoare2] = useState("");
+  // Данные верификации (флаги RBI-substitut) из Verificare imobil — переносятся в транзакцию.
+  const [verificareImobil, setVerificareImobil] = useState<string | null>(null);
+  const [verificareImobil2, setVerificareImobil2] = useState<string | null>(null);
 
   const [dealType, setDealType] = useState<DealCode>(tx?.dealType ?? "VANZARE_CUMPARARE");
   const [fromCad, setFromCad] = useState(!!prefill?.fromCadastru);
@@ -87,6 +90,8 @@ export function Step1Date({
     if (s("suprafata2") !== undefined) setSuprafata2(s("suprafata2")!);
     if (s("destinatie2") !== undefined) setDestinatie2(s("destinatie2")!);
     if (s("valoare2") !== undefined) setValoare2(s("valoare2")!);
+    if (s("verificareImobil") !== undefined) setVerificareImobil(s("verificareImobil")!);
+    if (s("verificareImobil2") !== undefined) setVerificareImobil2(s("verificareImobil2")!);
     if (s("clientName") !== undefined) setClientName(s("clientName")!);
     if (s("clientPhone") !== undefined) setClientPhone(s("clientPhone")!);
     if (s("clientContractRef") !== undefined) setClientContractRef(s("clientContractRef")!);
@@ -104,6 +109,7 @@ export function Step1Date({
           fromCadastru: fromCad,
           address, cadastralNo, objectType, suprafata, destinatie, valoare,
           address2, cadastralNo2, objectType2, suprafata2, destinatie2, valoare2,
+          verificareImobil, verificareImobil2,
           clientName, clientPhone, clientContractRef,
         }),
       );
@@ -122,7 +128,7 @@ export function Step1Date({
     setBusy(true);
     const payload = {
       address, cadastralNo, objectType, suprafata, destinatie, valoare,
-      dealType, clientName, clientPhone, clientContractRef,
+      verificareImobil, dealType, clientName, clientPhone, clientContractRef,
     };
     try {
       if (tx) {
@@ -215,7 +221,7 @@ export function Step1Date({
               <label>Adresa obiectului</label>
               <input
                 type="text"
-                placeholder="Chișinău, str. Independenței 42, ap. 7"
+                placeholder="Localitate, stradă, nr., ap."
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
@@ -225,7 +231,7 @@ export function Step1Date({
                 <label>Număr cadastral</label>
                 <input
                   type="text"
-                  placeholder="0100225.041.0212"
+                  placeholder="0100000.000.0000"
                   value={cadastralNo}
                   onChange={(e) => setCadastralNo(e.target.value)}
                 />
@@ -242,7 +248,7 @@ export function Step1Date({
             <div className="field-row-3">
               <div className="field-group">
                 {optLabel("Suprafață (m²)")}
-                <input type="text" placeholder="66.80" value={suprafata} onChange={(e) => setSuprafata(e.target.value)} />
+                <input type="text" placeholder="Suprafața în m²" value={suprafata} onChange={(e) => setSuprafata(e.target.value)} />
               </div>
               <div className="field-group">
                 {optLabel("Destinație")}
@@ -250,7 +256,7 @@ export function Step1Date({
               </div>
               <div className="field-group">
                 {optLabel("Valoare evaluare")}
-                <input type="text" placeholder="344 020 lei" value={valoare} onChange={(e) => setValoare(e.target.value)} />
+                <input type="text" placeholder="Valoarea în lei" value={valoare} onChange={(e) => setValoare(e.target.value)} />
               </div>
             </div>
             {verifyBtn("object1")}
@@ -271,12 +277,12 @@ export function Step1Date({
               <div className="card-bd">
                 <div className="field-group">
                   <label>Adresa obiectului</label>
-                  <input type="text" placeholder="Chișinău, str. Independenței 42, ap. 7" value={address} onChange={(e) => setAddress(e.target.value)} />
+                  <input type="text" placeholder="Localitate, stradă, nr., ap." value={address} onChange={(e) => setAddress(e.target.value)} />
                 </div>
                 <div className="field-row">
                   <div className="field-group">
                     <label>Număr cadastral</label>
-                    <input type="text" placeholder="0100225.041.0212" value={cadastralNo} onChange={(e) => setCadastralNo(e.target.value)} />
+                    <input type="text" placeholder="0100000.000.0000" value={cadastralNo} onChange={(e) => setCadastralNo(e.target.value)} />
                   </div>
                   <div className="field-group">
                     <label>Tip obiect</label>
@@ -287,7 +293,7 @@ export function Step1Date({
                 </div>
                 <div className="field-group">
                   {optLabel("Suprafață (m²)")}
-                  <input type="text" placeholder="66.80" value={suprafata} onChange={(e) => setSuprafata(e.target.value)} />
+                  <input type="text" placeholder="Suprafața în m²" value={suprafata} onChange={(e) => setSuprafata(e.target.value)} />
                 </div>
                 <div className="field-row">
                   <div className="field-group">
@@ -296,7 +302,7 @@ export function Step1Date({
                   </div>
                   <div className="field-group">
                     {optLabel("Valoare")}
-                    <input type="text" placeholder="344 020 lei" value={valoare} onChange={(e) => setValoare(e.target.value)} />
+                    <input type="text" placeholder="Valoarea în lei" value={valoare} onChange={(e) => setValoare(e.target.value)} />
                   </div>
                 </div>
                 {verifyBtn("object1")}
@@ -310,12 +316,12 @@ export function Step1Date({
               <div className="card-bd">
                 <div className="field-group">
                   <label>Adresa obiectului</label>
-                  <input type="text" placeholder="Chișinău, str. Decebal 99/D, ap. 40" value={address2} onChange={(e) => setAddress2(e.target.value)} />
+                  <input type="text" placeholder="Localitate, stradă, nr., ap." value={address2} onChange={(e) => setAddress2(e.target.value)} />
                 </div>
                 <div className="field-row">
                   <div className="field-group">
                     <label>Număr cadastral</label>
-                    <input type="text" placeholder="0100110.477.05.040" value={cadastralNo2} onChange={(e) => setCadastralNo2(e.target.value)} />
+                    <input type="text" placeholder="0100000.000.0000" value={cadastralNo2} onChange={(e) => setCadastralNo2(e.target.value)} />
                   </div>
                   <div className="field-group">
                     <label>Tip obiect</label>
@@ -326,7 +332,7 @@ export function Step1Date({
                 </div>
                 <div className="field-group">
                   {optLabel("Suprafață (m²)")}
-                  <input type="text" placeholder="58.40" value={suprafata2} onChange={(e) => setSuprafata2(e.target.value)} />
+                  <input type="text" placeholder="Suprafața în m²" value={suprafata2} onChange={(e) => setSuprafata2(e.target.value)} />
                 </div>
                 <div className="field-row">
                   <div className="field-group">
@@ -335,7 +341,7 @@ export function Step1Date({
                   </div>
                   <div className="field-group">
                     {optLabel("Valoare")}
-                    <input type="text" placeholder="290 000 lei" value={valoare2} onChange={(e) => setValoare2(e.target.value)} />
+                    <input type="text" placeholder="Valoarea în lei" value={valoare2} onChange={(e) => setValoare2(e.target.value)} />
                   </div>
                 </div>
                 {verifyBtn("object2")}
@@ -360,11 +366,11 @@ export function Step1Date({
           <div className="field-row">
             <div className="field-group">
               <label>Numele clientului</label>
-              <input type="text" placeholder="Popescu Ion" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+              <input type="text" placeholder="Nume Prenume" value={clientName} onChange={(e) => setClientName(e.target.value)} />
             </div>
             <div className="field-group">
               <label>Telefon</label>
-              <input type="text" placeholder="+373 69 000 000" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
+              <input type="text" placeholder="+373 ..." value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
             </div>
           </div>
           <div className="field-group">

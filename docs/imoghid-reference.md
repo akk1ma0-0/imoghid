@@ -193,6 +193,22 @@ IMPORTANT: persoanele care apar ca debitori/vânzători în istoricul tranzacți
 Olari Anna) NU sunt proprietari actuali și NU trebuie indicate ca `owner_name` în `extractedFields`.
 Menționează-le doar în `descriptionRo`, ca context al istoricului dreptului de proprietate.
 
+### Date din modulul «Verificare imobil» (substitut al extrasului RBI)
+Dacă **nu este încărcat extrasul din RBI** dar în prompt apar „Date din Verificare imobil (substitut
+extras RBI)” (sursă: modulul Verificare imobil, prefill din verificarea cadastrală), folosește-le ca
+substitut al extrasului:
+- `alteDrepturiReale`, `notari`, `interdictii` → starea grevărilor/notărilor (folosește-le în loc de
+  „necunoscut”).
+- `suprafata`, `destinatie`, `valoare` → pentru comparare cu actul de drept.
+
+Reguli de semnalizare pe baza acestor date:
+- `alteDrepturiReale = true` → flag AMBER (alte drepturi reale de clarificat).
+- `notari = true` → flag AMBER (notări în registru).
+- `interdictii = true` → flag RED (interdicții — pot bloca tranzacția).
+
+Dacă tranzacția a fost creată direct din „Crează Dosar” (fără Verificare imobil) **și** lipsesc
+documentele RBI → pune liniuță (`–`), nu „necunoscut”.
+
 ### Puncte obligatorii de escaladare (marchezi, nu rezolvi)
 Nu afirmi „totul e curat" când: vânzătorul ≠ proprietarul din extras; lipsește actul de drept
 sau certificatul de privatizare cerut; discrepanță de suprafață; există interdicții/sarcini/
@@ -254,6 +270,10 @@ Reguli pentru câmpuri:
 - `fieldName` folosește EXACT aceste valori canonice: `cadastralNo, address, owner_name,
   area_act, area_extras, legal_basis, encumbrances, purchase_price` (poți repeta `owner_name`
   pentru fiecare proprietar găsit).
+- **Cota-parte (`owner_name`):** dacă documentul indică o cotă pentru un proprietar (ex. „1/2 cotă”,
+  „1/2 din dreptul de proprietate”), adaug-o la valoarea `owner_name` în formatul
+  `NUME PRENUME | cotă: 1/2`. Dacă documentul NU indică o cotă → pune doar numele (cota va fi afișată
+  ca „–”). NU presupune „1/1” când cota nu este menționată.
 - `isActualized`: `true`/`false` doar pentru `owner_name`; `null` pentru toate celelalte câmpuri.
 - `severity`: `RED` / `AMBER` / `GREEN` (exact aceste valori, majuscule).
 - `zone`: `VERIFICAT` / `VERIFICARE_MANUALA` / `IN_AFARA_ZONEI`.

@@ -46,10 +46,22 @@ function parseCadastralText(text: string) {
     const m = text.match(re);
     return m ? m[1].trim() : "";
   };
-  // Числовые поля: убираем все пробелы внутри числа (артефакты OCR «3 59.70» → «359.70»).
-  const grabNum = (re: RegExp) => {
-    const m = text.match(re);
-    return m ? m[1].replace(/\s+/g, "").trim() : "";
+  // Suprafața: число + единица (m.p./m²/ha/hectare). Возвращаем строку с нормализованной
+  // единицей — гектары (ha) для участков, m² для квартир/помещений.
+  const grabArea = (): string => {
+    const m = text.match(/([\d.,]+)\s*(m\.?p\.?|m²|ha|hectare)/i);
+    if (m) {
+      const num = m[1].replace(/\s+/g, "").trim();
+      const unit = /ha|hectare/i.test(m[2]) ? "ha" : "m²";
+      return num ? `${num} ${unit}` : "";
+    }
+    // fallback: «Suprafața: 59.70» без явной единицы → m²
+    const f = text.match(/suprafa[țt]a[:\s]+([\d\s.,]+)/i);
+    if (f) {
+      const num = f[1].replace(/\s+/g, "").trim();
+      return num ? `${num} m²` : "";
+    }
+    return "";
   };
   // Valoare устойчиво к OCR-артефактам (мусор в начале строки, запятая вместо двоеточия,
   // искажённое «valoare»: «|. oarca estimată a bunului imobil, 382 252»). Ловим число в строке
@@ -71,7 +83,7 @@ function parseCadastralText(text: string) {
     numarCadastral: grab(/numărul cadastral[:\s]+([0-9.]+)/i),
     adresa: grab(/adresa[:\s]+(.+)/i),
     destinatie: grab(/destinație[:\s]+(.+)/i),
-    suprafata: grabNum(/suprafața[:\s]+([\d\s.,]+?)(?:\s*m\.?p\.?|$)/im),
+    suprafata: grabArea(),
     valoare: extractValoare(),
     tipProprietate: grab(/tipul de proprietate[:\s]+(.+)/i),
     alteDrepturiReale: grab(/alte drepturi reale[:\s]+(.+)/i),
@@ -92,12 +104,6 @@ type CadRecord = {
   int: string;
 };
 type Building = { bcad: string; addr: string; teren: string; apts: number[] };
-
-const EXAMPLES = [
-  { label: "adresă + apartament", q: "str. Cetatea Albă 143/1 ap.32" },
-  { label: "adresă fără apartament", q: "str. Cetatea Albă 143/1" },
-  { label: "număr cadastral", q: "0100110.477.05.040" },
-];
 
 // Флаг — только для чтения; значение приходит из парсера, пользователь его не меняет.
 function FlagBox({ k, v, critical }: { k: string; v: string; critical?: boolean }) {
@@ -163,7 +169,6 @@ export default function CadastruPage() {
   const [picker, setPicker] = useState<{ building: Building; note: string } | null>(null);
   const [fallback, setFallback] = useState<{ title: string; text: string } | null>(null);
   const [confirmed, setConfirmed] = useState<{ addr: string; cad: string } | null>(null);
-  const [busy, setBusy] = useState(false);
 
   // ── Ввод вручную (текст / скриншот OCR) ──
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -211,10 +216,11 @@ export default function CadastruPage() {
     setManualMode(true);
 
     // Предупреждение: подозрительно большая площадь для квартиры (вероятно артефакт OCR).
+    // Предупреждение только для m² (для ha большие числа нормальны).
     const suprNum = parseFloat(p.suprafata.replace(",", "."));
     setParseWarn(
-      Number.isFinite(suprNum) && suprNum > 500
-        ? `Suprafața recunoscută (${p.suprafata} m²) pare neobișnuit de mare — verificați (posibil artefact OCR).`
+      p.suprafata.includes("m²") && Number.isFinite(suprNum) && suprNum > 500
+        ? `Suprafața recunoscută (${p.suprafata}) pare neobișnuit de mare — verificați (posibil artefact OCR).`
         : null,
     );
 
@@ -270,7 +276,6 @@ export default function CadastruPage() {
   async function runLookup(rawQuery: string) {
     const raw = rawQuery.trim();
     if (!raw) return;
-    setBusy(true);
     setRecord(null);
     setPicker(null);
     setFallback(null);
@@ -294,7 +299,6 @@ export default function CadastruPage() {
     }
 
     await new Promise((res) => setTimeout(res, 450));
-    setBusy(false);
 
     if (!data) {
       setTrace(null);
@@ -339,6 +343,15 @@ export default function CadastruPage() {
       destinatie: record.record.dest ?? "",
       valoare: record.record.val ?? "",
     };
+    // Данные верификации (флаги + поля) как substitut выписки RBI для шага 3.
+    const verImobil = JSON.stringify({
+      alteDrepturiReale: record.record.dr === "Există",
+      notari: record.record.not === "Există",
+      interdictii: record.record.int === "Există",
+      suprafata: record.record.supr ?? "",
+      destinatie: record.record.dest ?? "",
+      valoare: record.record.val ?? "",
+    });
 
     // Мержим в существующий черновик Шага 1, сохраняя данные другого объекта.
     let draft: Record<string, string | boolean> = {};
@@ -355,12 +368,14 @@ export default function CadastruPage() {
       draft.suprafata2 = obj.suprafata;
       draft.destinatie2 = obj.destinatie;
       draft.valoare2 = obj.valoare;
+      draft.verificareImobil2 = verImobil;
     } else {
       draft.address = obj.address;
       draft.cadastralNo = obj.cadastralNo;
       draft.suprafata = obj.suprafata;
       draft.destinatie = obj.destinatie;
       draft.valoare = obj.valoare;
+      draft.verificareImobil = verImobil;
     }
     try {
       sessionStorage.setItem("step1_draft", JSON.stringify(draft));
@@ -373,6 +388,26 @@ export default function CadastruPage() {
   return (
     <div style={{ display: "flex", justifyContent: "center", minHeight: "calc(100vh - 52px)" }}>
       <main className="cad-main" style={{ maxWidth: 760, width: "100%" }}>
+        {/* Banner: автоматический поиск ещё не подключён */}
+        <div
+          style={{
+            background: "var(--blue-bg, #eef4ff)",
+            borderLeft: "3px solid var(--blue, #2563eb)",
+            borderRadius: 8,
+            padding: "14px 18px",
+            marginBottom: 28,
+          }}
+        >
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--blue, #2563eb)", marginBottom: 4 }}>
+            Căutarea automată va fi disponibilă în curând!
+          </div>
+          <div style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.55 }}>
+            Momentan, serviciul de verificare automată prin Cadastru este în curs de conectare.
+            Pentru a introduce datele acum, vă rugăm să folosiți opțiunea „Verifică manual” și să
+            urmați pașii simpli de mai jos.
+          </div>
+        </div>
+
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <h1 style={{ fontSize: 34, margin: "0 0 14px" }}>Verificați un obiect în cadastru</h1>
           <p className="sub" style={{ fontSize: 16, maxWidth: 560, margin: "0 auto" }}>
@@ -389,17 +424,18 @@ export default function CadastruPage() {
               <div style={{ display: "flex", gap: 10 }}>
                 <input
                   type="text"
-                  placeholder="Chișinău, str. Independenței 42, ap. 7 sau 0100225.041.212"
+                  placeholder="Adresă sau număr cadastral"
                   style={{ flex: 1, height: 54, fontSize: 17, padding: "0 18px" }}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && runLookup(query)}
+                  disabled
+                  title="În curând"
                 />
                 <button
                   className="btn solid"
-                  style={{ whiteSpace: "nowrap", height: 54, padding: "0 26px", fontSize: 15 }}
-                  onClick={() => runLookup(query)}
-                  disabled={busy}
+                  style={{ whiteSpace: "nowrap", height: 54, padding: "0 26px", fontSize: 15, opacity: 0.55, cursor: "not-allowed" }}
+                  disabled
+                  title="În curând"
                 >
                   Căutați →
                 </button>
@@ -412,21 +448,8 @@ export default function CadastruPage() {
                     setManualOpen(true);
                   }}
                 >
-                  ✎ Introduceți manual
+                  ✎ Verifică manual
                 </button>
-              </div>
-              <div style={{ display: "flex", gap: 7, alignItems: "center", marginTop: 16, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13, color: "var(--ink4)" }}>Exemple:</span>
-                {EXAMPLES.map((ex) => (
-                  <span
-                    key={ex.q}
-                    className="law-tag"
-                    style={{ cursor: "pointer", fontSize: 13, padding: "6px 11px" }}
-                    onClick={() => setQuery(ex.q)}
-                  >
-                    {ex.label}
-                  </span>
-                ))}
               </div>
             </div>
 
@@ -496,7 +519,7 @@ export default function CadastruPage() {
                 </div>
                 <div className="field-row">
                   <div className="field-group">
-                    <label>Suprafață (m²)</label>
+                    <label>Suprafață</label>
                     <input type="text" value={record.record.supr} onChange={(e) => updateRec("supr", e.target.value)} />
                   </div>
                   <div className="field-group">
@@ -587,7 +610,7 @@ export default function CadastruPage() {
           >
             <div className="modal-box" style={{ maxWidth: 560 }}>
               <div className="modal-hd">
-                <h2>Introduceți manual datele cadastrale</h2>
+                <h2>Verifică manual datele cadastrale</h2>
                 <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setManualOpen(false)}>
                   ✕
                 </button>
@@ -625,19 +648,46 @@ export default function CadastruPage() {
 
                 {manualTab === "text" ? (
                   <>
+                    {/* Numbered steps — instrucțiuni pas cu pas */}
+                    <ol style={{ listStyle: "none", padding: 0, margin: "0 0 14px", display: "grid", gap: 8 }}>
+                      <li style={{ fontSize: 13, color: "var(--ink2)", display: "flex", alignItems: "center", gap: 8 }}>
+                        <b style={{ color: "var(--ink)" }}>Pasul 1</b>
+                        <a
+                          className="btn solid"
+                          href="https://www.cadastru.md/ecadastru/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: 12, padding: "5px 12px" }}
+                        >
+                          Accesați e-Cadastru ↗
+                        </a>
+                      </li>
+                      <li style={{ fontSize: 13, color: "var(--ink2)" }}>
+                        <b style={{ color: "var(--ink)" }}>Pasul 2</b> — Căutați obiectul manual
+                      </li>
+                      <li style={{ fontSize: 13, color: "var(--ink2)" }}>
+                        <b style={{ color: "var(--ink)" }}>Pasul 3</b> — Copiați textul
+                      </li>
+                      <li style={{ fontSize: 13, color: "var(--ink2)" }}>
+                        <b style={{ color: "var(--ink)" }}>Pasul 4</b> — Plasați text în chenar
+                      </li>
+                      <li style={{ fontSize: 13, color: "var(--ink2)" }}>
+                        <b style={{ color: "var(--ink)" }}>Pasul 5</b> — Apăsați „Verifică manual”
+                      </li>
+                    </ol>
                     <textarea
                       className="doc-preview"
                       style={{ minHeight: 200 }}
                       placeholder={
-                        "Numărul cadastral: 0100110.477.02.040\n" +
-                        "Adresa: mun. Chișinău, bd. Decebal, 99/A ap.40\n" +
-                        "Destinație: Locativă\n" +
-                        "Suprafața: 59.70 m.p.\n" +
-                        "Valoarea estimată a bunului imobil, lei: 382 252\n" +
-                        "Tipul de proprietate: Privată\n" +
-                        "Alte drepturi reale: Nu există\n" +
-                        "Notări: Nu există\n" +
-                        "Interdicții: Nu există"
+                        "Numărul cadastral: ...\n" +
+                        "Adresa: ...\n" +
+                        "Destinație: ...\n" +
+                        "Suprafața: ...\n" +
+                        "Valoarea estimată a bunului imobil, lei: ...\n" +
+                        "Tipul de proprietate: ...\n" +
+                        "Alte drepturi reale: ...\n" +
+                        "Notări: ...\n" +
+                        "Interdicții: ..."
                       }
                       value={manualText}
                       onChange={(e) => setManualText(e.target.value)}
@@ -651,7 +701,7 @@ export default function CadastruPage() {
                         applyParsed(manualText);
                       }}
                     >
-                      Analizați
+                      Verifică manual
                     </button>
                   </>
                 ) : (
@@ -694,11 +744,6 @@ export default function CadastruPage() {
                     )}
                   </>
                 )}
-
-                <p style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 12, lineHeight: 1.6 }}>
-                  Date introduse manual — nu sunt verificate oficial. Pentru certitudine juridică
-                  comandați extrasul oficial din RBI.
-                </p>
               </div>
             </div>
           </div>
