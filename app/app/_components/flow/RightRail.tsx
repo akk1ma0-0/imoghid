@@ -56,7 +56,15 @@ export function RightRail() {
           </p>
           <p style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.6, margin: "0 0 10px" }}>
             Platforma ImoGhid a fost elaborată în colaborare cu{" "}
-            <b style={{ color: "var(--ink2)" }}>Liudmila Popovscaia</b>, jurist în domeniu imobiliar.
+            <a
+              href="https://digital.myqrcards.com/links/5JRXJksOlTH/info"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contact-link"
+            >
+              Liudmila Popovscaia
+            </a>
+            , jurist în domeniu imobiliar.
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

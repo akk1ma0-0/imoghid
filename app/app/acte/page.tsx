@@ -74,7 +74,7 @@ const GARANTIE: Section[] = [
   {
     title: "Semnături",
     rows: [
-      { fields: [{ key: "vanzator_semnatura_nume", label: "Vânzător / reprezentant (nume pentru semnătură)", ph: "Nume Prenume" }] },
+      { fields: [{ key: "vanzator_semnatura_nume", label: "Vânzător/reprezentat de agent imobiliar (nume pentru semnătură)", ph: "Nume Prenume" }] },
       { fields: [{ key: "cumparator_semnatura_nume", label: "Cumpărător (nume pentru semnătură)", ph: "Ionescu Alexandru" }] },
       { fields: [{ key: "martori_nume", label: "Martori (nume, opțional)", ph: "Popa Ion, Ciobanu Ana" }] },
       { fields: [{ key: "data_intocmirii", label: "Data întocmirii", type: "date" }] },

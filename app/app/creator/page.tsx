@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 type Platform = "instagram" | "tiktok" | "facebook" | "999";
 type Language = "ro" | "ru";
@@ -121,8 +122,14 @@ export default function CreatorPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [savedPostId, setSavedPostId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const is999 = platform === "999";
+
+  useEffect(() => {
+    document.title = "Creator Hub · ImoGhid";
+  }, []);
 
   // ?platform=999 (из «Generare anunț» в Instrumente).
   useEffect(() => {
@@ -131,6 +138,63 @@ export default function CreatorPage() {
       setPlatform("999");
     }
   }, []);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2000);
+  }
+
+  // ── Galerie: salvare / ștergere generare curentă ──
+  async function saveToGallery() {
+    if (!result || savedPostId) return;
+    const payload =
+      result.kind === "social"
+        ? {
+            platform,
+            topic: effectiveTopic || "—",
+            language,
+            slides: result.slides,
+            reels: result.reels,
+            post: result.post,
+            hashtags: result.hashtags,
+          }
+        : {
+            platform: "999",
+            topic: objectDesc.trim() || "Anunț 999",
+            language,
+            slides: null,
+            reels: null,
+            post: result.ro,
+            hashtags: result.ru,
+          };
+    try {
+      const r = await fetch("/api/creator/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error();
+      setSavedPostId(d.id);
+      showToast("Salvat în galerie ✓");
+    } catch {
+      showToast("Eroare la salvare.");
+    }
+  }
+
+  async function deleteCurrent() {
+    if (!result) return;
+    if (!confirm("Ștergeți această generare?")) return;
+    try {
+      if (savedPostId) await fetch(`/api/creator/posts/${savedPostId}`, { method: "DELETE" });
+    } catch {
+      /* ignore */
+    }
+    setSavedPostId(null);
+    setResult(null);
+    setEditing(false);
+    showToast("Șters.");
+  }
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -160,6 +224,7 @@ export default function CreatorPage() {
     setPlatform(code);
     setResult(null);
     setEditing(false);
+    setSavedPostId(null);
   }
 
   async function selectTransaction(id: string) {
@@ -180,7 +245,7 @@ export default function CreatorPage() {
 
   // ── Фото (только в памяти браузера) ──
   function addPhotos(files: FileList | File[]) {
-    const arr = Array.from(files).filter((f) => /^image\/(png|jpe?g)$/.test(f.type));
+    const arr = Array.from(files).filter((f) => /^image\/(png|jpe?g|webp)$/.test(f.type));
     setPhotos((prev) => {
       const space = Math.max(0, 5 - prev.length);
       const toAdd = arr.slice(0, space).map((f) => ({ file: f, url: URL.createObjectURL(f) }));
@@ -200,6 +265,7 @@ export default function CreatorPage() {
   async function generate() {
     setError(null);
     setEditing(false);
+    setSavedPostId(null);
     if (is999 && !objectDesc.trim()) {
       setError("Completați descrierea obiectului sau importați din dosar.");
       return;
@@ -345,8 +411,13 @@ export default function CreatorPage() {
 
   return (
     <div className="ig-page">
-      <div className="crumb">Instrumente</div>
-      <h1>Creator conținut social</h1>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div className="crumb">Instrumente</div>
+          <h1>Creator Hub</h1>
+        </div>
+        <Link href="/app/creator/gallery" className="btn">🗂 Galerie</Link>
+      </div>
       <p className="sub">
         Generați postări, carusele, scenarii Reels și anunțuri 999.md pentru rețelele sociale.
       </p>
@@ -478,12 +549,12 @@ export default function CreatorPage() {
                   }}
                 >
                   <div className="drop-big" style={{ fontSize: 13 }}>Încărcați fotografii</div>
-                  <div className="drop-sub">JPG · PNG — max 5. Fără foto → fundal gradient.</div>
+                  <div className="drop-sub">JPG · PNG · WEBP — max 5. Fără foto → fundal gradient.</div>
                   <button className="drop-btn" type="button">+ selectați</button>
                   <input
                     ref={photoInputRef}
                     type="file"
-                    accept="image/png,image/jpeg"
+                    accept="image/png,image/jpg,image/jpeg,image/webp"
                     multiple
                     style={{ display: "none" }}
                     onChange={(e) => {
@@ -550,6 +621,12 @@ export default function CreatorPage() {
                     <button className="btn" onClick={() => copyValue(result.ro, "ro")}>{copied === "ro" ? "✓ Copiat" : "Copiați RO"}</button>
                     <button className="btn" onClick={() => copyValue(result.ru, "ru")}>{copied === "ru" ? "✓ Copiat" : "Copiați RU"}</button>
                     <button className="btn" onClick={() => setEditing((v) => !v)}>{editing ? "✓ Gata" : "Redactați"}</button>
+                    {savedPostId ? (
+                      <button className="btn" disabled>✓ În galerie</button>
+                    ) : (
+                      <button className="btn" onClick={saveToGallery}>În galerie</button>
+                    )}
+                    <button className="btn" onClick={deleteCurrent}>Șterge</button>
                   </div>
                 </>
               ) : (
@@ -620,6 +697,12 @@ export default function CreatorPage() {
                       <button className="btn" onClick={downloadAll}>Descărcați toate</button>
                     )}
                     <button className="btn" onClick={() => setEditing((v) => !v)}>{editing ? "✓ Gata" : "Redactați"}</button>
+                    {savedPostId ? (
+                      <button className="btn" disabled>✓ În galerie</button>
+                    ) : (
+                      <button className="btn" onClick={saveToGallery}>În galerie</button>
+                    )}
+                    <button className="btn" onClick={deleteCurrent}>Șterge</button>
                   </div>
                 </>
               )}
@@ -627,6 +710,26 @@ export default function CreatorPage() {
           </div>
         </div>
       </div>
+
+      {toast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "var(--ink, #1c2630)",
+            color: "#fff",
+            padding: "9px 18px",
+            borderRadius: 8,
+            fontSize: 13,
+            zIndex: 200,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.18)",
+          }}
+        >
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

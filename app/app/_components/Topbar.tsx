@@ -66,8 +66,8 @@ export function Topbar() {
         </Link>
         <Link href="/app/creator" className={`nav-btn${onCreator ? " active" : ""}`}>
           <span className="nav-ic" aria-hidden>✦</span>
-          <span className="nav-lb">Creator</span>
-          <span className="nav-lb-short" aria-hidden>Creator</span>
+          <span className="nav-lb">Creator Hub</span>
+          <span className="nav-lb-short" aria-hidden>Hub</span>
         </Link>
         <Link href="/app/listings" className={`nav-btn${onListings ? " active" : ""}`}>
           <span className="nav-ic" aria-hidden>📰</span>

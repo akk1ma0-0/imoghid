@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // Предобработка скриншота для OCR (Canvas): 2x при ширине < 1500px, grayscale, бинаризация.
@@ -272,6 +272,25 @@ export default function CadastruPage() {
       setOcrBusy(false);
     }
   }
+
+  // Вставка изображения из буфера обмена (Ctrl+V / Cmd+V) на вкладке «Captură de ecran».
+  useEffect(() => {
+    if (!manualOpen || manualTab !== "image") return;
+    function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) runOcr(file);
+          break;
+        }
+      }
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualOpen, manualTab]);
 
   async function runLookup(rawQuery: string) {
     const raw = rawQuery.trim();
@@ -724,13 +743,28 @@ export default function CadastruPage() {
                       <input
                         ref={imgInputRef}
                         type="file"
-                        accept="image/png,image/jpeg"
+                        accept="image/png,image/jpeg,image/webp"
                         style={{ display: "none" }}
                         onChange={(e) => {
                           const f = e.target.files?.[0];
                           if (f) runOcr(f);
                         }}
                       />
+                    </div>
+                    {/* Зона вставки из буфера обмена (Ctrl/Cmd+V) */}
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        border: "1px dashed var(--line)",
+                        borderRadius: "var(--r)",
+                        textAlign: "center",
+                        fontSize: 12.5,
+                        color: "var(--ink3)",
+                        background: "var(--line2)",
+                      }}
+                    >
+                      📋 Sau lipiți imaginea (Ctrl+V / Cmd+V)
                     </div>
                     {ocrBusy && (
                       <div style={{ marginTop: 12 }}>

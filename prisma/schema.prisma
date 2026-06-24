@@ -161,6 +161,7 @@ model User {
   inviteCodes          InviteCode[]
   notifications        Notification[]
   userDocuments        UserDocument[]
+  creatorPosts         CreatorPost[]
 
   @@map("users")
 }
@@ -177,6 +178,27 @@ model UserDocument {
 
   @@unique([userId, documentSlug])
   @@map("user_documents")
+}
+
+// Сохранённая генерация Creator Hub (галерея). Живёт 14 дней (expiresAt), затем удаляется.
+model CreatorPost {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String // instagram / tiktok / facebook / 999
+  topic     String
+  language  String
+  slides    Json? // для Instagram
+  reels     Json? // для TikTok
+  post      String?  @db.Text
+  hashtags  String?
+  imageUrls String[] // URL Blob, если были загружены фото
+  createdAt DateTime @default(now())
+  expiresAt DateTime // createdAt + 14 дней
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("creator_posts")
 }
 
 // ─────────────────────────────────────────────────────────────────

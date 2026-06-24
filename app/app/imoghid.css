@@ -827,3 +827,7 @@
 .acte-excel-preview tr:hover .xls-row-ctrl-btn {
   opacity: 1;
 }
+
+/* Ссылка-контакт (как текст: без подчёркивания, подчёркивание при hover) */
+.contact-link { color: var(--ink); font-weight: 600; text-decoration: none; }
+.contact-link:hover { text-decoration: underline; }
