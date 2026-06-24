@@ -12,20 +12,18 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^(\+373\d{8}|0\d{8})$/;
 
 type FieldErrors = Partial<
-  Record<"email" | "phone" | "password" | "confirmPassword", string>
+  Record<"name" | "email" | "phone" | "password" | "confirmPassword", string>
 >;
 
 export default function RegisterPage() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-    prenume: "",
-    nume: "",
+    name: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
-    agencyName: "",
   });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -38,11 +36,15 @@ export default function RegisterPage() {
 
   function validate(): FieldErrors {
     const errs: FieldErrors = {};
+    if (!form.name.trim()) {
+      errs.name = "Introduceți numele și prenumele.";
+    }
     if (!EMAIL_RE.test(form.email.trim())) {
       errs.email = "Introduceți o adresă de email validă.";
     }
+    // Telefon — opțional; validăm doar dacă e completat.
     const phoneClean = form.phone.replace(/[\s\-()]/g, "");
-    if (!PHONE_RE.test(phoneClean)) {
+    if (phoneClean && !PHONE_RE.test(phoneClean)) {
       errs.phone = "Telefon invalid. Format: +373 XX XXX XXX sau 0XX XXX XXX.";
     }
     if (form.password.length < 8) {
@@ -63,17 +65,15 @@ export default function RegisterPage() {
     if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
-    const name = `${form.prenume} ${form.nume}`.trim();
 
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name,
+        name: form.name.trim(),
         email: form.email,
         phone: form.phone,
         password: form.password,
-        agencyName: form.agencyName || undefined,
       }),
     });
 
@@ -99,8 +99,8 @@ export default function RegisterPage() {
       return;
     }
 
-    // Без кода приглашения подписка неактивна → выбор плана.
-    router.push(data.planActive ? "/app" : "/subscribe");
+    // Без плана (plan = null) → страница ожидания активации.
+    router.push("/app/pending");
     router.refresh();
   }
 
@@ -109,11 +109,11 @@ export default function RegisterPage() {
       <BrandPanel
         tag="Înregistrare"
         title="Începeți să lucrați mai eficient"
-        desc="Creați contul în 60 de secunde. Accesul este activ imediat după plată."
+        desc="Creați contul în câteva secunde. Planul este activat de administrator."
         features={[
-          "BASIC — $10/lună · acces complet la platformă",
-          "PRO — $30/lună · + rapoarte PDF, CMA, generator anunțuri",
-          "Anulați oricând, fără penalități",
+          "Verificare automată a actelor",
+          "Anunțuri noi de la proprietari — 999.md",
+          "Fișa obiectului — raport pentru client",
         ]}
       />
 
@@ -121,9 +121,7 @@ export default function RegisterPage() {
         <div className="form-box">
           <div className="form-head">
             <div className="form-title">Cont nou</div>
-            <div className="form-sub">
-              Completați datele de mai jos. Veți alege planul la pasul următor.
-            </div>
+            <div className="form-sub">Completați datele de mai jos pentru a crea contul.</div>
           </div>
 
           {error && (
@@ -134,31 +132,19 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} noValidate>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="prenume">Prenume</label>
-                <input
-                  id="prenume"
-                  type="text"
-                  placeholder="Ion"
-                  autoComplete="given-name"
-                  required
-                  value={form.prenume}
-                  onChange={update("prenume")}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="nume">Nume</label>
-                <input
-                  id="nume"
-                  type="text"
-                  placeholder="Numele"
-                  autoComplete="family-name"
-                  required
-                  value={form.nume}
-                  onChange={update("nume")}
-                />
-              </div>
+            <div className="field">
+              <label htmlFor="name">Nume și prenume</label>
+              <input
+                id="name"
+                type="text"
+                placeholder="Nume Prenume"
+                autoComplete="name"
+                required
+                className={fieldErrors.name ? "error" : undefined}
+                value={form.name}
+                onChange={update("name")}
+              />
+              {fieldErrors.name && <div className="field-error">{fieldErrors.name}</div>}
             </div>
 
             <div className="field">
@@ -166,7 +152,7 @@ export default function RegisterPage() {
               <input
                 id="email"
                 type="email"
-                placeholder="ion.popescu@exemplu.md"
+                placeholder="email@exemplu.md"
                 autoComplete="email"
                 required
                 className={fieldErrors.email ? "error" : undefined}
@@ -177,13 +163,14 @@ export default function RegisterPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="phone">Telefon</label>
+              <label htmlFor="phone">
+                Telefon <span className="field-optional">opțional</span>
+              </label>
               <input
                 id="phone"
                 type="tel"
-                placeholder="+373 69 000 000"
+                placeholder="+373 ..."
                 autoComplete="tel"
-                required
                 className={fieldErrors.phone ? "error" : undefined}
                 value={form.phone}
                 onChange={update("phone")}
@@ -227,24 +214,8 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <div className="field">
-              <label htmlFor="agency">
-                Agenție imobiliară <span className="field-optional">opțional</span>
-              </label>
-              <input
-                id="agency"
-                type="text"
-                placeholder="RE/MAX, Proimobil, independent..."
-                value={form.agencyName}
-                onChange={update("agencyName")}
-              />
-              <div className="field-hint">
-                Va apărea pe rapoartele PDF generate pentru clienți.
-              </div>
-            </div>
-
             <button className="btn-primary" type="submit" disabled={loading}>
-              {loading ? "Se creează contul…" : "Continuați → alegeți planul"}
+              {loading ? "Se creează contul…" : "Creați cont"}
             </button>
           </form>
 
@@ -260,8 +231,8 @@ export default function RegisterPage() {
           </div>
 
           <div className="disclaimer">
-            Prin înregistrare acceptați <a href="#">Termenii de utilizare</a>.
-            Datele sunt prelucrate conform <a href="#">Legii 133/2011</a>.
+            Prin înregistrare acceptați <a href="#">Termenii de utilizare</a>. Datele sunt
+            prelucrate conform <a href="#">Legii 133/2011</a>.
           </div>
         </div>
       </div>

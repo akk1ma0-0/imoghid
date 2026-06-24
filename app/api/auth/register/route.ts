@@ -33,7 +33,8 @@ export async function POST(request: Request) {
   if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ error: "Email invalid." }, { status: 400 });
   }
-  if (!PHONE_RE.test(phone.replace(/[\s\-()]/g, ""))) {
+  // Telefon — opțional; dacă e indicat, verificăm formatul.
+  if (phone && !PHONE_RE.test(phone.replace(/[\s\-()]/g, ""))) {
     return NextResponse.json(
       { error: "Telefon invalid. Format: +373 XX XXX XXX sau 0XX XXX XXX." },
       { status: 400 },
@@ -58,19 +59,14 @@ export async function POST(request: Request) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   try {
-    // Регистрация открытая: всегда BASIC, подписка неактивна (planActivatedAt: null).
+    // Регистрация открытая: без плана (plan = null) — активирует администратор.
     const user = await prisma.user.create({
-      data: { name, email, phone, passwordHash, agencyName, plan: "BASIC" },
-      select: { id: true, email: true, plan: true, planActivatedAt: true },
+      data: { name, email, phone: phone || null, passwordHash, agencyName },
+      select: { id: true, email: true, plan: true },
     });
 
     return NextResponse.json(
-      {
-        id: user.id,
-        email: user.email,
-        plan: user.plan,
-        planActive: !!user.planActivatedAt,
-      },
+      { id: user.id, email: user.email, plan: user.plan, planActive: false },
       { status: 201 },
     );
   } catch (error) {

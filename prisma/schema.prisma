@@ -135,8 +135,8 @@ model User {
   logoUrl         String?
   profilePhotoUrl String?
 
-  // Abonament
-  plan                SubscriptionPlan @default(BASIC)
+  // Abonament — null = fără plan (în așteptarea activării de către administrator)
+  plan                SubscriptionPlan?
   planActivatedAt     DateTime?
   planExpiresAt       DateTime?        // null = activ până la anulare
   stripeCustomerId    String?          @unique

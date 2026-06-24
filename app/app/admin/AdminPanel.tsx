@@ -7,7 +7,7 @@ type AdminUser = {
   id: string;
   email: string;
   name: string;
-  plan: "BASIC" | "PRO";
+  plan: "BASIC" | "PRO" | null;
   role: "AGENT" | "ADMIN";
   isBlocked: boolean;
   createdAt: string;
@@ -181,8 +181,8 @@ export function AdminPanel({
                     </td>
                     <td>{u.name}</td>
                     <td>
-                      <span className={`badge ${u.plan === "PRO" ? "b-blue" : "b-gray"}`}>
-                        {u.plan}
+                      <span className={`badge ${u.plan === "PRO" ? "b-blue" : u.plan === "BASIC" ? "b-gray" : "b-amber"}`}>
+                        {u.plan ?? "În așteptare"}
                       </span>
                     </td>
                     <td className="nowrap">{fmtDate(u.createdAt)}</td>
@@ -196,15 +196,22 @@ export function AdminPanel({
                     </td>
                     <td className="act">
                       <div className="adm-acts">
-                        <button
-                          className="btn"
+                        <select
+                          className="adm-plan-select"
+                          value={u.plan ?? ""}
                           disabled={busy}
-                          onClick={() =>
-                            patchUser(u.id, { plan: u.plan === "PRO" ? "BASIC" : "PRO" })
-                          }
+                          title="Schimbă planul"
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "BASIC" || v === "PRO") patchUser(u.id, { plan: v });
+                          }}
                         >
-                          → {u.plan === "PRO" ? "BASIC" : "PRO"}
-                        </button>
+                          <option value="" disabled>
+                            În așteptare
+                          </option>
+                          <option value="BASIC">BASIC</option>
+                          <option value="PRO">PRO</option>
+                        </select>
                         <button
                           className={`btn${u.isBlocked ? " solid" : ""}`}
                           disabled={busy || (isSelf && !u.isBlocked)}

@@ -6,8 +6,8 @@ export const ANALYSIS_LIMITS: Record<SubscriptionPlan, number> = {
   PRO: 100,
 };
 
-export function analysisLimit(plan: SubscriptionPlan): number {
-  return ANALYSIS_LIMITS[plan];
+export function analysisLimit(plan: SubscriptionPlan | null): number {
+  return plan ? ANALYSIS_LIMITS[plan] : 0;
 }
 
 // resetAt в прошлом (календарном) месяце относительно now?

@@ -41,9 +41,16 @@ export const authConfig = {
       // Нет сессии → false → NextAuth редиректит на pages.signIn (/login)
       if (!isLoggedIn) return false;
 
-      // Сессия есть, но подписка не активна → на страницу выбора плана
-      if (!auth!.user.planActive) {
-        return Response.redirect(new URL("/subscribe", nextUrl));
+      const isPending = nextUrl.pathname.startsWith("/app/pending");
+
+      // Без плана (plan = null) → страница ожидания активации администратором.
+      if (!auth!.user.plan) {
+        return isPending ? true : Response.redirect(new URL("/app/pending", nextUrl));
+      }
+
+      // С планом на /app/pending делать нечего — ведём в приложение.
+      if (isPending) {
+        return Response.redirect(new URL("/app", nextUrl));
       }
 
       return true;

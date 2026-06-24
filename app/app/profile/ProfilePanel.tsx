@@ -8,7 +8,7 @@ type Initial = {
   email: string;
   agentie: string;
   telefon: string;
-  plan: "BASIC" | "PRO";
+  plan: "BASIC" | "PRO" | null;
   notifLegislatie: boolean;
   usageUsed: number;
   usageLimit: number;
@@ -189,22 +189,33 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
       <div className="card">
         <div className="card-hd"><b>Abonament</b></div>
         <div className="card-bd">
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <span className={`badge ${initial.plan === "PRO" ? "b-blue" : "b-gray"}`} style={{ fontSize: 12, padding: "3px 12px" }}>
-              {initial.plan}
-            </span>
-            <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
-              Următoarea reînnoire: {RENEWAL_DATE}
-            </span>
-          </div>
-          <div style={{ fontSize: 12.5, color: "var(--ink2)", margin: "10px 0 5px" }}>
-            Analize documente (Pasul 3) luna curentă:{" "}
-            <b>{initial.usageUsed} / {initial.usageLimit}</b>
-          </div>
-          <div className="prog"><div className="prog-fill" style={{ width: `${pct}%` }} /></div>
-          <button className="btn" style={{ marginTop: 14 }} onClick={() => window.alert("Schimbarea planului — în curând.")}>
-            Schimbați planul
-          </button>
+          {initial.plan === null ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span className="badge b-amber" style={{ fontSize: 12, padding: "3px 12px" }}>În așteptare</span>
+              <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
+                Plan: În așteptare — activarea de către administrator.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <span className={`badge ${initial.plan === "PRO" ? "b-blue" : "b-gray"}`} style={{ fontSize: 12, padding: "3px 12px" }}>
+                  {initial.plan}
+                </span>
+                <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
+                  Următoarea reînnoire: {RENEWAL_DATE}
+                </span>
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--ink2)", margin: "10px 0 5px" }}>
+                Analize documente (Pasul 3) luna curentă:{" "}
+                <b>{initial.usageUsed} / {initial.usageLimit}</b>
+              </div>
+              <div className="prog"><div className="prog-fill" style={{ width: `${pct}%` }} /></div>
+              <button className="btn" style={{ marginTop: 14 }} onClick={() => window.alert("Schimbarea planului — în curând.")}>
+                Schimbați planul
+              </button>
+            </>
+          )}
         </div>
       </div>
 

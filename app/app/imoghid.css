@@ -539,6 +539,7 @@
 .adm-table th.act, .adm-table td.act { text-align: right; }
 .adm-acts { display: inline-flex; gap: 6px; justify-content: flex-end; }
 .adm-acts .btn { white-space: nowrap; }
+.adm-plan-select { font-family: var(--mono); font-size: 11px; padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--sur); color: var(--ink2); cursor: pointer; }
 
 /* ── APP FOOTER (ссылки на публичные юр. страницы) ── */
 .app-footer {
