@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
     "/api/tools/generate-doc": ["./docs/templates/**/*"],
     // «Actele mele» — оригиналы шаблонов читаются с сервера (mammoth/SheetJS).
     "/api/documents/[slug]": ["./docs/templates/**/*"],
+    // Сырые байты оригинала для docx-preview на клиенте.
+    "/api/documents/[slug]/original": ["./docs/templates/**/*"],
+    // Стили ячеек Excel (exceljs) для рендера на клиенте.
+    "/api/documents/[slug]/cells": ["./docs/templates/**/*"],
   },
 };
 
