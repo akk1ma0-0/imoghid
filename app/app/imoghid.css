@@ -519,6 +519,8 @@
 }
 .admin-btn:hover { border-color: var(--purple-br); color: var(--purple); background: var(--purple-bg); }
 .admin-btn.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+/* Только иконка-шестерёнка (без текста) */
+.admin-btn-icon { gap: 0; padding: 5px 8px; }
 
 .adm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
 

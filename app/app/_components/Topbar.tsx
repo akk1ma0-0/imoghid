@@ -81,12 +81,11 @@ export function Topbar() {
         {isAdmin && (
           <Link
             href="/app/admin"
-            className={`admin-btn${onAdmin ? " active" : ""}`}
-            title="Panou de administrare"
-            aria-label="Panou de administrare"
+            className={`admin-btn admin-btn-icon${onAdmin ? " active" : ""}`}
+            title="Panou admin"
+            aria-label="Panou admin"
           >
-            <span aria-hidden>⚙️</span>
-            <span className="admin-btn-lb">Admin</span>
+            <span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>⚙️</span>
           </Link>
         )}
         <NotifBell />
