@@ -93,7 +93,7 @@ export function TransactionFlow({
       case 6:
         return <Step6Pay tx={tx} reload={reload} onNext={() => goStep(7)} />;
       case 7:
-        return <Step7Report />;
+        return <Step7Report tx={tx} />;
       case 8:
         return <Step8Asp />;
       default:

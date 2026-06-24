@@ -30,6 +30,8 @@ const nextConfig: NextConfig = {
     "/api/documents/[slug]/original": ["./docs/templates/**/*"],
     // Стили ячеек Excel (exceljs) для рендера на клиенте.
     "/api/documents/[slug]/cells": ["./docs/templates/**/*"],
+    // «Fișa obiectului» (Pasul 7) — шаблон-референс.
+    "/api/transactions/[id]/report": ["./docs/templates/**/*"],
   },
 };
 

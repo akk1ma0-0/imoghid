@@ -67,6 +67,7 @@ export type FlowTx = {
   suprafata: string | null;
   destinatie: string | null;
   valoare: string | null;
+  verificareImobil: string | null;
   dealType: "VANZARE_CUMPARARE" | "DONATIE" | "SCHIMB" | "ALT_TIP";
   sellerType: "PERSOANA_FIZICA" | "PERSOANA_JURIDICA";
   buyerType: "PERSOANA_FIZICA" | "PERSOANA_JURIDICA";

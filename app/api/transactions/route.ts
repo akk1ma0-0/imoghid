@@ -86,6 +86,7 @@ export async function GET() {
       calculation: {
         select: { sellPrice: true, schimbValue1: true, notaryTransactionValue: true },
       },
+      transactionReport: { select: { docxUrl: true } },
     },
   });
 
@@ -106,6 +107,8 @@ export async function GET() {
       totalSteps: TOTAL_STEPS,
       price,
       status: t.status.toLowerCase(), // active | waiting | done | archive
+      hasReport: !!t.transactionReport,
+      reportUrl: t.transactionReport?.docxUrl ?? null,
       createdAt: t.createdAt,
     };
   });

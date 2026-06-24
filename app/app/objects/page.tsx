@@ -16,6 +16,8 @@ type TxCard = {
   totalSteps: number;
   price: number | null;
   status: Status;
+  hasReport: boolean;
+  reportUrl: string | null;
   createdAt: string;
 };
 
@@ -175,13 +177,44 @@ export default function ObjectsPage() {
                   <b>{t.clientContractRef || "neîncheiat"}</b>
                 </div>
               </div>
-              <div className="obj-card-ft">
+              <div className="obj-card-ft" style={{ display: "flex", gap: 8 }}>
                 <Link
                   className="btn solid"
                   href={`/app/transactions/${t.id}?step=${t.currentStep}`}
+                  style={{ flex: 1, justifyContent: "center" }}
                 >
                   Deschide ghidul
                 </Link>
+                {t.hasReport ? (
+                  t.reportUrl ? (
+                    <a
+                      className="btn"
+                      href={t.reportUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Descărcați fișa obiectului (.docx)"
+                    >
+                      📄 Raport
+                    </a>
+                  ) : (
+                    <Link
+                      className="btn"
+                      href={`/app/transactions/${t.id}?step=7`}
+                      title="Deschideți fișa obiectului"
+                    >
+                      📄 Raport
+                    </Link>
+                  )
+                ) : (
+                  <button
+                    className="btn"
+                    disabled
+                    title="Generați din Ghidul tranzacției (pasul 7)"
+                    style={{ opacity: 0.55, cursor: "not-allowed" }}
+                  >
+                    📄 Raport
+                  </button>
+                )}
               </div>
               <div className="obj-card-ft" style={{ borderTop: "1px dashed var(--line)" }}>
                 {STATUS_TARGETS.filter((s) => s.key !== t.status).map((s) => (

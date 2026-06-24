@@ -288,10 +288,24 @@ model Transaction {
   notarChecklist NotarChecklistItem[]
   calculation    TransactionCalculation?
   report         Report?
+  transactionReport TransactionReport?
 
   @@index([userId])
   @@index([createdAt])
   @@map("transactions")
+}
+
+// «Fișa obiectului» (Pasul 7): сохранённый отчёт по сделке + .docx в Vercel Blob.
+model TransactionReport {
+  id            String      @id @default(cuid())
+  transactionId String      @unique
+  content       Json // все заполненные поля фишы
+  docxUrl       String? // URL .docx в Vercel Blob
+  generatedAt   DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("transaction_reports")
 }
 
 // ─────────────────────────────────────────────────────────────────
