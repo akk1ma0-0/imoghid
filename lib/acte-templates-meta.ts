@@ -15,12 +15,6 @@ export const ACTE_TEMPLATES_META: ActeTemplateMeta[] = [
     type: "docx",
   },
   {
-    slug: "tipuri-acte-imobil",
-    title: "Tipuri de acte ale imobilului",
-    subtitle: "Tipurile de acte de proprietate pentru imobil",
-    type: "xlsx",
-  },
-  {
     slug: "contract-hub-coworking",
     title: "Contract Hub coworking",
     subtitle: "Contract de coworking (Hub) — RO",
@@ -30,6 +24,13 @@ export const ACTE_TEMPLATES_META: ActeTemplateMeta[] = [
     slug: "contract-colaborare-agent",
     title: "Contract de colaborare agent–agenție",
     subtitle: "Acord de colaborare între agent și agenție — RO",
+    type: "docx",
+  },
+  // Только скачивание (.docx) — карточка последняя в списке.
+  {
+    slug: "tipuri-acte-imobil",
+    title: "Tipuri de acte ale imobilului",
+    subtitle: "Tipurile de acte de proprietate pentru imobil",
     type: "docx",
   },
 ];

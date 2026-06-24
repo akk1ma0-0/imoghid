@@ -746,14 +746,13 @@
   overflow-y: auto;
   background: #eceff3;
   border-radius: 8px;
-  padding: 16px;
+  padding: 0;
 }
-/* Лист A4 не должен резаться слева: wrapper не уже контейнера, но растёт под контент */
+/* Лист A4 не должен резаться слева: wrapper минимум по содержимому, страница слева */
 .acte-docx-preview .docx-wrapper {
   background: transparent;
-  padding: 0;
-  min-width: 100%;
-  width: max-content;
+  padding: 16px;
+  min-width: fit-content;
 }
 .acte-docx-preview .docx-wrapper > section.docx {
   background: #fff;

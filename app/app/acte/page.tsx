@@ -752,7 +752,7 @@ function EditorModal({
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: 760, width: "100%" }}>
+      <div className="modal-box" style={{ width: "90vw", maxWidth: 1100 }}>
         <div className="modal-hd">
           <h2 style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {title}

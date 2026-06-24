@@ -26,7 +26,7 @@ export type ActeSheet = { name: string; rows: ActeCell[][] };
 const FILE_BY_SLUG: Record<string, string> = {
   // «Registrul tranzacțiilor» убран из реестра (файл оставлен физически).
   "check-list-acte": "CHECK-LIST acte.docx",
-  "tipuri-acte-imobil": "Tipuri de acte imobilului.xlsx",
+  "tipuri-acte-imobil": "TIPURI DE ACTE.docx",
   "contract-hub-coworking": "Contract_Hub_coworking_RO.docx",
   "contract-colaborare-agent": "Contract_colaborare_agent_agentie_RO.docx",
 };
