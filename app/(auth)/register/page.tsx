@@ -231,8 +231,10 @@ export default function RegisterPage() {
           </div>
 
           <div className="disclaimer">
-            Prin înregistrare acceptați <a href="#">Termenii de utilizare</a>. Datele sunt
-            prelucrate conform <a href="#">Legii 133/2011</a>.
+            Prin înregistrare acceptați{" "}
+            <a href="/termeni" target="_blank" rel="noopener noreferrer">Termenii de utilizare</a>{" "}
+            și{" "}
+            <a href="/confidentialitate" target="_blank" rel="noopener noreferrer">Politica de confidențialitate</a>.
           </div>
         </div>
       </div>
