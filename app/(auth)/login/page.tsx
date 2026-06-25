@@ -135,8 +135,8 @@ function LoginForm() {
 
           <div className="disclaimer">
             Prin accesarea platformei confirmați că ați citit{" "}
-            <a href="#">Termenii de utilizare</a> și{" "}
-            <a href="#">Politica de confidențialitate</a>. Responsabilitatea
+            <a href="/termeni" target="_blank" rel="noopener noreferrer">Termenii de utilizare</a> și{" "}
+            <a href="/confidentialitate" target="_blank" rel="noopener noreferrer">Politica de confidențialitate</a>. Responsabilitatea
             finală pentru tranzacție revine notarului și agentului.
           </div>
         </div>
