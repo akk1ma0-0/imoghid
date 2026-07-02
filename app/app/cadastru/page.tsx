@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDemo } from "@/app/contexts/DemoContext";
+import { DEMO_CADASTRU_RESULT } from "@/lib/demo-data";
 
 // Предобработка скриншота для OCR (Canvas): 2x при ширине < 1500px, grayscale, бинаризация.
 function preprocessImage(file: File): Promise<Blob> {
@@ -34,10 +36,20 @@ function preprocessImage(file: File): Promise<Blob> {
   });
 }
 
-// Нормализация флага: «Existã/Există/…» → «Există», «Nu există» → «Nu există».
-function normFlag(s: string): string {
-  if (!s) return "Nu există";
-  return /exist/i.test(s) && !/nu\s*exist/i.test(s) ? "Există" : "Nu există";
+// Три состояния гревэрилор по распарсенному тексту секции:
+//  · «Nu există» — явный отрицательный маркер или пусто-с-прочерком → зелёный;
+//  · «Există»    — секция содержит именованное обременение (ipotecă, sechestru, litigiu…) → жёлтый/красный;
+//  · «Nu s-a putut verifica» — секция не найдена в тексте вообще → жёлтый (не молчаливый зелёный).
+// Явный отрицательный маркер: «Nu există/Nu sunt/Nu au fost înregistrate», «lipsă/lipsesc»,
+// «absent(e)», «neidentificat(e)», «fără», «niciun/nicio», одиночный прочерк «-».
+const NEG_ENCUMBRANCE =
+  /nu\s*(exist|sunt|au fost|s-au|se\b)|lips[ăa]|absent|neidentificat|f[ăa]r[ăa](?=\s|[,.;:)]|$)|niciun\b|nici\s*o\b|^\s*[-–—]\s*$/i;
+
+function classifyEncumbrance(s: string | undefined | null): string {
+  const t = (s ?? "").trim();
+  if (!t) return "Nu s-a putut verifica"; // секция не найдена / пусто
+  if (NEG_ENCUMBRANCE.test(t)) return "Nu există";
+  return "Există"; // любое иное непустое содержимое = обременение указано
 }
 
 // Парсер кадастрального текста (вставка / OCR). Только client-side регулярки, без API.
@@ -67,7 +79,9 @@ function parseCadastralText(text: string) {
   // искажённое «valoare»: «|. oarca estimată a bunului imobil, 382 252»). Ловим число в строке
   // с estimat/valoare/bunului imobil; fallback — любое число > 10000 рядом с «lei».
   const extractValoare = (): string => {
-    const m = text.match(/(?:estimat|valoare|bunului\s+imobil)[^0-9]*([\d\s]+)(?:\s*lei)?/i);
+    // [^0-9\n] — не пересекаем перенос строки, иначе цепляем цифры следующей строки
+    // (например фрагмент кадастрового номера), когда в строке valoare нет суммы.
+    const m = text.match(/(?:estimat|valoare|bunului\s+imobil)[^0-9\n]{0,60}(\d[\d\s]{2,})(?:\s*lei)?/i);
     if (m) {
       const num = m[1].replace(/\s+/g, "");
       if (num) return num;
@@ -106,14 +120,17 @@ type CadRecord = {
 type Building = { bcad: string; addr: string; teren: string; apts: number[] };
 
 // Флаг — только для чтения; значение приходит из парсера, пользователь его не меняет.
+// Три состояния: «Nu există» → зелёный; «Nu s-a putut verifica» → жёлтый (не подтверждено);
+// иначе (обременение указано) → красный для блокеров (Interdicții), жёлтый для остальных.
 function FlagBox({ k, v, critical }: { k: string; v: string; critical?: boolean }) {
   const clear = v === "Nu există";
-  // Nu există → зелёный; Există → красный для блокеров (Interdicții), жёлтый для остальных.
-  const cls = clear ? "ok" : critical ? "bad" : "warn";
+  const unknown = v === "Nu s-a putut verifica";
+  const cls = clear ? "ok" : unknown ? "warn" : critical ? "bad" : "warn";
+  const icon = clear ? "✓ " : unknown ? "? " : "! ";
   return (
     <div className={`fl2-box ${cls}`}>
       <div className="fl2-k">{k}</div>
-      <div className="fl2-v">{(clear ? "✓ " : "! ") + v}</div>
+      <div className="fl2-v">{icon + v}</div>
     </div>
   );
 }
@@ -163,6 +180,7 @@ function Trace({ steps }: { steps: TraceStep[] }) {
 
 export default function CadastruPage() {
   const router = useRouter();
+  const { isDemoMode } = useDemo();
   const [query, setQuery] = useState("");
   const [trace, setTrace] = useState<TraceStep[] | null>(null);
   const [record, setRecord] = useState<{ cadastralNo: string; record: CadRecord } | null>(null);
@@ -182,6 +200,19 @@ export default function CadastruPage() {
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
   const [parseWarn, setParseWarn] = useState<string | null>(null);
 
+  // Mod Demo — показываем готовую карточку результата (без реального поиска/OCR).
+  useEffect(() => {
+    if (isDemoMode && !record) {
+      const r = DEMO_CADASTRU_RESULT;
+      setManualMode(true);
+      setRecord({
+        cadastralNo: r.cadastralNo,
+        record: { addr: r.addr, supr: r.supr, dest: r.dest, val: r.val, prop: r.prop, dr: r.dr, not: r.not, int: r.int },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemoMode]);
+
   // Флаги (alte drepturi / notări / interdicții) — readonly, всегда из парсера сырого OCR-текста.
   // При любом ручном изменении поля пересчитываем их заново (для поиска raw нет — флаги из API).
   function recomputeFlags(rec: { cadastralNo: string; record: CadRecord }) {
@@ -191,9 +222,9 @@ export default function CadastruPage() {
       ...rec,
       record: {
         ...rec.record,
-        dr: normFlag(p.alteDrepturiReale),
-        not: normFlag(p.notari),
-        int: normFlag(p.interdictii),
+        dr: classifyEncumbrance(p.alteDrepturiReale),
+        not: classifyEncumbrance(p.notari),
+        int: classifyEncumbrance(p.interdictii),
       },
     };
   }
@@ -210,6 +241,9 @@ export default function CadastruPage() {
       setOcrError("Nu am putut extrage datele. Verificați formatul textului.");
       return false;
     }
+    // Полный сброс прежнего результата перед новым парсингом (без merge старого/нового state).
+    setRecord(null);
+    setParseWarn(null);
     setTrace(null);
     setPicker(null);
     setFallback(null);
@@ -232,9 +266,9 @@ export default function CadastruPage() {
         dest: p.destinatie || "—",
         val: p.valoare || "—",
         prop: p.tipProprietate || "—",
-        dr: normFlag(p.alteDrepturiReale),
-        not: normFlag(p.notari),
-        int: normFlag(p.interdictii),
+        dr: classifyEncumbrance(p.alteDrepturiReale),
+        not: classifyEncumbrance(p.notari),
+        int: classifyEncumbrance(p.interdictii),
       },
     });
     setManualOpen(false);
@@ -442,23 +476,42 @@ export default function CadastruPage() {
               <label style={{ fontSize: 14 }}>Adresă sau număr cadastral</label>
               <div style={{ display: "flex", gap: 10 }}>
                 <input
+                  id="search-input"
                   type="text"
                   placeholder="Adresă sau număr cadastral"
-                  style={{ flex: 1, height: 54, fontSize: 17, padding: "0 18px" }}
+                  style={{
+                    flex: 1,
+                    height: 54,
+                    fontSize: 17,
+                    padding: "0 18px",
+                    ...(!isDemoMode
+                      ? { background: "var(--line2)", color: "var(--ink4)", cursor: "not-allowed" }
+                      : {}),
+                  }}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  disabled
-                  title="În curând"
+                  disabled={!isDemoMode}
+                  title={isDemoMode ? undefined : "În curând"}
                 />
                 <button
-                  className="btn solid"
-                  style={{ whiteSpace: "nowrap", height: 54, padding: "0 26px", fontSize: 15, opacity: 0.55, cursor: "not-allowed" }}
+                  className="btn"
+                  style={{
+                    whiteSpace: "nowrap",
+                    height: 54,
+                    padding: "0 26px",
+                    fontSize: 15,
+                    background: "var(--line2)",
+                    color: "var(--ink4)",
+                    borderColor: "var(--line)",
+                    cursor: "not-allowed",
+                  }}
                   disabled
                   title="În curând"
                 >
                   Căutați →
                 </button>
                 <button
+                  id="verify-manual-btn"
                   className="btn"
                   type="button"
                   style={{ whiteSpace: "nowrap", height: 54, padding: "0 18px", fontSize: 14 }}
@@ -501,7 +554,7 @@ export default function CadastruPage() {
             )}
 
             {record && (
-              <div style={{ marginTop: 18 }}>
+              <div id="result-card" style={{ marginTop: 18 }}>
                 {manualMode && (
                   <div className="note note-warn" style={{ marginBottom: 12 }}>
                     Date introduse manual — nu sunt verificate oficial. Pentru certitudine juridică
@@ -572,7 +625,7 @@ export default function CadastruPage() {
                   <a className="btn" href="https://www.cadastru.md/ecadastru" target="_blank" rel="noopener noreferrer">
                     Deschideți e-Cadastru ↗
                   </a>
-                  <button className="btn solid" onClick={createDossier}>
+                  <button id="creati-dosarul-btn" className="btn solid" onClick={createDossier}>
                     Creați dosarul ↓
                   </button>
                 </div>

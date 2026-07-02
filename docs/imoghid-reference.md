@@ -289,6 +289,107 @@ notarial — extrage doar baza (`purchase_price`, `legal_basis`). Nu inventează
 apar în documentele primite. Nu alege un apartament/obiect dacă inputul e ambiguu — semnalează
 ambiguitatea ca flag `code: "OTHER"`. Nu produce text în afara structurii JSON cerute.
 
+### Modul «Bun viitor / Condominiu în construcție» (дополнение к разделу IV основной инструкции)
+
+> Это дополнение к разделу IV основной инструкции Георгия. Читается вместе с ней. Когда объект — bun viitor (единица в строящемся доме) или единица в condominiu în construcție, Георгий переключается на эту ветку. Остальные правила (CAPS LOCK, согласие супруга, минори, procură, извлечение суммы, язык вывода) действуют как обычно.
+>
+> Зачем модуль. У bun viitor нет финального act de drept, где покупатель — собственник. В RBI единица числится за застройщиком, а право покупателя внесено как înregistrare provizorie. Без этого правила проверочный агент видит «продавец ≠ собственник» и ошибочно блокирует объект. Здесь описано, как проверять такой объект корректно.
+
+**1. Когда применяется эта ветка**
+
+Признаки, что объект — bun viitor / единица в строящемся condominiu:
+- destinație cadastrală = «Bun viitor» (прямое указание в extras) — самый надёжный признак;
+- в extras proprietar = застройщик (обычно persoană juridică), а право покупателя внесено как înregistrare provizorie (в capitolul suplimentar / notări), а не как окончательное право;
+- temeiul dreptului — один из вариантов: Contract de vânzare-cumpărare a bunului imobil viitor ИЛИ Contract de vânzare-cumpărare a bunului imobil în construcție (cu rezerva proprietății), а не финальный act de drept;
+- suprafață указана как проектная (conform proiect), кадастровый номер предварительный / привязан к стадии строительства;
+- объект — единица в condominiu, а Actul de constituire описывает будущие/неоконченные единицы.
+
+> Rezerva proprietății (pactul rezervei proprietății). Если договор «cu rezerva proprietății» — право собственности переходит к покупателю только после полной оплаты (и/или завершения стройки). До этого собственник — застройщик. Это специальное условие: проверить статус оплаты и момент перехода права; пометить как риск для покупателя.
+
+Если признаки есть → работать по этой ветке и не требовать финальный act de drept, не ставить 🔴 «продавец ≠ собственник» автоматически (для bun viitor это ожидаемо).
+
+**2. Ключевое отличие в регистрации (суть)**
+- Земля и здание зарегистрированы на застройщика (proprietar в RBI).
+- Право будущего собственника на конкретную единицу вносится как înregistrare provizorie. Провизорная запись «имеет тот же эффект, что и регистрация права, но с оговоркой уточнения площади» (ASP). До завершения строительства и уточнения площади (по plan geometric) она не консолидируется в окончательную регистрацию.
+- Поэтому по одной единице в RBI одновременно: proprietar = застройщик + înregistrare provizorie в пользу покупателя. Это норма для bun viitor, а не ошибка.
+- Для отчуждения провизорно зарегистрированного объекта закон требует представить plan geometric (ASP).
+
+Вывод для агента: по bun viitor проверяется не «чистое совпадение собственника», а соответствие провизорной записи договору и цепочка застройщика.
+
+**3. Правовая база (дополнительно к разделу III)**
+- Codul civil nr. 1107/2002 — vânzarea bunului viitor (продажа будущего блага). → https://www.legis.md/cautare/getResults?doc_id=150498&lang=ro
+- Legea cadastrului bunurilor imobile nr. 1543/1998 + HG nr. 201/2025 — înregistrare provizorie, capitolul suplimentar, notări; консолидация после уточнения площади. → https://www.legis.md/cautare/getResults?doc_id=150224&lang=ro
+- Legea nr. 187/2022 cu privire la condominiu — Actul de constituire a condominiului: адрес, кадастровый номер земли и здания, описание каждой единицы, cotă-parte; для будущих/неоконченных построек — первоначально запланированная cotă-parte; исключительное право на единицу и cotă-parte в общем имуществе неделимы, не отчуждаются и не обременяются раздельно. → https://www.legis.md/cautare/getResults?doc_id=148246&lang=ro
+- Codul urbanismului și construcțiilor nr. 434/2023 — autorizația de construire, certificat de urbanism, recepția / darea în exploatare (законность и готовность стройки).
+
+**4. Документы, которые надо ожидать**
+
+По застройщику: extras на землю/здание (proprietar — застройщик) · autorizația de construire (действующая) · certificat de urbanism · Actul de constituire a condominiului.
+
+По единице (покупатель): Contract de vânzare-cumpărare a bunului imobil viitor (застройщик ↔ покупатель) · extras с înregistrarea provizorie в пользу покупателя · при отчуждении — plan geometric.
+
+Чего-либо из этого нет → в чек-лист (см. сигналы п.6).
+
+**5. Алгоритм-ветка (в дополнение к Шагам 1–6)**
+
+a) **Классифицировать объект.** Определить, что это bun viitor / единица в строящемся condominiu (п.1). Дальше — по этой ветке.
+
+b) **Титул застройщика.** Проверить extras на землю/здание (proprietar — застройщик) + autorizația de construire (срок, соответствие объекту). Нет/просрочена autorizație → 🔴.
+
+c) **Провизорная запись покупателя.** Есть ли înregistrare provizorie в пользу того покупателя, что в договоре. Сверить: стороны, единица, cotă, цена. Есть договор, но провизорной записи нет → 🔴 (право покупателя не защищено в RBI).
+
+c-bis) **Состав правообладателей — показывать ОБОИХ.** В списке собственников выводить и застройщика, и покупателя: Dezvoltator — proprietar (застройщик) + Cumpărător — înregistrare provizorie (покупатель). Не сводить к одному покупателю с cotă 1/1 — до консолидации застройщик остаётся собственником, а покупатель держит только провизорное право. Если покупателей несколько — показать всех с их долями.
+
+c-ter) **Продавец — временный (провизорный) собственник → согласие застройщика.** Если продавец отчуждает объект, будучи ещё не окончательным собственником (право по înregistrare provizorie или cu rezerva proprietății), → 🟡/🔴: такое отчуждение обычно оформляется как cesiune и может требовать согласия застройщика (acordul dezvoltatorului / первоначального продавца). Проверить условия договора о переуступке и запросить это согласие.
+
+d) **Двойная продажа.** Проверить, нет ли нескольких провизорных записей / договоров на одну единицу → 🔴.
+
+e) **Обременения застройщика.** ipotecă / sechestru на землю/здание (например, кредит застройщика) распространяются на единицы → 🟡/🔴; разъяснить, освобождена ли конкретная единица (degrevare).
+
+e-bis) **Права на материнском участке (teren de bază / teren-mamă).** Проверить capitolul suplimentar по участку-основанию (кадастровый № земли, напр. ...544 для единицы ...544.01.006): нет ли drept de superficie, uzufruct, servitute, аренды. Даже если срок такого права истёк, но нет подтверждения radiere (погашения записи) → 🟡: запросить подтверждение прекращения. Право на материнском участке может обременять и продаваемую единицу.
+
+e-ter) **Сложная цепочка титула застройщика.** Если основание застройщика включает contract de societate civilă, cesiune de creanță, серию acorduri → 🔴/на ручную юрпроверку: подтвердить действительность каждого звена и отсутствие пороков титула (vicii de titlu). Если предыдущий собственник — юрлицо (SRL-застройщик) → проверить правоспособность и учредительные документы на момент сделки.
+
+f) **Condominiu.** Сверить с Actul de constituire: единица описана, cotă-parte указана (для незавершёнки — planificată); сумма всех cotă-parte = 100%; исключительное право и cotă-parte не отчуждаются раздельно.
+
+g) **Площадь.** suprafață conform proiect может законно отличаться от финальной — не ставить 🔴 как для готового объекта; помечать suprafață provizorie, se specifică la recepție.
+
+h) **Готовность.** Стадия стройки / наличие recepției / darea în exploatare. Если объект подаётся как готовый, но провизорная запись не консолидирована и нет recepției → 🟡.
+
+i) **Rezerva proprietății.** Если договор cu rezerva proprietății — проверить статус оплаты и момент перехода права (право у покупателя только после полной оплаты/завершения) → пометить как условие/риск.
+
+j) **Цена → модуль налога** (как обычно), с признаком temei: bun viitor. Площадь сравнивать численно (60.0 = 60.00 — не расхождение).
+
+**6. Специальные сигналы (RO)**
+- 🔴 Lipsă autorizație de construire valabilă.
+- 🔴 Lipsă înregistrare provizorie în favoarea cumpărătorului (există doar contractul).
+- 🔴 Înregistrări provizorii multiple pe aceeași unitate (risc de dublă vânzare).
+- 🟡 Ipotecă/sarcină a dezvoltatorului asupra terenului/clădirii — de clarificat dacă unitatea este degrevată.
+- 🟡 Drept de superficie/uzufruct/servitute pe terenul de bază — chiar expirat, dar fără confirmarea radierii; necesită verificare.
+- 🔴 Lanț de titlu complex (contract de societate civilă, cesiune de creanță) — necesită verificare juridică suplimentară; vânzător anterior persoană juridică — verificați capacitatea și actele constitutive.
+- 🟡 Rezerva proprietății — dreptul trece la cumpărător doar după achitarea integrală; verificați statutul plății.
+- 🟡 Afișați ambii titulari — dezvoltator (proprietar) + cumpărător (înregistrare provizorie); nu doar cumpărătorul cu cotă 1/1.
+- 🟡 Vânzătorul deține doar drept provizoriu / cu rezerva proprietății — pentru înstrăinare (cesiune) poate fi necesar acordul dezvoltatorului.
+- 🟡 Suprafață provizorie (conform proiect) — se specifică la recepție; necesită plan geometric la înstrăinare.
+- 🟡 Cotă-parte în condominiu — planificată (construcție neterminată), de confirmat la finalizare.
+- 🟢 Înregistrarea provizorie corespunde contractului (părți, unitate, cotă, preț).
+
+**7. Точки остановки (на проверку человеку)**
+- нет autorizație de construire / нет провизорной записи / двойная продажа;
+- ipotecă застройщика на здание;
+- продавец — провизорный собственник и не подтверждено согласие застройщика (acordul dezvoltatorului) на переуступку;
+- расхождение cotă-parte или описания единицы с Actul de constituire;
+- стройка не введена в эксплуатацию / риск несостоятельности застройщика — на ответственного юриста.
+
+**8. Что этот модуль НЕ делает**
+- Не подтверждает завершённость стройки и не заменяет recepția / darea în exploatare.
+- Не гарантирует консолидацию провизорной записи в окончательную.
+- Дисклеймер тот же: platforma sugerează și marchează, dar nu autentifică.
+
+**9. Связь с основной инструкцией**
+
+Ветка вызывается на Шаге 1 (классификация объекта) и меняет логику Шагов 3–4 (вместо «собственник = покупатель» → «застройщик как proprietar + покупатель с провизорной записью + цепочка застройщика + condominiu»). Все прочие правила основной инструкции (CAPS LOCK, согласие супруга, минори, procură, извлечение суммы, единый язык вывода, эскалация человеку) применяются без изменений.
+
 ---
 
 ## 4. Instrumente — completare automată șabloane (al doilea tip de apel Claude)

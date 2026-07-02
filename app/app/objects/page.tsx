@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useDemo } from "@/app/contexts/DemoContext";
+import { DEMO_TRANSACTION } from "@/lib/demo-data";
 
 type Status = "active" | "waiting" | "done" | "archive";
 
@@ -49,6 +51,7 @@ function fmtPrice(price: number | null): string {
 }
 
 export default function ObjectsPage() {
+  const { isDemoMode } = useDemo();
   const [txs, setTxs] = useState<TxCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Status>("active");
@@ -131,7 +134,33 @@ export default function ObjectsPage() {
         ))}
       </div>
 
-      <div className="obj-grid">
+      <div className="obj-grid" id="objects-list">
+        {isDemoMode && (
+          <div className="obj-card">
+            <div className="obj-card-hd">
+              <div className="obj-status" style={{ background: "var(--green)" }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{DEMO_TRANSACTION.step1Data.address}</div>
+                <div style={{ fontSize: 11, color: "var(--ink3)" }}>Apartament</div>
+              </div>
+              <span className="badge b-green" style={{ marginLeft: "auto" }}>Activ</span>
+            </div>
+            <div className="obj-card-bd">
+              <div className="obj-meta-row"><span>Client</span><b>{DEMO_TRANSACTION.step5Data.party2Name}</b></div>
+              <div className="obj-meta-row"><span>Preț</span><b>95 000 EUR</b></div>
+              <div className="obj-meta-row"><span>Ghidul tranzacției</span><b>Pasul 8 / 8</b></div>
+            </div>
+            <div className="obj-card-ft" style={{ display: "flex", gap: 8 }}>
+              <span className="btn solid" style={{ flex: 1, justifyContent: "center", pointerEvents: "none" }}>Deschide ghidul</span>
+              <span id="raport-btn" className="btn" style={{ pointerEvents: "none" }}>📄 Raport</span>
+            </div>
+            <div id="status-buttons" className="obj-card-ft" style={{ borderTop: "1px dashed var(--line)" }}>
+              <span className="btn" style={{ pointerEvents: "none" }}>În așteptare</span>
+              <span className="btn" style={{ pointerEvents: "none" }}>Finisează</span>
+              <span className="btn" style={{ pointerEvents: "none" }}>În arhivă</span>
+            </div>
+          </div>
+        )}
         {shown.map((t) => {
           const b = STATUS_META[t.status];
           return (
@@ -209,7 +238,7 @@ export default function ObjectsPage() {
                   <button
                     className="btn"
                     disabled
-                    title="Generați din Ghidul tranzacției (pasul 7)"
+                    title="Raportul devine disponibil după ce generați Fișa obiectului la pasul 7 al Ghidului tranzacției."
                     style={{ opacity: 0.55, cursor: "not-allowed" }}
                   >
                     📄 Raport

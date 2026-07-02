@@ -32,11 +32,19 @@ export const authConfig = {
   providers: [],
   callbacks: {
     // Защита маршрутов. Срабатывает только на путях из matcher (middleware.ts).
-    authorized({ auth, request: { nextUrl } }) {
+    authorized({ auth, request }) {
+      const { nextUrl } = request;
       const isLoggedIn = !!auth?.user;
       const isOnApp = nextUrl.pathname.startsWith("/app");
 
       if (!isOnApp) return true;
+
+      // Mod Demo — интерактивный тур (моковые данные, без реальных API). Доступ к /app/*
+      // без сессии, если установлен cookie demo (или ?demo=true при первом переходе).
+      const isDemo =
+        request.cookies.get("imo_demo")?.value === "1" ||
+        nextUrl.searchParams.get("demo") === "true";
+      if (isDemo) return true;
 
       // Нет сессии → false → NextAuth редиректит на pages.signIn (/login)
       if (!isLoggedIn) return false;

@@ -3,6 +3,9 @@ import Link from "next/link";
 import "./imoghid.css";
 import { Providers } from "@/components/Providers";
 import { Topbar } from "./_components/Topbar";
+import { DemoProvider } from "@/app/contexts/DemoContext";
+import { DemoBanner } from "./_components/DemoBanner";
+import { DemoTooltip } from "@/app/_components/DemoTooltip";
 
 // Шрифты — браузерная загрузка Google Fonts (как в (auth)), с системными фолбэками в imoghid.css.
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -15,7 +18,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         rel="stylesheet"
       />
       <Providers>
+        <DemoProvider>
         <div className="ig-root">
+          <DemoBanner />
           <Topbar />
           {children}
           <footer className="app-footer">
@@ -27,7 +32,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <span className="sep">·</span>
             <Link href="/faq">Întrebări frecvente</Link>
           </footer>
+          <DemoTooltip />
         </div>
+        </DemoProvider>
       </Providers>
     </>
   );

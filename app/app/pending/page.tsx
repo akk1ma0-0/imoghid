@@ -1,10 +1,13 @@
 "use client";
 
 import { signOut } from "next-auth/react";
+import { useDemo } from "@/app/contexts/DemoContext";
 
 // Страница ожидания активации плана (plan = null). Middleware ведёт сюда любого
 // авторизованного пользователя без плана.
 export default function PendingPage() {
+  const { startDemo } = useDemo();
+
   return (
     <div className="ig-page" style={{ maxWidth: 560, margin: "0 auto" }}>
       <div className="card" style={{ marginTop: 40 }}>
@@ -13,12 +16,20 @@ export default function PendingPage() {
           <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>
             Contul dvs. este în curs de activare
           </h1>
-          <p style={{ fontSize: 14, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 24 }}>
+          <p style={{ fontSize: 14, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 8 }}>
             Contactați administratorul pentru activarea planului.
           </p>
-          <button className="btn" onClick={() => signOut({ callbackUrl: "/login" })}>
-            Deconectați-vă
+          <p style={{ fontSize: 13.5, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 22 }}>
+            Între timp, explorați platforma în modul demo.
+          </p>
+          <button className="btn solid" style={{ marginBottom: 12 }} onClick={startDemo}>
+            ✨ Încearcă demo-ul gratuit
           </button>
+          <div>
+            <button className="btn" onClick={() => signOut({ callbackUrl: "/login" })}>
+              Deconectați-vă
+            </button>
+          </div>
         </div>
       </div>
     </div>

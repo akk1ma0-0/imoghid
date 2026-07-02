@@ -192,3 +192,51 @@ Reper pentru analiza tranzacțiilor imobiliare în Republica Moldova
 | P7 | Tranzacție între rude apropiate | Risc de reîncadrare fiscală | Codul fiscal 1163/1997 |
 | P8 | Cotă în proprietate comună | Drept de preemțiune al coproprietarilor | Codul civil 1107/2002 |
 | P9 | Impozit pe creșterea de capital > 100.000 lei | Calcul exact — contabil/notar | Codul fiscal 1163/1997 |
+
+## 08. Modul «Bun viitor / Condominiu în construcție»
+
+> Text complet și algoritm — în `docs/imoghid-reference.md`, Secțiunea 3, subcapitolul
+> «Modul „Bun viitor / Condominiu în construcție"». Aici — doar înregistrarea în registre.
+> Se aplică când obiectul este bun viitor (unitate în bloc în construcție) sau unitate în
+> condominiu în construcție: proprietar în RBI = dezvoltatorul, iar dreptul cumpărătorului este
+> înscris ca înregistrare provizorie — NU se blochează automat pentru «vânzător ≠ proprietar».
+
+### Acte normative (extindere a registrului 01/05)
+
+| Nr. | Act normativ | Nr./an | Domeniu | Ce reglementează |
+|-----|--------------|--------|---------|------------------|
+| 26 | Codul civil | nr. 1107/2002 | Bun viitor | Vânzarea bunului viitor; rezerva proprietății |
+| 27 | Legea cadastrului bunurilor imobile + HG 201/2025 | nr. 1543/1998 | Cadastru | Înregistrare provizorie, capitolul suplimentar, consolidare după plan geometric |
+| 28 | Legea cu privire la condominiu | nr. 187/2022 | Condominiu | Actul de constituire; cotă-parte planificată; indivizibilitatea unității și cotei |
+| 29 | Codul urbanismului și construcțiilor | nr. 434/2023 | Construcții | Autorizația de construire, certificat de urbanism, recepția / darea în exploatare |
+
+### Reguli de verificare (extindere a registrului 02) — ramura bun viitor
+
+| Cod | Situație | Ce verifică | Semnal |
+|-----|---------|-------------|--------|
+| R32 | Clasificare obiect | destinație «Bun viitor» / proprietar-dezvoltator + înregistrare provizorie → ramura bun viitor | — |
+| R33 | Titlul dezvoltatorului | extras teren/clădire (proprietar = dezvoltator) + autorizație de construire valabilă | СТОП dacă lipsă/expirată |
+| R34 | Înregistrarea provizorie a cumpărătorului | corespondența cu contractul (părți, unitate, cotă, preț) | СТОП dacă lipsește |
+| R35 | Ambii titulari | afișare dezvoltator (proprietar) + cumpărător (înregistrare provizorie), nu doar cumpărător 1/1 | Внимание |
+| R36 | Vânzător provizoriu → cesiune | acordul dezvoltatorului la înstrăinare (drept provizoriu / rezerva proprietății) | Внимание/СТОП |
+| R37 | Dublă vânzare | înregistrări provizorii multiple pe aceeași unitate | СТОП |
+| R38 | Sarcini dezvoltator | ipotecă/sechestru pe teren/clădire; degrevarea unității | Внимание |
+| R39 | Teren de bază | drepturi (superficie/uzufruct/servitute) pe terenul-mamă; confirmarea radierii | Внимание |
+| R40 | Lanț de titlu complex | contract de societate civilă / cesiune de creanță; vânzător anterior persoană juridică | СТОП/verificare |
+| R41 | Condominiu + suprafață | cotă-parte planificată; suprafață conform proiect (se specifică la recepție); plan geometric la înstrăinare | Внимание |
+
+### Scenariu
+
+| Cod | Scenariu | Descriere |
+|-----|---------|-----------|
+| S-BV | Bun viitor / condominiu în construcție | Unitate cumpărată de la dezvoltator înainte de finalizare; drept prin înregistrare provizorie; verificare titlu dezvoltator + provizorie + condominiu |
+
+### Puncte de oprire (extindere a registrului 07)
+
+| Cod | Situație | Temei |
+|-----|---------|-------|
+| P10 | Lipsă autorizație de construire / lipsă înregistrare provizorie / dublă vânzare | Legea 434/2023; Legea 1543/1998 |
+| P11 | Ipotecă a dezvoltatorului asupra clădirii | Legea 142/2008 |
+| P12 | Vânzător provizoriu fără acordul dezvoltatorului la cesiune | Codul civil 1107/2002 |
+| P13 | Neconcordanță cotă-parte / descriere unitate cu Actul de constituire | Legea 187/2022 |
+| P14 | Construcție nerecepționată / risc de insolvabilitate a dezvoltatorului | Codul urbanismului 434/2023 |

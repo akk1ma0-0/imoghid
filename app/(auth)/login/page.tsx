@@ -125,6 +125,20 @@ function LoginForm() {
             </button>
           </form>
 
+          <div style={{ textAlign: "center", marginTop: 12 }}>
+            <button
+              type="button"
+              className="demo-link"
+              onClick={() => {
+                sessionStorage.setItem("demoMode", "true");
+                document.cookie = "imo_demo=1; path=/; samesite=lax";
+                router.push("/app/cadastru?demo=true");
+              }}
+            >
+              Explorați fără cont →
+            </button>
+          </div>
+
           <div className="divider">
             <span>sau</span>
           </div>

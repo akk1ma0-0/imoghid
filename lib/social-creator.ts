@@ -118,7 +118,12 @@ export async function generateSocial(req: SocialRequest): Promise<SocialResult> 
       topic: req.topic,
       objectData: req.objectData,
     };
+    const year = new Date().getFullYear();
     const user =
+      `Anul curent este ${year}. Folosește ${year} pentru orice referință temporală ` +
+      `(„anul acesta", „recent" etc.); NU presupune un an din trecut (ex. 2024) și NU folosi „anul trecut" ca an fix.\n` +
+      `Dacă menționezi prețuri pe sectoare sau piață (ex. €/m²), marchează-le explicit ca orientative ` +
+      `(„orientativ", „aproximativ") — nu ca valori exacte.\n\n` +
       `Generează conținut pentru rețele sociale pe tema „${req.topic}”. Date:\n${JSON.stringify(payload)}\n\n` +
       `Reguli de format JSON:\n` +
       `- instagram: "slides" = EXACT 5 stringuri (texte de slide-uri), "reels" = null, "post" = caption.\n` +

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useDemo } from "@/app/contexts/DemoContext";
+import { DEMO_CREATOR_CONTENT } from "@/lib/demo-data";
 
 type Platform = "instagram" | "tiktok" | "facebook" | "999";
 type Language = "ro" | "ru";
@@ -100,6 +102,7 @@ function wrapText(
 }
 
 export default function CreatorPage() {
+  const { isDemoMode } = useDemo();
   const [platform, setPlatform] = useState<Platform>("instagram");
   const [language, setLanguage] = useState<Language>("ro");
   const [topic, setTopic] = useState<string>(TOPICS[0]);
@@ -266,6 +269,21 @@ export default function CreatorPage() {
     setError(null);
     setEditing(false);
     setSavedPostId(null);
+    // Mod Demo — симуляция генерации (1.5 сек), без реального вызова API.
+    if (isDemoMode) {
+      setBusy(true);
+      setTimeout(() => {
+        setResult({
+          kind: "social",
+          slides: [...DEMO_CREATOR_CONTENT.slides],
+          reels: null,
+          post: DEMO_CREATOR_CONTENT.post,
+          hashtags: DEMO_CREATOR_CONTENT.hashtags,
+        });
+        setBusy(false);
+      }, 1500);
+      return;
+    }
     if (is999 && !objectDesc.trim()) {
       setError("Completați descrierea obiectului sau importați din dosar.");
       return;
@@ -416,7 +434,7 @@ export default function CreatorPage() {
           <div className="crumb">Instrumente</div>
           <h1>Creator Hub</h1>
         </div>
-        <Link href="/app/creator/gallery" className="btn">🗂 Galerie</Link>
+        <Link id="gallery-btn" href="/app/creator/gallery" className="btn">🗂 Galerie</Link>
       </div>
       <p className="sub">
         Generați postări, carusele, scenarii Reels și anunțuri 999.md pentru rețelele sociale.
@@ -425,7 +443,7 @@ export default function CreatorPage() {
       <div className="creator-grid">
         {/* ── LEFT ── */}
         <div>
-          <div className="card">
+          <div className="card" id="platform-selector">
             <div className="card-hd"><b>Platformă</b></div>
             <div className="card-bd">
               <div className="type-grid">
@@ -456,7 +474,7 @@ export default function CreatorPage() {
           )}
 
           {!is999 && (
-            <div className="card">
+            <div className="card" id="topic-selector">
               <div className="card-hd"><b>Tema conținutului</b></div>
               <div className="card-bd">
                 <div className="filters" style={{ marginBottom: 0 }}>
@@ -586,7 +604,7 @@ export default function CreatorPage() {
             </div>
           )}
 
-          <button className="btn solid" style={{ width: "100%", justifyContent: "center" }} onClick={generate} disabled={busy}>
+          <button id="generate-btn" className="btn solid" style={{ width: "100%", justifyContent: "center" }} onClick={generate} disabled={busy}>
             {busy ? "Se generează…" : "✦ Generează"}
           </button>
         </div>
@@ -596,10 +614,25 @@ export default function CreatorPage() {
           <div className="card" style={{ minHeight: 200 }}>
             <div className="card-hd">
               <b>Previzualizare — {PLATFORMS.find((p) => p.code === platform)?.label}</b>
-              {result && <span className="badge b-purple" style={{ marginLeft: "auto" }}>generat</span>}
+              {busy ? (
+                <span className="badge b-blue" style={{ marginLeft: "auto" }}>se generează…</span>
+              ) : result ? (
+                <span className="badge b-purple" style={{ marginLeft: "auto" }}>generat</span>
+              ) : null}
             </div>
             <div className="card-bd">
-              {!result ? (
+              {busy ? (
+                <div className="cr-skeleton">
+                  <div className="cr-skel-spinner" />
+                  <p style={{ fontSize: 13, color: "var(--ink3)", marginBottom: 12 }}>
+                    Generăm conținutul cu inteligență artificială…
+                  </p>
+                  <div className="cr-skel-line" style={{ width: "90%" }} />
+                  <div className="cr-skel-line" style={{ width: "75%" }} />
+                  <div className="cr-skel-line" style={{ width: "82%" }} />
+                  <div className="cr-skel-line" style={{ width: "60%" }} />
+                </div>
+              ) : !result ? (
                 <p style={{ fontSize: 13, color: "var(--ink3)" }}>
                   Configurați opțiunile în stânga și apăsați „✦ Generează”.
                 </p>
@@ -705,6 +738,12 @@ export default function CreatorPage() {
                     <button className="btn" onClick={deleteCurrent}>Șterge</button>
                   </div>
                 </>
+              )}
+              {result && !busy && (
+                <p style={{ fontSize: 11, color: "var(--ink4)", marginTop: 12, lineHeight: 1.5 }}>
+                  Conținut generat de AI — verificați faptele înainte de publicare. Prețurile și
+                  cifrele de piață sunt orientative.
+                </p>
               )}
             </div>
           </div>

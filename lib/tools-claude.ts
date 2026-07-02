@@ -44,9 +44,12 @@ export async function generateAnunt(input: string, lang: "ro" | "ru"): Promise<s
   }
   try {
     // В запрос идёт ТОЛЬКО кешированный системный промпт + тезисы пользователя.
+    const year = new Date().getFullYear();
     return await callClaude(
       ANUNT_SYSTEM_PROMPT,
-      `Teze: ${input}\nLimba de output: ${lang === "ru" ? "rusă (ru)" : "română (ro)"}`,
+      `Anul curent este ${year}. Folosește ${year} pentru orice referință temporală; nu presupune un an din trecut. ` +
+        `Dacă apar prețuri de piață, marchează-le ca orientative.\n` +
+        `Teze: ${input}\nLimba de output: ${lang === "ru" ? "rusă (ru)" : "română (ro)"}`,
       700,
     );
   } catch (err) {

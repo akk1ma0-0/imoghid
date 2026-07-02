@@ -974,7 +974,7 @@ function MyFilesSection() {
   }
 
   return (
-    <div className="card" style={{ marginBottom: 14 }}>
+    <div className="card" id="upload-section" style={{ marginBottom: 14 }}>
       <div className="card-hd">
         <b>Documentele mele</b>
         <button
@@ -1097,7 +1097,7 @@ export default function ActePage() {
         </div>
 
         {/* Documente editabile (șabloane din docs/templates) */}
-        <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card" id="templates-section" style={{ marginBottom: 14 }}>
           <div className="card-hd">
             <b>Documente șablon</b>
             <span className="badge b-gray" style={{ marginLeft: "auto" }}>editabile</span>
