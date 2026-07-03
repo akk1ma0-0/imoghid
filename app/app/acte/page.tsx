@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { downloadFile, preopenTab } from "@/lib/download-file";
 import { numToRoWords } from "@/lib/ro-words";
 import { ACTE_TEMPLATES_META } from "@/lib/acte-templates-meta";
 
@@ -216,6 +217,7 @@ function DocModal({ templateName, txs, onClose }: { templateName: TemplateName; 
       }
     }
     setBusy(true);
+    const tab = preopenTab(); // синхронно, до await (iOS)
     try {
       const r = await fetch("/api/tools/generate-doc", {
         method: "POST",
@@ -224,14 +226,14 @@ function DocModal({ templateName, txs, onClose }: { templateName: TemplateName; 
       });
       if (!r.ok) throw new Error();
       const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${templateName === "garantie" ? "Garantie_de_cumparare" : "Contract_intermediere"}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadFile(
+        blob,
+        `${templateName === "garantie" ? "Garantie_de_cumparare" : "Contract_intermediere"}.docx`,
+        tab,
+      );
       onClose();
     } catch {
+      tab?.close();
       alert("Eroare la generarea documentului.");
     } finally {
       setBusy(false);
@@ -303,13 +305,8 @@ function DocModal({ templateName, txs, onClose }: { templateName: TemplateName; 
   );
 }
 
-function downloadBlob(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+function downloadBlob(blob: Blob, name: string, preopened?: Window | null) {
+  downloadFile(blob, name, preopened);
 }
 
 // Шрифт DejaVu Sans Mono (Unicode, поддержка ș ț ă â î) для jsPDF — селектируемый текст.
@@ -711,13 +708,15 @@ function EditorModal({
 
   async function downloadDocx() {
     setDlOpen(false);
-    downloadBlob(await buildDocxBlob(readCurrent()), `${slug}.docx`);
+    const tab = preopenTab(); // синхронно, до await (iOS)
+    downloadBlob(await buildDocxBlob(readCurrent()), `${slug}.docx`, tab);
   }
 
   // PDF с встроенным TTF (DejaVu Sans Mono) → текст селектируемый, диакритика (ș ț ă â î) корректна.
   async function downloadPdf() {
     setDlOpen(false);
     setBusy(true);
+    const tab = preopenTab(); // синхронно, до await (iOS)
     try {
       const [{ jsPDF }, b64] = await Promise.all([import("jspdf"), loadDejaVuBase64()]);
       const pdf = new jsPDF({ unit: "pt", format: "a4" });
@@ -742,8 +741,9 @@ function EditorModal({
         pdf.text(line, margin, y);
         y += lh;
       }
-      pdf.save(`${slug}.pdf`);
+      downloadFile(pdf.output("blob"), `${slug}.pdf`, tab);
     } catch {
+      tab?.close();
       showToast("Eroare la generarea PDF.");
     } finally {
       setBusy(false);

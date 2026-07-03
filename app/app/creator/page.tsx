@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useDemo } from "@/app/contexts/DemoContext";
 import { DEMO_CREATOR_CONTENT } from "@/lib/demo-data";
+import { downloadFile, preopenTab, isIosSafari, notifyDownloadHint } from "@/lib/download-file";
 
 type Platform = "instagram" | "tiktok" | "facebook" | "999";
 type Language = "ro" | "ru";
@@ -374,22 +375,27 @@ export default function CreatorPage() {
     return canvas;
   }, [photos]);
 
-  function triggerDownload(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  async function downloadSlide(i: number) {
+  async function downloadSlide(i: number, preopened?: Window | null) {
     if (!result || result.kind !== "social" || !result.slides) return;
+    // Вкладку для iOS открываем синхронно ДО рендера (async), если не передана извне.
+    const tab = preopened ?? preopenTab();
     const canvas = await renderSlideCanvas(result.slides[i], i, result.slides.length);
-    if (!canvas) return;
-    canvas.toBlob((b) => b && triggerDownload(b, `imoghid-slide-${i + 1}.png`), "image/png");
+    if (!canvas) {
+      tab?.close();
+      return;
+    }
+    canvas.toBlob((b) => {
+      if (b) downloadFile(b, `imoghid-slide-${i + 1}.png`, tab);
+      else tab?.close();
+    }, "image/png");
   }
   function downloadAll() {
     if (!result || result.kind !== "social" || !result.slides) return;
+    if (isIosSafari()) {
+      // На iPhone множественное открытие вкладок блокируется — скачиваем по одному.
+      notifyDownloadHint("Pe iPhone, salvați slide-urile pe rând cu butonul ↓ de sub fiecare.");
+      return;
+    }
     result.slides.forEach((_, i) => setTimeout(() => downloadSlide(i), i * 400));
   }
 

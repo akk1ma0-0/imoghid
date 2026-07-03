@@ -924,3 +924,26 @@ body.demo-active .topbar { top: 36px; }
   background-size: 400% 100%; animation: cr-shimmer 1.4s ease infinite;
 }
 @keyframes cr-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+/* ── Тост подсказки скачивания (iOS Safari) — инъектируется в body из lib/download-file.ts ── */
+.download-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: min(92vw, 420px);
+  background: #1c2630;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  z-index: 1000;
+  text-align: center;
+  animation: download-toast-in 0.2s ease;
+}
+@keyframes download-toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}

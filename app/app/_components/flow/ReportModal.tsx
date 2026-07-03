@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { downloadFile, preopenTab } from "@/lib/download-file";
 import type { FlowTx } from "./types";
 import {
   buildInitialReport,
@@ -11,15 +12,6 @@ import {
 } from "./report";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-function downloadBlob(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 // Поле: серый фон = автозаполнено, синяя рамка = пусто (требует заполнения).
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -100,6 +92,7 @@ export function ReportModal({
 
   async function save() {
     setBusy(true);
+    const tab = preopenTab(); // синхронно, до await (iOS)
     try {
       const blob = await buildReportDocx(report);
       const addr = (report.general.adresa || "obiect")
@@ -110,7 +103,7 @@ export function ReportModal({
       const filename = `Fisa_Obiectului_${addr}_${date}.docx`;
 
       // 1) Скачивание на устройство.
-      downloadBlob(blob, filename);
+      downloadFile(blob, filename, tab);
 
       // 2) Загрузка в Vercel Blob (best-effort).
       let docxUrl: string | null = null;

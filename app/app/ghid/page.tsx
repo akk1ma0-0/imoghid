@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useDemo } from "@/app/contexts/DemoContext";
 import { DEMO_TRANSACTION, DEMO_STEPS, DEMO_CALC, buildDemoReportData } from "@/lib/demo-data";
 import { buildReportDocx } from "@/app/app/_components/flow/report";
+import { downloadFile, preopenTab } from "@/lib/download-file";
 
 const D = DEMO_TRANSACTION;
 
@@ -44,14 +45,12 @@ export default function DemoGhidPage() {
 
   async function downloadDemoReport() {
     setGenerating(true);
+    const tab = preopenTab(); // синхронно, до await (iOS)
     try {
       const blob = await buildReportDocx(buildDemoReportData(todayRo()));
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "Fisa_Obiectului_DEMO.docx";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadFile(blob, "Fisa_Obiectului_DEMO.docx", tab);
+    } catch {
+      tab?.close();
     } finally {
       setGenerating(false);
     }
