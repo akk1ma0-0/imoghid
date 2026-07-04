@@ -24,12 +24,6 @@ export async function createVerificationToken(userId: string): Promise<string> {
 function getTransport() {
   const user = process.env.ZOHO_SMTP_USER;
   const pass = process.env.ZOHO_SMTP_PASS;
-  // Диагностика: длины (не значения!) — помогают заметить лишний пробел/перенос
-  // строки при копировании кредов в env. Boolean() такой мусор не покажет.
-  console.log(
-    "[EMAIL] SMTP env check — user length:", process.env.ZOHO_SMTP_USER?.length ?? 0,
-    "pass length:", process.env.ZOHO_SMTP_PASS?.length ?? 0,
-  );
   if (!user || !pass) return null;
   return nodemailer.createTransport({
     host: "smtp.zoho.eu",
