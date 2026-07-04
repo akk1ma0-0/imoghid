@@ -8,6 +8,7 @@ declare module "next-auth" {
       id: string;
       plan: SubscriptionPlan | null;
       planActive: boolean;
+      emailConfirmed: boolean;
       role: UserRole;
     } & DefaultSession["user"];
   }
@@ -15,6 +16,7 @@ declare module "next-auth" {
   interface User {
     plan: SubscriptionPlan | null;
     planActive: boolean;
+    emailConfirmed: boolean;
     role: UserRole;
   }
 }
@@ -26,6 +28,7 @@ declare module "@auth/core/jwt" {
     id: string;
     plan: SubscriptionPlan | null;
     planActive: boolean;
+    emailConfirmed: boolean;
     role: UserRole;
   }
 }

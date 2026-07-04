@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
+import { createVerificationToken, sendVerificationEmail } from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Молдавский формат: +373 + 8 цифр или 0 + 8 цифр (после удаления пробелов/дефисов).
@@ -60,10 +61,19 @@ export async function POST(request: Request) {
 
   try {
     // Регистрация открытая: без плана (plan = null) — активирует администратор.
+    // emailVerified = null → пользователь сначала подтверждает e-mail.
     const user = await prisma.user.create({
       data: { name, email, phone: phone || null, passwordHash, agencyName },
       select: { id: true, email: true, plan: true },
     });
+
+    // Письмо подтверждения — сразу после создания (не блокируем регистрацию при сбое SMTP).
+    try {
+      const token = await createVerificationToken(user.id);
+      await sendVerificationEmail(user.email, token, new URL(request.url).origin);
+    } catch (e) {
+      console.error("verification email error:", e);
+    }
 
     return NextResponse.json(
       { id: user.id, email: user.email, plan: user.plan, planActive: false },

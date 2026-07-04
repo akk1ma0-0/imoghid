@@ -39,6 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           plan: user.plan,
           planActive: isPlanActive(user),
+          emailConfirmed: !!user.emailVerified,
           role: user.role,
         };
       },

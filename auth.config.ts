@@ -49,6 +49,16 @@ export const authConfig = {
       // Нет сессии → false → NextAuth редиректит на pages.signIn (/login)
       if (!isLoggedIn) return false;
 
+      // Шаг 1 — подтверждение e-mail. До него не пускаем дальше (в т.ч. на pending-plan).
+      const isVerifyPending = nextUrl.pathname.startsWith("/app/verify-email-pending");
+      if (!auth!.user.emailConfirmed) {
+        return isVerifyPending ? true : Response.redirect(new URL("/app/verify-email-pending", nextUrl));
+      }
+      // E-mail подтверждён → на странице подтверждения делать нечего.
+      if (isVerifyPending) {
+        return Response.redirect(new URL("/app", nextUrl));
+      }
+
       const isPending = nextUrl.pathname.startsWith("/app/pending");
 
       // Без плана (plan = null) → страница ожидания активации администратором.
@@ -70,17 +80,22 @@ export const authConfig = {
         token.id = user.id as string;
         token.plan = user.plan;
         token.planActive = user.planActive;
+        token.emailConfirmed = user.emailConfirmed;
         token.role = user.role;
       }
-      // Клиент вызывает useSession().update({ plan, planActive }) после /subscribe.
+      // Клиент вызывает useSession().update({ ... }) после /subscribe или подтверждения e-mail.
       if (trigger === "update" && session) {
         const patch = session as {
           plan?: SubscriptionPlan;
           planActive?: boolean;
+          emailConfirmed?: boolean;
         };
         if (patch.plan) token.plan = patch.plan;
         if (typeof patch.planActive === "boolean") {
           token.planActive = patch.planActive;
+        }
+        if (typeof patch.emailConfirmed === "boolean") {
+          token.emailConfirmed = patch.emailConfirmed;
         }
       }
       return token;
@@ -91,6 +106,7 @@ export const authConfig = {
       session.user.id = token.id;
       session.user.plan = token.plan;
       session.user.planActive = token.planActive;
+      session.user.emailConfirmed = token.emailConfirmed;
       session.user.role = token.role;
       return session;
     },

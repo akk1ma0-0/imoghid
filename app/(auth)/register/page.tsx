@@ -99,8 +99,8 @@ export default function RegisterPage() {
       return;
     }
 
-    // Без плана (plan = null) → страница ожидания активации.
-    router.push("/app/pending");
+    // Шаг 1 — подтверждение e-mail; далее (после подтверждения) — назначение плана.
+    router.push("/app/verify-email-pending");
     router.refresh();
   }
 
