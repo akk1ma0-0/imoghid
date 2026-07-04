@@ -20,7 +20,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "ImoGhid este un produs dezvoltat sub marca comercială BiSeeTh, de „BlackSpace Tech” SRL, în colaborare cu Liudmila Popovscaia, expert în drept imobiliar, care a contribuit la concepția juridică și funcțională a platformei. Contact: liudmila.popovscaia@gmail.com."
+        "text": "ImoGhid este un produs dezvoltat sub marca comercială BiSeeTh, de „BlackSpace Tech” SRL, în colaborare cu Liudmila Popovscaia, expert în drept imobiliar, care a contribuit la concepția juridică și funcțională a platformei. Contact: liudmila.popovscaia@gmail.com. Răspundem în maximum 36 de ore lucrătoare."
       }
     ]
   },
@@ -102,7 +102,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "li",
-        "text": "Contact: info@biseeth.md."
+        "text": "Contact: info@biseeth.md. Răspundem în maximum 36 de ore lucrătoare."
       },
       {
         "t": "h2",
@@ -218,7 +218,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Drepturile se exercită prin cerere la info@biseeth.md."
+        "text": "Drepturile se exercită prin cerere la info@biseeth.md. Răspundem în maximum 36 de ore lucrătoare."
       },
       {
         "t": "h2",

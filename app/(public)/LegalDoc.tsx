@@ -75,12 +75,17 @@ export function LegalDoc({ docKey }: { docKey: keyof typeof LEGAL_DOCS }) {
         {nodes}
 
         <footer className="legal-foot">
-          {CROSS.map((c, i) => (
-            <span key={c.href}>
-              {i > 0 && <span className="sep">·</span>}
-              <Link href={c.href}>{c.label}</Link>
-            </span>
-          ))}
+          <div className="legal-foot-nav">
+            {CROSS.map((c, i) => (
+              <span key={c.href}>
+                {i > 0 && <span className="sep">·</span>}
+                <Link href={c.href}>{c.label}</Link>
+              </span>
+            ))}
+          </div>
+          <div className="legal-foot-legal">
+            © 2026 BlackSpace Tech SRL · IDNO 1024600065567 · bd. Decebal 99D, mun. Chișinău
+          </div>
         </footer>
       </div>
     </div>

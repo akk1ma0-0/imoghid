@@ -211,9 +211,7 @@ export default function SubscribePage() {
       </div>
 
       <div className="sub-note">
-        Plata se procesează securizat prin Stripe · Visa / Mastercard.
-        <br />
-        Anulare oricând din contul dvs. · Fără angajamente pe termen lung.
+        Planul va fi activat de echipa noastră după verificare.
         <br />
         <a href="#">Termeni de utilizare</a> ·{" "}
         <a href="#">Politică de confidențialitate</a>
