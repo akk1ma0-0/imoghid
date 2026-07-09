@@ -122,6 +122,27 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
     }
   }
 
+  // ── Deconectare de pe toate dispozitivele ──
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  async function logoutAllDevices() {
+    if (
+      !window.confirm(
+        "Sigur doriți să vă deconectați de pe toate dispozitivele? Va trebui să vă autentificați din nou peste tot.",
+      )
+    )
+      return;
+    setLogoutBusy(true);
+    try {
+      const r = await fetch("/api/user/logout-all-devices", { method: "POST" });
+      if (!r.ok) throw new Error();
+      // Текущая вкладка тоже выходит — часть «выйти отовсюду».
+      await signOut({ callbackUrl: "/login" });
+    } catch {
+      setLogoutBusy(false);
+      window.alert("Eroare. Încercați din nou.");
+    }
+  }
+
   // Уведомления о законодательстве всегда включены — переключатель убран из UI
   // (поле User.notifLegislatie в БД сохранено).
 
@@ -248,6 +269,16 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
             {emBusy ? "Se trimite…" : "Trimite confirmare"}
           </button>
           {emMsg && <Notice kind={emMsg.k} text={emMsg.t} />}
+
+          <hr style={{ border: 0, borderTop: "1px solid var(--line)", margin: "18px 0 14px" }} />
+          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Securitatea sesiunilor</label>
+          <p className="sub" style={{ margin: "0 0 12px", fontSize: 12.5 }}>
+            Închide sesiunile de pe toate dispozitivele (inclusiv acesta). Utile dacă bănuiți
+            un acces neautorizat — va trebui să vă autentificați din nou peste tot.
+          </p>
+          <button className="btn" onClick={logoutAllDevices} disabled={logoutBusy}>
+            {logoutBusy ? "Se procesează…" : "Deconectare de pe toate dispozitivele"}
+          </button>
         </div>
       </div>
 

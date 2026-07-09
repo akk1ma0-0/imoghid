@@ -36,16 +36,13 @@ export async function GET(req: Request) {
       await prisma.emailVerificationToken.deleteMany({ where: { userId: row.userId } });
       return to("invalid", "change");
     }
-    // Меняем e-mail, помечаем подтверждённым и инкрементируем sessionVersion
-    // (инвалидирует все прежние JWT на всех устройствах); чистим все токены пользователя.
+    // Меняем e-mail и помечаем подтверждённым; чистим все токены пользователя.
+    // Сессии НЕ инвалидируем — смена e-mail не разлогинивает (для «выйти везде» есть
+    // отдельное явное действие в профиле, дёргающее sessionVersion).
     await prisma.$transaction([
       prisma.user.update({
         where: { id: row.userId },
-        data: {
-          email: row.newEmail,
-          emailVerified: new Date(),
-          sessionVersion: { increment: 1 },
-        },
+        data: { email: row.newEmail, emailVerified: new Date() },
       }),
       prisma.emailVerificationToken.deleteMany({ where: { userId: row.userId } }),
     ]);

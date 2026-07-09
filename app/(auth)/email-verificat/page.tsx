@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 
 function box(): React.CSSProperties {
   return {
@@ -35,7 +35,6 @@ function Inner() {
   const { status: authStatus, update } = useSession();
   const [working, setWorking] = useState(status === "success");
   const ran = useRef(false);
-  const signedOut = useRef(false);
 
   // ── Регистрация: подтверждение текущего e-mail → обновить сессию, увести на выбор плана ──
   useEffect(() => {
@@ -57,17 +56,7 @@ function Inner() {
     })();
   }, [isChange, status, authStatus, update, router]);
 
-  // ── Смена e-mail: адрес уже изменён в БД; завершаем текущую сессию, чтобы вход был по новому адресу ──
-  useEffect(() => {
-    if (!isChange || status !== "success" || signedOut.current) return;
-    if (authStatus === "loading") return;
-    signedOut.current = true;
-    if (authStatus === "authenticated") {
-      signOut({ redirect: false }).catch(() => {});
-    }
-  }, [isChange, status, authStatus]);
-
-  // ── Экран смены e-mail ──
+  // ── Экран смены e-mail (сессия НЕ завершается — текущая вкладка остаётся рабочей) ──
   if (isChange) {
     if (status === "success") {
       return (
@@ -76,9 +65,9 @@ function Inner() {
             <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
             <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 10 }}>Adresa a fost actualizată</h1>
             <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6, marginBottom: 20 }}>
-              Noua adresă de e-mail a fost confirmată. Autentificați-vă cu noua adresă.
+              Adresa de e-mail a fost actualizată cu succes.
             </p>
-            <Link href="/login" style={btn}>Autentificare →</Link>
+            <Link href="/app/profile" style={btn}>Înapoi la profil →</Link>
           </div>
         </div>
       );
@@ -96,7 +85,7 @@ function Inner() {
               ? "Linkul de confirmare a expirat (valabil 24 de ore). Reluați schimbarea adresei din profil."
               : "Linkul de confirmare nu este valid, a fost deja folosit sau adresa nu mai este disponibilă. Adresa contului a rămas neschimbată."}
           </p>
-          <Link href="/login" style={btn}>Autentificare →</Link>
+          <Link href="/app/profile" style={btn}>Înapoi la profil →</Link>
         </div>
       </div>
     );

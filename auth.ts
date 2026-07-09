@@ -57,15 +57,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && !params.user) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { sessionVersion: true },
+          select: { sessionVersion: true, email: true },
         });
         // Токены, выпущенные до появления sessionVersion, не имеют claim → трактуем как 0
-        // (значение по умолчанию), чтобы деплой не разлогинил всех разом. Инкремент при
-        // смене e-mail (0 → 1) всё равно инвалидирует такие токены.
+        // (значение по умолчанию), чтобы деплой не разлогинил всех разом. Инкремент
+        // (кнопка «выйти со всех устройств») инвалидирует такие токены.
         const tokenVer = typeof token.sessionVersion === "number" ? token.sessionVersion : 0;
         if (!dbUser || dbUser.sessionVersion !== tokenVer) {
           return null;
         }
+        // Держим e-mail в токене актуальным — после смены e-mail сессия остаётся рабочей
+        // и подхватывает новый адрес без повторного входа.
+        if (token.email !== dbUser.email) token.email = dbUser.email;
       }
       return token;
     },
