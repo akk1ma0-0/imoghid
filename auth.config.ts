@@ -82,6 +82,7 @@ export const authConfig = {
         token.planActive = user.planActive;
         token.emailConfirmed = user.emailConfirmed;
         token.role = user.role;
+        token.sessionVersion = user.sessionVersion;
       }
       // Клиент вызывает useSession().update({ ... }) после /subscribe или подтверждения e-mail.
       if (trigger === "update" && session) {

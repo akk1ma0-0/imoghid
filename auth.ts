@@ -41,8 +41,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           planActive: isPlanActive(user),
           emailConfirmed: !!user.emailVerified,
           role: user.role,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),
   ],
+  callbacks: {
+    ...authConfig.callbacks,
+    // Node-runtime обёртка над базовым jwt: база (edge-safe, auth.config.ts) выставляет поля
+    // токена, включая sessionVersion при логине. Здесь для уже существующих сессий сверяем
+    // sessionVersion с БД. Рассинхрон (напр. после смены e-mail) → null → сессия
+    // инвалидируется на ВСЕХ устройствах. Middleware использует базовый jwt без обращения к БД.
+    async jwt(params) {
+      const token = await authConfig.callbacks!.jwt!(params);
+      if (token && !params.user) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { sessionVersion: true },
+        });
+        // Токены, выпущенные до появления sessionVersion, не имеют claim → трактуем как 0
+        // (значение по умолчанию), чтобы деплой не разлогинил всех разом. Инкремент при
+        // смене e-mail (0 → 1) всё равно инвалидирует такие токены.
+        const tokenVer = typeof token.sessionVersion === "number" ? token.sessionVersion : 0;
+        if (!dbUser || dbUser.sessionVersion !== tokenVer) {
+          return null;
+        }
+      }
+      return token;
+    },
+  },
 });

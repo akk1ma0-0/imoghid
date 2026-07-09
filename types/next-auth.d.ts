@@ -18,6 +18,7 @@ declare module "next-auth" {
     planActive: boolean;
     emailConfirmed: boolean;
     role: UserRole;
+    sessionVersion: number;
   }
 }
 
@@ -30,5 +31,6 @@ declare module "@auth/core/jwt" {
     planActive: boolean;
     emailConfirmed: boolean;
     role: UserRole;
+    sessionVersion: number;
   }
 }

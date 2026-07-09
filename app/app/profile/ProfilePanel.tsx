@@ -92,6 +92,36 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
     }
   }
 
+  // ── Schimbare e-mail ──
+  const [newEmail, setNewEmail] = useState("");
+  const [emCur, setEmCur] = useState("");
+  const [emBusy, setEmBusy] = useState(false);
+  const [emMsg, setEmMsg] = useState<{ k: "red" | "green"; t: string } | null>(null);
+
+  async function changeEmail() {
+    setEmMsg(null);
+    setEmBusy(true);
+    try {
+      const r = await fetch("/api/user/change-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newEmail, currentPassword: emCur }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error || "Eroare.");
+      setEmMsg({
+        k: "green",
+        t: `Am trimis un e-mail de confirmare la ${d.newEmail || newEmail}. Verificați căsuța poștală.`,
+      });
+      setNewEmail("");
+      setEmCur("");
+    } catch (e) {
+      setEmMsg({ k: "red", t: e instanceof Error ? e.message : "Eroare." });
+    } finally {
+      setEmBusy(false);
+    }
+  }
+
   // Уведомления о законодательстве всегда включены — переключатель убран из UI
   // (поле User.notifLegislatie в БД сохранено).
 
@@ -149,10 +179,6 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
               <input value={telefon} onChange={(e) => setTelefon(e.target.value)} placeholder="+373 69 000 000" />
             </div>
           </div>
-          <div className="field-group">
-            <label>Email</label>
-            <input value={initial.email} disabled style={{ opacity: 0.7 }} />
-          </div>
           <button className="btn solid" onClick={saveProfile} disabled={pBusy}>
             {pBusy ? "Se salvează…" : "Salvați modificările"}
           </button>
@@ -182,6 +208,46 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
             {pwBusy ? "Se salvează…" : "Schimbați parola"}
           </button>
           {pwMsg && <Notice kind={pwMsg.k} text={pwMsg.t} />}
+        </div>
+      </div>
+
+      {/* ── ADRESĂ DE E-MAIL ── */}
+      <div className="card">
+        <div className="card-hd"><b>Adresă de e-mail</b></div>
+        <div className="card-bd">
+          <div className="field-group">
+            <label>Email curent</label>
+            <input value={initial.email} disabled style={{ opacity: 0.7 }} />
+          </div>
+          <div className="field-row">
+            <div className="field-group">
+              <label>Email nou</label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="email@nou.md"
+                autoComplete="email"
+              />
+            </div>
+            <div className="field-group">
+              <label>Parola curentă</label>
+              <input
+                type="password"
+                value={emCur}
+                onChange={(e) => setEmCur(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+          </div>
+          <p className="sub" style={{ margin: "0 0 12px", fontSize: 12.5 }}>
+            Adresa va fi schimbată doar după confirmarea prin linkul trimis pe noua adresă.
+            Până atunci, autentificarea rămâne pe adresa curentă.
+          </p>
+          <button className="btn solid" onClick={changeEmail} disabled={emBusy || !newEmail || !emCur}>
+            {emBusy ? "Se trimite…" : "Trimite confirmare"}
+          </button>
+          {emMsg && <Notice kind={emMsg.k} text={emMsg.t} />}
         </div>
       </div>
 

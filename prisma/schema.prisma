@@ -124,6 +124,9 @@ model User {
   name            String
   phone           String?
   role            UserRole         @default(AGENT)
+  // Versiune de sesiune: la incrementare (ex. schimbare e-mail) toate JWT-urile emise anterior
+  // devin invalide (verificate în callback-ul jwt, Node runtime) → re-login pe toate dispozitivele.
+  sessionVersion  Int              @default(0)
 
   // Blocare cont (din panoul admin). Utilizatorul blocat nu se poate autentifica.
   isBlocked       Boolean          @default(false)
@@ -174,6 +177,7 @@ model EmailVerificationToken {
   id        String   @id @default(cuid())
   userId    String
   token     String   @unique
+  newEmail  String?  // null = verificare e-mail curent (înregistrare); setat = schimbare de e-mail (noua adresă)
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
