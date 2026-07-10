@@ -480,7 +480,6 @@ export default function CadastruPage() {
                     fontSize: 15,
                   }}
                   onClick={() => runLookup(query)}
-                  disabled={!query.trim()}
                 >
                   Căutați →
                 </button>
