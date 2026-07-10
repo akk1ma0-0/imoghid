@@ -441,26 +441,6 @@ export default function CadastruPage() {
   return (
     <div style={{ display: "flex", justifyContent: "center", minHeight: "calc(100vh - 52px)" }}>
       <main className="cad-main" style={{ maxWidth: 760, width: "100%" }}>
-        {/* Banner: автоматический поиск ещё не подключён */}
-        <div
-          style={{
-            background: "var(--blue-bg, #eef4ff)",
-            borderLeft: "3px solid var(--blue, #2563eb)",
-            borderRadius: 8,
-            padding: "14px 18px",
-            marginBottom: 28,
-          }}
-        >
-          <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--blue, #2563eb)", marginBottom: 4 }}>
-            Căutarea automată va fi disponibilă în curând!
-          </div>
-          <div style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.55 }}>
-            Momentan, serviciul de verificare automată prin Cadastru este în curs de conectare.
-            Pentru a introduce datele acum, vă rugăm să folosiți opțiunea „Verifică manual” și să
-            urmați pașii simpli de mai jos.
-          </div>
-        </div>
-
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <h1 style={{ fontSize: 34, margin: "0 0 14px" }}>Verificați un obiect în cadastru</h1>
           <p className="sub" style={{ fontSize: 16, maxWidth: 560, margin: "0 auto" }}>
@@ -484,29 +464,23 @@ export default function CadastruPage() {
                     height: 54,
                     fontSize: 17,
                     padding: "0 18px",
-                    ...(!isDemoMode
-                      ? { background: "var(--line2)", color: "var(--ink4)", cursor: "not-allowed" }
-                      : {}),
                   }}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  disabled={!isDemoMode}
-                  title={isDemoMode ? undefined : "În curând"}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") runLookup(query);
+                  }}
                 />
                 <button
-                  className="btn"
+                  className="btn solid"
                   style={{
                     whiteSpace: "nowrap",
                     height: 54,
                     padding: "0 26px",
                     fontSize: 15,
-                    background: "var(--line2)",
-                    color: "var(--ink4)",
-                    borderColor: "var(--line)",
-                    cursor: "not-allowed",
                   }}
-                  disabled
-                  title="În curând"
+                  onClick={() => runLookup(query)}
+                  disabled={!query.trim()}
                 >
                   Căutați →
                 </button>

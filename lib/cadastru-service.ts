@@ -1,7 +1,11 @@
-// Поиск в кадастре (Verificare cadastru). Сейчас — моковые данные (как модуль 999).
-// Единственная точка подключения реального API (ASP / Acces-Web e-Cadastru):
-// заменяется ТОЛЬКО lookupCadastru() / getRecordByCad(); API-роут и UI не трогаются.
-// Логика воспроизведена из docs/imoghid-v4.html (#viewCadastru).
+// Поиск в кадастре (Verificare imobil).
+//
+// Извлечение записи по кадастровому номеру (getRecordByCad) идёт через VPS-коннектор
+// MConnect (SOAP GetRealEstate за VPN к STISC; сейчас коннектор отвечает моком той же
+// структуры). Разрешение адрес → здание/квартира (picker) НЕ покрывается методом
+// GetRealEstate (он принимает кадастровый номер), поэтому этот слой остаётся моковым
+// (CAD_BUILDINGS / CAD_ADDR_INDEX) до появления реального сервиса адресного поиска.
+// API-роут и UI не трогаются; контракт (CadRecord / CadLookupResult) сохранён.
 
 export type CadRecord = {
   addr: string;
@@ -9,7 +13,7 @@ export type CadRecord = {
   dest: string;
   val: string;
   prop: string;
-  dr: string; // Alte drepturi reale: "Există" | "Nu există"
+  dr: string; // Alte drepturi reale: "Există" | "Nu există" | "Nu s-a putut verifica"
   not: string; // Notări
   int: string; // Interdicții
 };
@@ -26,30 +30,84 @@ export type CadLookupResult =
     }
   | { status: "fallback"; title: string; text: string };
 
-const cadRange = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+// ── Коннектор MConnect (GetRealEstate) ──
+const CONNECTOR_URL =
+  process.env.CONNECTOR_URL || "https://connector.imoghid.md/get-real-estate";
+const CONNECTOR_TIMEOUT_MS = 10_000;
 
-const CAD_RECORDS: Record<string, CadRecord> = {
-  "0100110.477.05.040": {
-    addr: "bd. Decebal 99/D, ap.40, Botanica",
-    supr: "89.80 m²",
-    dest: "Locativă",
-    val: "605 563 lei",
-    prop: "Privată",
-    dr: "Există",
-    not: "Nu există",
-    int: "Există",
-  },
-  "0100109.159.02.032": {
-    addr: "str. Cetatea Albă 143/1, ap.32, Botanica",
-    supr: "66.80 m²",
-    dest: "Locativă",
-    val: "344 020 lei",
-    prop: "Privată",
-    dr: "Există",
-    not: "Nu există",
-    int: "Există",
-  },
+// Структура ответа коннектора = RealEstate из Anexa tehnică nr.1.
+type ConnectorAddress = {
+  Region: string;
+  Locality: string;
+  Zone: string;
+  Street: string;
+  House: string;
+  Block: string;
+  Flat: string;
 };
+type ConnectorRealEstate = {
+  CadastralNumber: string;
+  Type: string;
+  Enjoyment: string;
+  Area: string;
+  Address: ConnectorAddress;
+  Rights: { HasInterdictions: boolean; Quota: string }[];
+};
+
+// Запрос к коннектору по кадастровому номеру. Бросает при сетевой ошибке/таймауте/не-2xx.
+async function fetchRealEstate(cad: string): Promise<ConnectorRealEstate> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CONNECTOR_TIMEOUT_MS);
+  try {
+    const res = await fetch(CONNECTOR_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.CONNECTOR_AUTH_TOKEN ?? ""}`,
+      },
+      body: JSON.stringify({ cadastralNumber: cad }),
+      signal: ctrl.signal,
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`connector responded ${res.status}`);
+    const json = (await res.json()) as { data?: ConnectorRealEstate };
+    if (!json?.data?.CadastralNumber) throw new Error("connector: invalid payload");
+    return json.data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Маппинг RealEstate → CadRecord (модель отображения).
+// Известный зазор: GetRealEstate отдаёт только Interdicții (Rights[].HasInterdictions).
+// «Alte drepturi reale» и «Notări» структурой не покрыты → помечаем как непроверенные
+// автоматически (UI рендерит «Nu s-a putut verifica» жёлтым = требует ручной проверки).
+// «valoare estimată» и «forma de proprietate» также отсутствуют в структуре GetRealEstate.
+function mapRealEstate(d: ConnectorRealEstate): CadRecord {
+  const a = d.Address ?? ({} as ConnectorAddress);
+  const addr =
+    [
+      [a.Street, a.House].filter(Boolean).join(" "),
+      a.Block ? `bl. ${a.Block}` : "",
+      a.Flat ? `ap. ${a.Flat}` : "",
+      a.Zone,
+    ]
+      .filter(Boolean)
+      .join(", ") || d.CadastralNumber;
+  const hasInterdictions = Array.isArray(d.Rights) && d.Rights.some((r) => r.HasInterdictions);
+  return {
+    addr,
+    supr: d.Area ? `${d.Area} m²` : "—",
+    dest: d.Enjoyment || d.Type || "—",
+    val: "—", // nu este în structura GetRealEstate
+    prop: "—", // nu este în structura GetRealEstate
+    dr: "Nu s-a putut verifica", // necesită verificare manuală (nu e în răspuns)
+    not: "Nu s-a putut verifica", // necesită verificare manuală (nu e în răspuns)
+    int: hasInterdictions ? "Există" : "Nu există",
+  };
+}
+
+const cadRange = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 const CAD_BUILDINGS: Record<string, { addr: string; teren: string; apts: number[] }> = {
   "0100109.159.02": { addr: "str. Cetatea Albă 143/1", teren: "0100109.159", apts: cadRange(60) },
@@ -86,52 +144,48 @@ function cadExtractApt(s: string): number | null {
 }
 const pad3 = (n: number) => String(n).padStart(3, "0");
 
-function cadSynth(cad: string, bcad: string | null, apt: number): CadRecord {
-  const b = bcad ? CAD_BUILDINGS[bcad] : null;
-  const supr = (45 + ((apt * 37) % 45)).toFixed(2);
-  const flag = apt % 3 === 0;
+// Извлечение записи по полному кадастровому номеру через коннектор MConnect.
+export async function getRecordByCad(cad: string): Promise<CadRecord> {
+  const data = await fetchRealEstate(cad);
+  return mapRealEstate(data);
+}
+
+// Fallback при недоступности коннектора (сеть/таймаут/ошибка сервиса).
+function connectorFallback(cad: string): CadLookupResult {
   return {
-    addr: (b ? `${b.addr}, ap.${apt}` : cad) + " (demo)",
-    supr: supr + " m²",
-    dest: "Locativă",
-    val: (300000 + apt * 4137).toLocaleString("ro-RO") + " lei",
-    prop: "Privată",
-    dr: flag ? "Există" : "Nu există",
-    not: "Nu există",
-    int: flag ? "Există" : "Nu există",
+    status: "fallback",
+    title: "Serviciul cadastral este temporar indisponibil",
+    text: `Nu am putut obține datele pentru ${cad} de la registrul cadastral. Încercați din nou mai târziu sau deschideți portalul e-Cadastru manual.`,
   };
 }
 
-// Извлечение записи по полному кадастровому номеру (демо: словарь или синтез).
-export function getRecordByCad(cad: string): CadRecord {
-  const parts = cad.split(".");
-  const bcad = parts.slice(0, 3).join(".");
-  const apt = parseInt(parts[3] ?? "0", 10);
-  return CAD_RECORDS[cad] ?? cadSynth(cad, CAD_BUILDINGS[bcad] ? bcad : null, apt);
-}
-
-// Главный поиск: точный номер → запись; адрес → запись/picker/fallback.
-export function lookupCadastru(query: string): CadLookupResult {
+// Главный поиск: точный номер → запись (коннектор); адрес → запись/picker/fallback.
+export async function lookupCadastru(query: string): Promise<CadLookupResult> {
   const clean = (query ?? "").trim().replace(/\s+/g, " ");
   if (!clean) {
     return { status: "fallback", title: "Introduceți date", text: "Adresa sau numărul cadastral este gol." };
   }
 
-  // Полный кадастровый номер
+  // Полный кадастровый номер → напрямую в коннектор.
   if (CAD_FULL_RE.test(clean.replace(/\s/g, ""))) {
     const cad = clean.replace(/\s/g, "");
-    return {
-      status: "record",
-      cadastralNo: cad,
-      record: getRecordByCad(cad),
-      trace: [
-        { s: "ok", title: "Număr cadastral", val: cad },
-        { s: "ok", title: "Înregistrare extrasă", val: cad },
-      ],
-    };
+    try {
+      const record = await getRecordByCad(cad);
+      return {
+        status: "record",
+        cadastralNo: cad,
+        record,
+        trace: [
+          { s: "ok", title: "Număr cadastral", val: cad },
+          { s: "ok", title: "Înregistrare extrasă", val: cad },
+        ],
+      };
+    } catch {
+      return connectorFallback(cad);
+    }
   }
 
-  // Адрес
+  // Адрес (разрешение адрес → здание/квартира — моковое, не покрывается GetRealEstate)
   const apt = cadExtractApt(clean);
   const key = cadNorm(clean.replace(/(?:ap\.?|apartament)\s*\d+/i, ""));
   let bcad = CAD_ADDR_INDEX[key];
@@ -169,16 +223,21 @@ export function lookupCadastru(query: string): CadLookupResult {
       };
     }
     const cad = `${bcad}.${pad3(apt)}`;
-    return {
-      status: "record",
-      cadastralNo: cad,
-      record: getRecordByCad(cad),
-      trace: [
-        ...baseTrace,
-        { s: "ok", title: "Apartament", val: "ap." + apt },
-        { s: "ok", title: "Înregistrare extrasă", val: cad },
-      ],
-    };
+    try {
+      const record = await getRecordByCad(cad);
+      return {
+        status: "record",
+        cadastralNo: cad,
+        record,
+        trace: [
+          ...baseTrace,
+          { s: "ok", title: "Apartament", val: "ap." + apt },
+          { s: "ok", title: "Înregistrare extrasă", val: cad },
+        ],
+      };
+    } catch {
+      return connectorFallback(cad);
+    }
   }
 
   return {

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   }
   const query = typeof body.query === "string" ? body.query : "";
 
-  const result = lookupCadastru(query);
+  const result = await lookupCadastru(query);
   if (result.status === "fallback") {
     return NextResponse.json(result, { status: 404 });
   }
