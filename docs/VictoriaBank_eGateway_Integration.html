@@ -1,0 +1,2694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VictoriaBank e-Gateway — Integration Guide</title>
+<style>
+:root {
+  --bg: #f8f9fa;
+  --bg2: #ffffff;
+  --bg3: #f0f2f5;
+  --border: #d8dde6;
+  --text: #1a202c;
+  --text-muted: #5a6474;
+  --accent: #c8102e;
+  --accent-soft: #fde8ec;
+  --green: #16a34a;
+  --green-bg: #dcfce7;
+  --yellow: #b45309;
+  --yellow-bg: #fef3c7;
+  --blue: #1d6fa5;
+  --blue-bg: #dbeafe;
+  --code-bg: #f4f6f9;
+  --sidebar-w: 240px;
+  --header-h: 52px;
+  font-size: 15px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.65; }
+
+/* ── Header ── */
+.header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--header-h); background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 20px;
+}
+.header__logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text); text-decoration: none; }
+.header__logo-bar { width: 4px; height: 22px; background: var(--accent); border-radius: 2px; }
+.header__spacer { flex: 1; }
+.lang-switcher { display: flex; gap: 4px; }
+.lang-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 4px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; transition: .15s; }
+.lang-btn.active, .lang-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── Sidebar ── */
+.sidebar {
+  position: fixed; top: var(--header-h); left: 0; bottom: 0; width: var(--sidebar-w);
+  background: var(--bg2); border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 16px 0;
+}
+.sidebar-section { margin-bottom: 8px; }
+.sidebar-title { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-muted); padding: 8px 20px 4px; }
+.sidebar-link { display: block; padding: 5px 20px; color: var(--text-muted); text-decoration: none; font-size: 13.5px; border-left: 3px solid transparent; transition: .12s; }
+.sidebar-link:hover, .sidebar-link.active { color: var(--text); border-left-color: var(--accent); background: var(--accent-soft); }
+
+/* ── Main ── */
+.main { margin-left: var(--sidebar-w); margin-top: var(--header-h); padding: 40px 48px 80px; max-width: 900px; }
+
+/* ── Typography ── */
+h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+h2 { font-size: 21px; font-weight: 700; margin: 44px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; color: var(--text); }
+p  { color: var(--text-muted); margin-bottom: 12px; }
+ul, ol { color: var(--text-muted); padding-left: 22px; margin-bottom: 12px; }
+li { margin-bottom: 4px; }
+code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 13px; color: #c8102e; font-family: 'SFMono-Regular', Consolas, monospace; }
+
+/* ── Subtitle ── */
+.subtitle { color: var(--text-muted); font-size: 16px; margin-bottom: 28px; }
+
+/* ── Alerts ── */
+.alert { padding: 12px 16px; border-radius: 7px; margin: 16px 0; font-size: 13.5px; border-left: 4px solid; }
+.alert strong { display: block; margin-bottom: 3px; }
+.alert-warn  { background: var(--yellow-bg); border-color: var(--yellow); color: #e4a83a; }
+.alert-danger{ background: #2d0a0a; border-color: #dc2626; color: #f87171; }
+.alert-ok    { background: var(--green-bg); border-color: var(--green); color: #4ade80; }
+.alert-info  { background: var(--blue-bg); border-color: var(--blue); color: #7dd3fc; }
+
+/* ── Endpoints ── */
+.endpoint-row { display: flex; align-items: center; gap: 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 10px 16px; margin: 8px 0; font-family: monospace; font-size: 13px; }
+.badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; letter-spacing: .5px; text-transform: uppercase; }
+.badge-prod { background: #0d2038; color: #7dd3fc; }
+.badge-test { background: var(--green-bg); color: #4ade80; }
+.badge-post { background: #1a2d1a; color: #86efac; }
+.endpoint-url { color: var(--text); }
+
+/* ── Tables ── */
+.field-table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+.field-table th { background: var(--bg3); color: var(--text-muted); font-weight: 600; text-align: left; padding: 8px 12px; border: 1px solid var(--border); }
+.field-table td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; }
+.field-table td:first-child { font-family: monospace; color: #1d6fa5; white-space: nowrap; }
+.field-table td:last-child  { color: var(--text-muted); }
+.field-table .req  { color: var(--accent); font-size: 10px; font-weight: 700; }
+.field-table .opt  { color: var(--text-muted); font-size: 10px; }
+.field-table .fmt  { color: #e4a83a; font-size: 12px; }
+
+/* ── Code Blocks ── */
+.code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 16px 0; }
+.code-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: var(--bg3); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.code-header span:last-child { color: var(--accent); }
+.code-block pre { padding: 18px 20px; overflow-x: auto; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; line-height: 1.6; color: #24292e; margin: 0; }
+
+/* ── RC Grid ── */
+.rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; margin: 12px 0; }
+.rc-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.rc-code { font-family: monospace; font-weight: 700; font-size: 13px; min-width: 36px; text-align: center; padding: 2px 6px; border-radius: 4px; }
+.rc-ok   { background: var(--green-bg); color: #4ade80; }
+.rc-warn { background: var(--yellow-bg); color: #fbbf24; }
+.rc-err  { background: #2d0a0a; color: #f87171; }
+.rc-desc { color: var(--text-muted); font-size: 13px; }
+
+/* ── Flow Diagram ── */
+.flow { display: flex; flex-direction: column; gap: 0; margin: 16px 0; }
+.flow-step { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; position: relative; }
+.flow-step:not(:last-child)::after { content: ''; position: absolute; left: 15px; top: 42px; bottom: 0; width: 2px; background: var(--border); }
+.flow-num { min-width: 32px; height: 32px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; z-index: 1; }
+.flow-body { padding-top: 5px; }
+.flow-body strong { color: var(--text); font-size: 14px; display: block; margin-bottom: 2px; }
+.flow-body span { color: var(--text-muted); font-size: 13px; }
+
+/* ── Checklist ── */
+.checklist { list-style: none; padding-left: 0; }
+.checklist li { padding: 5px 0 5px 28px; position: relative; color: var(--text-muted); font-size: 13.5px; }
+.checklist li::before { content: '✓'; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+
+/* ── Section divider ── */
+.sep { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+/* ── Language content ── */
+[data-lang] { display: none; }
+[data-lang].active { display: block; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 20px 16px 60px; }
+}
+
+/* Multi-language tab switcher */
+.lang-tabs { display: flex; gap: 2px; padding: 8px 16px 0; background: var(--bg3); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.lang-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 4px 4px 0 0; transition: .12s; letter-spacing: .3px; }
+.lang-tab:hover { color: var(--text); background: var(--bg2); }
+.lang-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg2); }
+.lang-panel { display: none; }
+.lang-panel.active { display: block; background: var(--code-bg); }
+.lang-panel pre { padding: 18px 20px; overflow-x: auto; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; line-height: 1.6; color: #24292e; margin: 0; background: var(--code-bg); }
+/* Merchant requirements */
+.req-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 10px; margin: 16px 0; }
+.req-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+.req-num { min-width: 26px; height: 26px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+.req-body strong { display: block; color: var(--text); font-size: 13.5px; margin-bottom: 3px; }
+.req-body span { color: var(--text-muted); font-size: 12.5px; line-height: 1.5; }
+.receipt-table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+.receipt-table th { background: var(--bg3); color: var(--text-muted); font-weight: 600; text-align: left; padding: 8px 12px; border: 1px solid var(--border); }
+.receipt-table td { padding: 7px 12px; border: 1px solid var(--border); vertical-align: top; color: var(--text-muted); }
+.receipt-table td:first-child { font-family: monospace; color: #1d6fa5; white-space: nowrap; font-weight: 600; }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header class="header">
+  <a class="header__logo" href="#">
+    <div class="header__logo-bar"></div>
+    <span>VictoriaBank e-Gateway</span>
+  </a>
+  <div class="header__spacer"></div>
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('ro')">RO</button>
+    <button class="lang-btn" onclick="setLang('ru')">RU</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ SIDEBAR ════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-title" id="nav-title-intro">Introduction</div>
+    <a class="sidebar-link" href="#overview" id="nav-overview">Overview</a>
+    <a class="sidebar-link" href="#flow" id="nav-flow">Payment Flow</a>
+    <a class="sidebar-link" href="#endpoints" id="nav-endpoints">Endpoints</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-title" id="nav-title-auth">Authentication</div>
+    <a class="sidebar-link" href="#rsa-keys" id="nav-rsa">RSA Keys</a>
+    <a class="sidebar-link" href="#psign" id="nav-psign">P_SIGN Algorithm</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-title" id="nav-title-integration">Integration</div>
+    <a class="sidebar-link" href="#trtype-0" id="nav-t0">TRTYPE=0 Authorization</a>
+    <a class="sidebar-link" href="#callback" id="nav-callback">Callback Handling</a>
+    <a class="sidebar-link" href="#trtype-21" id="nav-t21">TRTYPE=21 Completion</a>
+    <a class="sidebar-link" href="#trtype-24" id="nav-t24">TRTYPE=24 Reversal</a>
+    <a class="sidebar-link" href="#trtype-90" id="nav-t90">TRTYPE=90 Status Check</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-title" id="nav-title-ref">Reference</div>
+    <a class="sidebar-link" href="#currencies" id="nav-curr">Currencies</a>
+    <a class="sidebar-link" href="#rc-codes" id="nav-rc">RC Codes</a>
+    <a class="sidebar-link" href="#action-codes" id="nav-action">ACTION Codes</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-title" id="nav-title-res">Resources</div>
+    <a class="sidebar-link" href="#testing" id="nav-testing">Testing</a>
+    <a class="sidebar-link" href="#troubleshooting" id="nav-trouble">Troubleshooting</a>
+    <a class="sidebar-link" href="#merchant-requirements" id="nav-mreq">Merchant Requirements</a>
+    <a class="sidebar-link" href="#bank-key" id="nav-bankkey">Bank Public Key</a>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════════ -->
+<main class="main">
+
+<!-- ─────────────────── OVERVIEW ─────────────────── -->
+<section id="overview">
+
+<div data-lang="en" class="active">
+<h1>VictoriaBank e-Gateway</h1>
+<p class="subtitle">Developer Integration Guide</p>
+<h2>Overview</h2>
+<p>VictoriaBank e-Gateway is a hosted payment processing service for Visa, Mastercard, and StarCard payments. The merchant's server builds a signed HTML form and redirects the customer's browser to the bank's secure payment page. After authorization, the bank sends two notifications:</p>
+<ul>
+  <li><strong>Server callback (Callback URL)</strong> — a server-to-server HTTP POST with transaction result, sent directly to your registered callback endpoint.</li>
+  <li><strong>Browser redirect (BACKREF URL)</strong> — the customer's browser is redirected back to your site with transaction result parameters.</li>
+</ul>
+<div class="alert alert-warn">
+  <strong>Important:</strong> Always process the result from the <em>server-side callback</em>, not from BACKREF. The BACKREF redirect can be manipulated or may never arrive if the customer closes the browser. The callback is authoritative.
+</div>
+</div>
+
+<div data-lang="ro">
+<h1>VictoriaBank e-Gateway</h1>
+<p class="subtitle">Ghid de Integrare pentru Dezvoltatori</p>
+<h2>Prezentare Generală</h2>
+<p>VictoriaBank e-Gateway este un serviciu de procesare a plăților cu card Visa, Mastercard și StarCard. Serverul comerciantului construiește un formular HTML semnat și redirecționează browserul clientului către pagina securizată de plată a băncii. După autorizare, banca trimite două notificări:</p>
+<ul>
+  <li><strong>Callback server (Callback URL)</strong> — un HTTP POST server-to-server cu rezultatul tranzacției, trimis direct la endpoint-ul de callback înregistrat.</li>
+  <li><strong>Redirect browser (BACKREF URL)</strong> — browserul clientului este redirecționat înapoi la site-ul tău cu parametrii rezultatului tranzacției.</li>
+</ul>
+<div class="alert alert-warn">
+  <strong>Important:</strong> Procesează întotdeauna rezultatul din <em>callback-ul server-side</em>, nu din BACKREF. Redirecționarea BACKREF poate fi manipulată sau poate să nu ajungă dacă clientul închide browserul. Callback-ul este autoritar.
+</div>
+</div>
+
+<div data-lang="ru">
+<h1>VictoriaBank e-Gateway</h1>
+<p class="subtitle">Руководство по интеграции для разработчиков</p>
+<h2>Обзор</h2>
+<p>VictoriaBank e-Gateway — это сервис для обработки платежей по картам Visa, Mastercard и StarCard. Сервер продавца формирует подписанную HTML-форму и перенаправляет браузер покупателя на защищённую платёжную страницу банка. После авторизации банк отправляет два уведомления:</p>
+<ul>
+  <li><strong>Серверный callback (Callback URL)</strong> — HTTP POST между серверами с результатом транзакции, отправляется напрямую на ваш зарегистрированный callback-эндпоинт.</li>
+  <li><strong>Редирект браузера (BACKREF URL)</strong> — браузер покупателя перенаправляется обратно на ваш сайт с параметрами результата транзакции.</li>
+</ul>
+<div class="alert alert-warn">
+  <strong>Важно:</strong> Всегда обрабатывайте результат из <em>серверного callback</em>, а не из BACKREF. BACKREF-редирект может быть подделан или не прийти, если покупатель закрыл браузер. Callback является авторитетным источником.
+</div>
+</div>
+
+</section>
+
+<!-- ─────────────────── PAYMENT FLOW ─────────────────── -->
+<section id="flow">
+
+<div data-lang="en" class="active">
+<h2>Payment Flow</h2>
+<div class="flow">
+  <div class="flow-step"><div class="flow-num">1</div><div class="flow-body"><strong>Customer places order</strong><span>Your server generates ORDER, AMOUNT, NONCE, TIMESTAMP and builds the P_SIGN.</span></div></div>
+  <div class="flow-step"><div class="flow-num">2</div><div class="flow-body"><strong>TRTYPE=0 — Authorization</strong><span>Your server renders an auto-submitting HTML form that POSTs to the bank endpoint. Customer lands on the 3D-Secure payment page.</span></div></div>
+  <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>Customer enters card data</strong><span>The bank authenticates the card on their PCI-DSS compliant environment. Your server never sees raw card data.</span></div></div>
+  <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>Bank sends callback notification</strong><span>Server-to-server POST to your registered Callback URL. Verify P_SIGN. If ACTION=0 and RC=00, the authorization is successful.</span></div></div>
+  <div class="flow-step"><div class="flow-num">5</div><div class="flow-body"><strong>TRTYPE=21 — Sales Completion</strong><span>Immediately after a successful callback, your server POSTs TRTYPE=21 to capture the funds. Save RRN and INT_REF from the callback — required here.</span></div></div>
+  <div class="flow-step"><div class="flow-num">6</div><div class="flow-body"><strong>Browser redirected via BACKREF</strong><span>Customer's browser arrives at your BACKREF URL. Show the order confirmation. Do not use BACKREF as the payment trigger — the callback in step 4 is authoritative.</span></div></div>
+</div>
+</div>
+
+<div data-lang="ro">
+<h2>Fluxul de Plată</h2>
+<div class="flow">
+  <div class="flow-step"><div class="flow-num">1</div><div class="flow-body"><strong>Clientul plasează comanda</strong><span>Serverul tău generează ORDER, AMOUNT, NONCE, TIMESTAMP și construiește P_SIGN-ul.</span></div></div>
+  <div class="flow-step"><div class="flow-num">2</div><div class="flow-body"><strong>TRTYPE=0 — Autorizare</strong><span>Serverul tău randează un formular HTML care se auto-trimite prin POST la endpoint-ul băncii. Clientul ajunge pe pagina de plată 3D-Secure.</span></div></div>
+  <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>Clientul introduce datele cardului</strong><span>Banca autentifică cardul în mediul lor PCI-DSS. Serverul tău nu vede niciodată datele brute ale cardului.</span></div></div>
+  <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>Banca trimite notificarea callback</strong><span>HTTP POST server-to-server la URL-ul tău de Callback înregistrat. Verifică P_SIGN. Dacă ACTION=0 și RC=00, autorizarea este reușită.</span></div></div>
+  <div class="flow-step"><div class="flow-num">5</div><div class="flow-body"><strong>TRTYPE=21 — Finalizare vânzare</strong><span>Imediat după un callback reușit, serverul tău trimite TRTYPE=21 pentru capturarea fondurilor. Salvează RRN și INT_REF din callback — necesare aici.</span></div></div>
+  <div class="flow-step"><div class="flow-num">6</div><div class="flow-body"><strong>Browserul este redirecționat prin BACKREF</strong><span>Browserul clientului ajunge la URL-ul tău BACKREF. Afișează confirmarea comenzii. Nu folosi BACKREF ca declanșator de plată — callback-ul de la pasul 4 este autoritar.</span></div></div>
+</div>
+</div>
+
+<div data-lang="ru">
+<h2>Схема платёжного процесса</h2>
+<div class="flow">
+  <div class="flow-step"><div class="flow-num">1</div><div class="flow-body"><strong>Покупатель оформляет заказ</strong><span>Ваш сервер генерирует ORDER, AMOUNT, NONCE, TIMESTAMP и формирует P_SIGN.</span></div></div>
+  <div class="flow-step"><div class="flow-num">2</div><div class="flow-body"><strong>TRTYPE=0 — Авторизация</strong><span>Ваш сервер формирует HTML-форму с авто-отправкой, которая POSTит данные на эндпоинт банка. Покупатель попадает на страницу 3D-Secure.</span></div></div>
+  <div class="flow-step"><div class="flow-num">3</div><div class="flow-body"><strong>Покупатель вводит данные карты</strong><span>Банк аутентифицирует карту в своей среде PCI-DSS. Ваш сервер никогда не видит данные карты.</span></div></div>
+  <div class="flow-step"><div class="flow-num">4</div><div class="flow-body"><strong>Банк отправляет callback-уведомление</strong><span>HTTP POST между серверами на ваш зарегистрированный Callback URL. Проверьте P_SIGN. Если ACTION=0 и RC=00 — авторизация успешна.</span></div></div>
+  <div class="flow-step"><div class="flow-num">5</div><div class="flow-body"><strong>TRTYPE=21 — Завершение продажи</strong><span>Сразу после успешного callback ваш сервер отправляет TRTYPE=21 для захвата средств. Сохраните RRN и INT_REF из callback — они нужны здесь.</span></div></div>
+  <div class="flow-step"><div class="flow-num">6</div><div class="flow-body"><strong>Браузер перенаправляется через BACKREF</strong><span>Браузер покупателя переходит на ваш BACKREF URL. Покажите подтверждение заказа. Не используйте BACKREF как триггер платежа — callback из шага 4 является авторитетным.</span></div></div>
+</div>
+</div>
+
+</section>
+
+<!-- ─────────────────── ENDPOINTS ─────────────────── -->
+<section id="endpoints">
+
+<div data-lang="en" class="active"><h2>Endpoints</h2></div>
+<div data-lang="ro"><h2>Endpoint-uri</h2></div>
+<div data-lang="ru"><h2>Эндпоинты</h2></div>
+
+<div class="endpoint-row">
+  <span class="badge badge-prod">PROD</span>
+  <span class="badge badge-post">POST</span>
+  <span class="endpoint-url">https://vb059.vb.md/cgi-bin/cgi_link</span>
+</div>
+<div class="endpoint-row">
+  <span class="badge badge-test">TEST</span>
+  <span class="badge badge-post">POST</span>
+  <span class="endpoint-url">https://ecomt.victoriabank.md/cgi-bin/cgi_link</span>
+</div>
+
+<div data-lang="en" class="active">
+<div class="alert alert-info"><strong>Same endpoint for all transaction types (TRTYPE=0, 21, 24, 90).</strong> Only the fields in the POST body differ. Use the TEST endpoint with your test credentials during development.</div>
+</div>
+<div data-lang="ro">
+<div class="alert alert-info"><strong>Același endpoint pentru toate tipurile de tranzacții (TRTYPE=0, 21, 24, 90).</strong> Doar câmpurile din corpul POST diferă. Folosești endpoint-ul TEST cu credențialele de test în timpul dezvoltării.</div>
+</div>
+<div data-lang="ru">
+<div class="alert alert-info"><strong>Один и тот же эндпоинт для всех типов транзакций (TRTYPE=0, 21, 24, 90).</strong> Различаются только поля в теле POST-запроса. Используйте TEST-эндпоинт с тестовыми учётными данными при разработке.</div>
+</div>
+
+</section>
+
+<!-- ─────────────────── RSA KEYS ─────────────────── -->
+<section id="rsa-keys">
+
+<div data-lang="en" class="active">
+<h2>RSA Keys</h2>
+<p>The e-Gateway uses RSA-2048 with SHA-256. You need two key files:</p>
+<ul>
+  <li><strong>Your private key</strong> (<code>merchant_private.pem</code>) — generated by you. Used to sign outgoing payment requests (P_SIGN). Keep it secret, outside the web root.</li>
+  <li><strong>Your public key</strong> (<code>merchant_public.pem</code>) — sent to VictoriaBank to register your terminal. The bank uses it to verify your signatures.</li>
+  <li><strong>Bank's public key</strong> (<code>victoria_pub.pem</code>) — provided by VictoriaBank. You use it to verify P_SIGN in all incoming callback notifications.</li>
+</ul>
+</div>
+
+<div data-lang="ro">
+<h2>Chei RSA</h2>
+<p>e-Gateway utilizează RSA-2048 cu SHA-256. Ai nevoie de două fișiere de chei:</p>
+<ul>
+  <li><strong>Cheia ta privată</strong> (<code>merchant_private.pem</code>) — generată de tine. Folosită pentru a semna cererile de plată (P_SIGN). Păstrează-o secretă, în afara web root-ului.</li>
+  <li><strong>Cheia ta publică</strong> (<code>merchant_public.pem</code>) — trimisă la VictoriaBank pentru a-ți înregistra terminalul. Banca o folosește pentru a verifica semnăturile tale.</li>
+  <li><strong>Cheia publică a băncii</strong> (<code>victoria_pub.pem</code>) — furnizată de VictoriaBank. O folosești pentru a verifica P_SIGN din toate notificările callback primite.</li>
+</ul>
+</div>
+
+<div data-lang="ru">
+<h2>RSA-ключи</h2>
+<p>e-Gateway использует RSA-2048 с SHA-256. Вам нужны два файла ключей:</p>
+<ul>
+  <li><strong>Ваш приватный ключ</strong> (<code>merchant_private.pem</code>) — генерируется вами. Используется для подписи исходящих платёжных запросов (P_SIGN). Храните в секрете, вне веб-директории.</li>
+  <li><strong>Ваш публичный ключ</strong> (<code>merchant_public.pem</code>) — отправляется в VictoriaBank для регистрации терминала. Банк использует его для проверки ваших подписей.</li>
+  <li><strong>Публичный ключ банка</strong> (<code>victoria_pub.pem</code>) — предоставляется VictoriaBank. Используется для проверки P_SIGN во всех входящих callback-уведомлениях.</li>
+</ul>
+</div>
+
+<h3>Generate RSA Key Pair</h3>
+<div class="code-block">
+  <div class="code-header"><span>Generate RSA-2048 key pair</span><span>bash / OpenSSL</span></div>
+  <pre># 1. Generate private key (2048-bit RSA)
+openssl genrsa -out merchant_private.pem 2048
+
+# 2. Extract public key
+openssl rsa -in merchant_private.pem -pubout -out merchant_public.pem
+
+# 3. Verify the key pair
+openssl rsa -in merchant_private.pem -check
+
+# Store keys OUTSIDE the web root (e.g., /var/private/vb-keys/)
+# Set permissions: chmod 600 merchant_private.pem</pre>
+</div>
+
+<div data-lang="en" class="active">
+<div class="alert alert-danger">
+  <strong>Never store your private key inside the web root.</strong> Use an absolute path outside public directories. Set file permissions to 600 (owner read/write only). If your private key is compromised, contact VictoriaBank immediately to revoke and re-register.
+</div>
+</div>
+<div data-lang="ro">
+<div class="alert alert-danger">
+  <strong>Nu stoca niciodată cheia privată în interiorul web root-ului.</strong> Folosește o cale absolută în afara directoarelor publice. Setează permisiunile la 600 (doar proprietarul poate citi/scrie). Dacă cheia privată este compromisă, contactează VictoriaBank imediat pentru revocare și re-înregistrare.
+</div>
+</div>
+<div data-lang="ru">
+<div class="alert alert-danger">
+  <strong>Никогда не храните приватный ключ внутри веб-директории.</strong> Используйте абсолютный путь за пределами публичных директорий. Установите права доступа 600 (только владелец может читать/писать). Если приватный ключ скомпрометирован — немедленно свяжитесь с VictoriaBank для отзыва и перерегистрации.
+</div>
+</div>
+
+</section>
+
+<!-- ─────────────────── P_SIGN ─────────────────── -->
+<section id="psign">
+
+<div data-lang="en" class="active">
+<h2>P_SIGN Algorithm</h2>
+<p>P_SIGN is your RSA-SHA256 digital signature that authenticates each request to the bank and verifies each callback from the bank.</p>
+<h3>MAC String Construction</h3>
+<p>For each field in the required order, append: <code>length(value) + value</code>. If a field is empty or <code>"-"</code>, append just <code>"-"</code> (no length prefix). Concatenate all results.</p>
+</div>
+<div data-lang="ro">
+<h2>Algoritmul P_SIGN</h2>
+<p>P_SIGN este semnătura ta digitală RSA-SHA256 care autentifică fiecare cerere către bancă și verifică fiecare callback de la bancă.</p>
+<h3>Construirea șirului MAC</h3>
+<p>Pentru fiecare câmp în ordinea necesară, adaugă: <code>lungime(valoare) + valoare</code>. Dacă un câmp este gol sau <code>"-"</code>, adaugă doar <code>"-"</code> (fără prefix de lungime). Concatenează toate rezultatele.</p>
+</div>
+<div data-lang="ru">
+<h2>Алгоритм P_SIGN</h2>
+<p>P_SIGN — это ваша цифровая подпись RSA-SHA256, которая аутентифицирует каждый запрос в банк и проверяет каждый callback от банка.</p>
+<h3>Формирование MAC-строки</h3>
+<p>Для каждого поля в требуемом порядке добавьте: <code>длина(значение) + значение</code>. Если поле пустое или равно <code>"-"</code>, добавьте просто <code>"-"</code> (без префикса длины). Объедините все результаты.</p>
+</div>
+
+<table class="field-table">
+  <tr><th>Transaction type</th><th>MAC field order (critical — do not change)</th></tr>
+  <tr><td>TRTYPE=0, 21, 24</td><td><code>ORDER → NONCE → TIMESTAMP → TRTYPE → AMOUNT</code></td></tr>
+  <tr><td>Callback verification</td><td><code>ACTION → RC → RRN → ORDER → AMOUNT</code></td></tr>
+</table>
+
+<div class="alert alert-warn">
+  <strong>Empty fields in callback MAC:</strong> When a payment is declined, fields like RRN may be empty. An empty field in the callback MAC must be encoded as <code>"-"</code>, not skipped and not as <code>"0"</code>. This is a very common integration bug.
+</div>
+
+<div class="code-block">
+  <div class="code-header"><span>P_SIGN — Generate &amp; Verify</span><span style="color:var(--text-muted);font-size:11px;">Node.js &middot; PHP &middot; Python &middot; Java &middot; C# &middot; cURL</span></div>
+  <div class="lang-tabs">
+    <button class="lang-tab active" data-code-lang="node" onclick="switchCodeLang(this,'node')">Node.js</button>
+    <button class="lang-tab" data-code-lang="php" onclick="switchCodeLang(this,'php')">PHP</button>
+    <button class="lang-tab" data-code-lang="python" onclick="switchCodeLang(this,'python')">Python</button>
+    <button class="lang-tab" data-code-lang="java" onclick="switchCodeLang(this,'java')">Java</button>
+    <button class="lang-tab" data-code-lang="csharp" onclick="switchCodeLang(this,'csharp')">C#</button>
+    <button class="lang-tab" data-code-lang="curl" onclick="switchCodeLang(this,'curl')">cURL</button>
+  </div>
+<div class="lang-panel active" data-code-lang="node"><pre>const crypto = require('crypto');
+const fs = require('fs');
+
+// Build MAC string. Empty or '-' fields -&gt; '-' (no length prefix).
+function buildMac(fields) {
+  return fields.map(f =&gt; (f === '' || f === '-') ? '-' : `${f.length}${f}`).join('');
+}
+
+// Generate P_SIGN for outgoing requests (TRTYPE=0, 21, 24).
+// Fields order: ORDER, NONCE, TIMESTAMP, TRTYPE, AMOUNT
+function psignGenerate(order, nonce, timestamp, trtype, amount, privateKeyPem) {
+  const mac = buildMac([order, nonce, timestamp, trtype, amount]);
+  return crypto.sign('sha256', Buffer.from(mac, 'utf8'), {
+    key: privateKeyPem,
+    padding: crypto.constants.RSA_PKCS1_PADDING,
+  }).toString('hex').toUpperCase();
+}
+
+// Verify bank callback P_SIGN.
+// Fields order: ACTION, RC, RRN, ORDER, AMOUNT (empty fields -&gt; '-')
+function psignVerifyCallback(params, bankPublicKeyPem) {
+  const pSign = (params.P_SIGN || '').trim();
+  if (!pSign) return false;
+  const fields = ['ACTION','RC','RRN','ORDER','AMOUNT'].map(k =&gt; (params[k] || '').trim());
+  const mac = buildMac(fields);
+  try {
+    return crypto.verify('sha256', Buffer.from(mac, 'utf8'),
+      { key: bankPublicKeyPem, padding: crypto.constants.RSA_PKCS1_PADDING },
+      Buffer.from(pSign, 'hex'));
+  } catch { return false; }
+}
+
+function generateNonce() { return crypto.randomBytes(20).toString('hex').toUpperCase(); }
+function generateTimestamp() {
+  const d = new Date();
+  return d.getUTCFullYear().toString()
+    + String(d.getUTCMonth()+1).padStart(2,'0')
+    + String(d.getUTCDate()).padStart(2,'0')
+    + String(d.getUTCHours()).padStart(2,'0')
+    + String(d.getUTCMinutes()).padStart(2,'0')
+    + String(d.getUTCSeconds()).padStart(2,'0');
+}
+function formatOrderId(id) { return String(id).padStart(6,'0'); }
+function formatAmount(a) { return Number(a).toFixed(2); }
+
+// Usage
+const PRIVATE_KEY = fs.readFileSync('/var/private/vb-keys/merchant_private.pem','utf8');
+const order = formatOrderId(1023);  // "001023"
+const nonce = generateNonce();
+const ts    = generateTimestamp();
+const pSign = psignGenerate(order, nonce, ts, '0', '150.00', PRIVATE_KEY);
+console.log('P_SIGN:', pSign);
+</pre></div>
+<div class="lang-panel" data-code-lang="php"><pre>&lt;?php
+// Build MAC string. Empty or '-' fields -&gt; '-' (no length prefix).
+function buildMac(array $values): string {
+    $mac = '';
+    foreach ($values as $v) {
+        $v = (string) $v;
+        $mac .= ($v === '' || $v === '-') ? '-' : strlen($v) . $v;
+    }
+    return $mac;
+}
+
+// Generate P_SIGN for outgoing request (TRTYPE=0/21/24).
+function psignGenerate(string $order, string $nonce, string $timestamp,
+                       string $trtype, string $amount, string $privateKeyPem): string {
+    $mac = buildMac([$order, $nonce, $timestamp, $trtype, $amount]);
+    openssl_sign($mac, $sig, $privateKeyPem, OPENSSL_ALGO_SHA256);
+    return strtoupper(bin2hex($sig));
+}
+
+// Verify bank callback. Fields: ACTION, RC, RRN, ORDER, AMOUNT
+function psignVerifyCallback(array $params, string $bankPublicKeyPem): bool {
+    $pSign = trim($params['P_SIGN'] ?? '');
+    if (!$pSign) return false;
+    $mac = buildMac(array_map(
+        fn($k) =&gt; trim($params[$k] ?? ''),
+        ['ACTION','RC','RRN','ORDER','AMOUNT']
+    ));
+    $pubKey   = openssl_pkey_get_public($bankPublicKeyPem);
+    $sigBytes = hex2bin($pSign);
+    return $pubKey &amp;&amp; $sigBytes &amp;&amp;
+           openssl_verify($mac, $sigBytes, $pubKey, OPENSSL_ALGO_SHA256) === 1;
+}
+
+function generateNonce(): string  { return strtoupper(bin2hex(random_bytes(20))); }
+function generateTimestamp(): string { return gmdate('YmdHis'); }
+function formatOrderId(int $id): string { return str_pad((string)$id, 6, '0', STR_PAD_LEFT); }
+function formatAmount(float $a): string { return number_format($a, 2, '.', ''); }
+
+// Usage
+$privateKey = file_get_contents('/var/private/vb-keys/merchant_private.pem');
+$order = formatOrderId(1023);   // "001023"
+$nonce = generateNonce();       // 40-char hex
+$ts    = generateTimestamp();   // UTC YYYYMMDDHHmmss
+$pSign = psignGenerate($order, $nonce, $ts, '0', '150.00', $privateKey);
+echo "P_SIGN: $pSign\n";
+</pre></div>
+<div class="lang-panel" data-code-lang="python"><pre>import time, secrets
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+
+def build_mac(fields: list) -&gt; str:
+    parts = []
+    for f in fields:
+        if f == '' or f == '-':
+            parts.append('-')
+        else:
+            parts.append(f'{len(f)}{f}')
+    return ''.join(parts)
+
+def psign_generate(order, nonce, timestamp, trtype, amount, private_key) -&gt; str:
+    mac = build_mac([order, nonce, timestamp, trtype, amount])
+    sig = private_key.sign(mac.encode('utf-8'), padding.PKCS1v15(), hashes.SHA256())
+    return sig.hex().upper()
+
+def psign_verify_callback(params: dict, public_key) -&gt; bool:
+    p_sign = params.get('P_SIGN', '').strip()
+    if not p_sign:
+        return False
+    fields = [params.get(k, '').strip() for k in ['ACTION','RC','RRN','ORDER','AMOUNT']]
+    mac = build_mac(fields)
+    try:
+        public_key.verify(bytes.fromhex(p_sign), mac.encode('utf-8'),
+                          padding.PKCS1v15(), hashes.SHA256())
+        return True
+    except Exception:
+        return False
+
+def generate_nonce() -&gt; str:
+    return secrets.token_hex(20).upper()
+
+def generate_timestamp() -&gt; str:
+    return time.strftime('%Y%m%d%H%M%S', time.gmtime())
+
+def format_order_id(order_id: int) -&gt; str:
+    return str(order_id).zfill(6)
+
+def format_amount(amount: float) -&gt; str:
+    return f'{amount:.2f}'
+
+# Usage
+with open('/var/private/vb-keys/merchant_private.pem', 'rb') as f:
+    private_key = serialization.load_pem_private_key(f.read(), password=None)
+
+order = format_order_id(1023)
+nonce = generate_nonce()
+ts    = generate_timestamp()
+p_sign = psign_generate(order, nonce, ts, '0', '150.00', private_key)
+print(f'P_SIGN: {p_sign}')
+</pre></div>
+<div class="lang-panel" data-code-lang="java"><pre>import java.security.*;
+import java.security.spec.*;
+import java.nio.file.*;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
+
+public class PSignUtils {
+
+    /** Build MAC. Empty/'-' fields -&gt; '-', no length prefix. */
+    public static String buildMac(String... fields) {
+        StringBuilder mac = new StringBuilder();
+        for (String f : fields) {
+            if (f == null || f.isEmpty() || f.equals("-")) mac.append('-');
+            else mac.append(f.length()).append(f);
+        }
+        return mac.toString();
+    }
+
+    /** Generate P_SIGN for outgoing request (TRTYPE=0/21/24). */
+    public static String psignGenerate(String order, String nonce, String timestamp,
+                                        String trtype, String amount, PrivateKey pk) throws Exception {
+        String mac = buildMac(order, nonce, timestamp, trtype, amount);
+        Signature sig = Signature.getInstance("SHA256withRSA");
+        sig.initSign(pk);
+        sig.update(mac.getBytes("UTF-8"));
+        return bytesToHex(sig.sign()).toUpperCase();
+    }
+
+    /** Verify bank callback P_SIGN. Fields: ACTION, RC, RRN, ORDER, AMOUNT */
+    public static boolean psignVerifyCallback(Map&lt;String,String&gt; p, PublicKey pubKey) throws Exception {
+        String pSign = p.getOrDefault("P_SIGN","").trim();
+        if (pSign.isEmpty()) return false;
+        String mac = buildMac(
+            p.getOrDefault("ACTION",""), p.getOrDefault("RC",""),
+            p.getOrDefault("RRN",""),    p.getOrDefault("ORDER",""),
+            p.getOrDefault("AMOUNT",""));
+        Signature sig = Signature.getInstance("SHA256withRSA");
+        sig.initVerify(pubKey);
+        sig.update(mac.getBytes("UTF-8"));
+        return sig.verify(HexFormat.of().parseHex(pSign.toLowerCase()));
+    }
+
+    public static String generateNonce() {
+        byte[] b = new byte[20]; new SecureRandom().nextBytes(b);
+        return bytesToHex(b).toUpperCase();
+    }
+    public static String generateTimestamp() {
+        return DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+               .format(ZonedDateTime.now(ZoneOffset.UTC));
+    }
+    public static String formatOrderId(int id) { return String.format("%06d", id); }
+    public static String formatAmount(double amt) { return String.format("%.2f", amt); }
+
+    private static String bytesToHex(byte[] b) {
+        StringBuilder sb = new StringBuilder();
+        for (byte x : b) sb.append(String.format("%02x", x));
+        return sb.toString();
+    }
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="csharp"><pre>using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+
+public static class PSignUtils
+{
+    /// Build MAC string. Empty/'-' fields -&gt; '-', no length prefix.
+    public static string BuildMac(params string[] fields)
+    {
+        var sb = new StringBuilder();
+        foreach (var f in fields)
+        {
+            if (string.IsNullOrEmpty(f) || f == "-") sb.Append('-');
+            else sb.Append(f.Length).Append(f);
+        }
+        return sb.ToString();
+    }
+
+    /// Generate P_SIGN for outgoing request (TRTYPE=0/21/24).
+    public static string PSignGenerate(string order, string nonce, string timestamp,
+                                        string trtype, string amount, RSA rsa)
+    {
+        var mac = BuildMac(order, nonce, timestamp, trtype, amount);
+        var sig = rsa.SignData(Encoding.UTF8.GetBytes(mac),
+                               HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        return Convert.ToHexString(sig);
+    }
+
+    /// Verify bank callback. Fields: ACTION, RC, RRN, ORDER, AMOUNT
+    public static bool PSignVerifyCallback(Dictionary&lt;string,string&gt; p, RSA pubKey)
+    {
+        if (!p.TryGetValue("P_SIGN", out var pSign) || string.IsNullOrEmpty(pSign)) return false;
+        string G(string k) =&gt; p.TryGetValue(k, out var v) ? v.Trim() : "";
+        var mac = BuildMac(G("ACTION"), G("RC"), G("RRN"), G("ORDER"), G("AMOUNT"));
+        return pubKey.VerifyData(Encoding.UTF8.GetBytes(mac),
+                                  Convert.FromHexString(pSign),
+                                  HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+    }
+
+    public static string GenerateNonce()
+        =&gt; Convert.ToHexString(RandomNumberGenerator.GetBytes(20));
+    public static string GenerateTimestamp()
+        =&gt; DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+    public static string FormatOrderId(int id) =&gt; id.ToString("D6");
+    public static string FormatAmount(decimal amt) =&gt; amt.ToString("F2");
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="curl"><pre># P_SIGN must be pre-computed by your server before calling cURL.
+# This example shows the full flow: generate MAC, sign, then POST.
+
+ORDER="001023"
+NONCE=$(openssl rand -hex 20 | tr '[:lower:]' '[:upper:]')
+TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+TRTYPE="0"
+AMOUNT="150.00"
+
+# Build MAC: len(field)+field for each, concatenated
+mac() { echo -n "${#1}${1}"; }
+MAC="$(mac $ORDER)$(mac $NONCE)$(mac $TIMESTAMP)$(mac $TRTYPE)$(mac $AMOUNT)"
+
+# Sign with openssl
+echo -n "$MAC" &gt; /tmp/mac.bin
+P_SIGN=$(openssl dgst -sha256 -sign /var/private/vb-keys/merchant_private.pem \
+         /tmp/mac.bin | xxd -p | tr -d '\n' | tr '[:lower:]' '[:upper:]')
+rm /tmp/mac.bin
+
+echo "P_SIGN: ${P_SIGN:0:32}..."
+
+# POST to test gateway
+curl -sS -X POST https://ecomt.victoriabank.md/cgi-bin/cgi_link \
+  -d "ORDER=${ORDER}" -d "AMOUNT=${AMOUNT}" -d "CURRENCY=MDL" \
+  -d "TRTYPE=0" -d "TERMINAL=YOUR_TERMINAL_ID" \
+  -d "MERCHANT=YOUR_MERCHANT_ID" \
+  -d "MERCH_NAME=Your+Company+SRL" \
+  -d "MERCH_URL=https://yoursite.md" \
+  -d "DESC=Order+1023" -d "EMAIL=client@example.com" \
+  -d "COUNTRY=md" -d "MERCH_GMT=%2B2" -d "LANG=ro" \
+  -d "TIMESTAMP=${TIMESTAMP}" -d "NONCE=${NONCE}" \
+  -d "BACKREF=https://yoursite.md/payment-result" \
+  -d "P_SIGN=${P_SIGN}" | grep -o 'RC=.\{1,3\}' | head -1
+</pre></div>
+</div>
+
+<div class="alert alert-danger">
+  <strong>NONCE minimum:</strong> Generate at least 20 bytes (40 hex chars). <code>random_bytes(20)</code> in PHP produces exactly 40 hex characters — the minimum required. Shorter NONCEs may be rejected by production systems.
+</div>
+
+</section>
+
+<!-- ─────────────────── TRTYPE=0 ─────────────────── -->
+<section id="trtype-0">
+
+<div data-lang="en" class="active">
+<h2>TRTYPE=0 — Authorization (Payment Initiation)</h2>
+<p>Initiates a card payment. Your server builds a signed HTML form and auto-submits it to the bank endpoint. The customer is redirected to the bank's 3D-Secure payment page.</p>
+<h3>Request Fields</h3>
+</div>
+<div data-lang="ro">
+<h2>TRTYPE=0 — Autorizare (Inițierea plății)</h2>
+<p>Inițiază o plată cu cardul. Serverul tău construiește un formular HTML semnat și îl auto-trimite la endpoint-ul băncii. Clientul este redirecționat la pagina de plată 3D-Secure a băncii.</p>
+<h3>Câmpuri cerere</h3>
+</div>
+<div data-lang="ru">
+<h2>TRTYPE=0 — Авторизация (Инициирование платежа)</h2>
+<p>Инициирует оплату картой. Ваш сервер формирует подписанную HTML-форму и авто-отправляет её на эндпоинт банка. Покупатель перенаправляется на страницу 3D-Secure банка.</p>
+<h3>Поля запроса</h3>
+</div>
+
+<table class="field-table">
+  <tr><th>Field</th><th>Min</th><th>Max</th><th>Format / Value</th><th>Description</th></tr>
+  <tr><td>AMOUNT</td><td>1</td><td>12</td><td class="fmt">150.00</td><td>Total amount, decimal with dot separator</td></tr>
+  <tr><td>CURRENCY</td><td>3</td><td>3</td><td class="fmt">MDL / USD / EUR</td><td>ISO 4217 currency code</td></tr>
+  <tr><td>ORDER</td><td>6</td><td>32</td><td class="fmt">001023</td><td>Numeric only (0-9), minimum 6 digits</td></tr>
+  <tr><td>DESC</td><td>1</td><td>50</td><td></td><td>Order description</td></tr>
+  <tr><td>MERCH_NAME</td><td>1</td><td>50</td><td></td><td>Merchant legal name</td></tr>
+  <tr><td>MERCH_URL</td><td>1</td><td>250</td><td></td><td>Merchant website URL</td></tr>
+  <tr><td>MERCHANT</td><td>15</td><td>15</td><td></td><td>Merchant ID assigned by bank (15 digits)</td></tr>
+  <tr><td>TERMINAL</td><td>8</td><td>8</td><td></td><td>Terminal ID assigned by bank (8 digits)</td></tr>
+  <tr><td>EMAIL</td><td>1</td><td>80</td><td></td><td>Customer email address</td></tr>
+  <tr><td>TRTYPE</td><td>1</td><td>1</td><td class="fmt">0</td><td>Transaction type: Authorization</td></tr>
+  <tr><td>COUNTRY</td><td>2</td><td>2</td><td class="fmt">md</td><td>Merchant country code (2 lowercase chars)</td></tr>
+  <tr><td>MERCH_GMT</td><td>1</td><td>5</td><td class="fmt">+2</td><td>Merchant UTC offset</td></tr>
+  <tr><td>TIMESTAMP</td><td>14</td><td>14</td><td class="fmt">YYYYMMDDHHmmss</td><td>Current UTC timestamp</td></tr>
+  <tr><td>NONCE</td><td>40</td><td>64</td><td class="fmt">hex string</td><td>Random hex, min 20 bytes (40 hex chars)</td></tr>
+  <tr><td>BACKREF</td><td>1</td><td>250</td><td></td><td>Browser redirect URL after transaction</td></tr>
+  <tr><td>LANG</td><td>2</td><td>2</td><td class="fmt">en / ro / ru</td><td>Language of bank payment page</td></tr>
+  <tr><td>MERCH_ADDRESS</td><td>1</td><td>250</td><td></td><td>Merchant address (optional but recommended)</td></tr>
+  <tr><td>P_SIGN</td><td></td><td>256</td><td class="fmt">HEX</td><td>RSA-SHA256 signature (uppercase hex)</td></tr>
+</table>
+
+<div class="alert alert-info">
+  <strong>StarCard Points only:</strong> Add field <code>ACCNT_SEL=08</code> and set <code>CURRENCY=06S</code>.
+</div>
+
+<div class="code-block">
+  <div class="code-header"><span>TRTYPE=0 — Build and submit payment form</span><span style="color:var(--text-muted);font-size:11px;">Node.js &middot; PHP &middot; Python &middot; Java &middot; C# &middot; cURL</span></div>
+  <div class="lang-tabs">
+    <button class="lang-tab active" data-code-lang="node" onclick="switchCodeLang(this,'node')">Node.js</button>
+    <button class="lang-tab" data-code-lang="php" onclick="switchCodeLang(this,'php')">PHP</button>
+    <button class="lang-tab" data-code-lang="python" onclick="switchCodeLang(this,'python')">Python</button>
+    <button class="lang-tab" data-code-lang="java" onclick="switchCodeLang(this,'java')">Java</button>
+    <button class="lang-tab" data-code-lang="csharp" onclick="switchCodeLang(this,'csharp')">C#</button>
+    <button class="lang-tab" data-code-lang="curl" onclick="switchCodeLang(this,'curl')">cURL</button>
+  </div>
+<div class="lang-panel active" data-code-lang="node"><pre>const crypto = require('crypto');
+const fs = require('fs');
+// Assumes psignGenerate, generateNonce, generateTimestamp, formatOrderId, formatAmount
+// are defined from the P_SIGN section above (save in psign-utils.js and require it).
+
+const PRIVATE_KEY = fs.readFileSync('/var/private/vb-keys/merchant_private.pem','utf8');
+const GATEWAY_URL = 'https://ecomt.victoriabank.md/cgi-bin/cgi_link'; // TEST
+// PRODUCTION: 'https://vb059.vb.md/cgi-bin/cgi_link'
+
+function buildPaymentForm(orderId, amountFloat, customerEmail) {
+  const order     = formatOrderId(orderId);    // e.g. "001023"
+  const amount    = formatAmount(amountFloat); // e.g. "150.00"
+  const nonce     = generateNonce();
+  const timestamp = generateTimestamp();
+  const pSign     = psignGenerate(order, nonce, timestamp, '0', amount, PRIVATE_KEY);
+
+  const params = {
+    AMOUNT: amount,     CURRENCY: 'MDL',      ORDER: order,
+    DESC: `Order #${orderId}`,
+    MERCH_NAME: 'Your Company SRL',
+    MERCH_URL: 'https://yoursite.md',
+    MERCHANT: 'YOUR_MERCHANT_ID',    // 15-digit ID from bank
+    TERMINAL: 'YOUR_TERMINAL_ID',    // 8-digit ID from bank
+    EMAIL: customerEmail,
+    TRTYPE: '0',        COUNTRY: 'md',        MERCH_GMT: '+2',
+    TIMESTAMP: timestamp, NONCE: nonce,
+    BACKREF: 'https://yoursite.md/payment-result',
+    LANG: 'ro',         MERCH_ADDRESS: 'str. Exemplu 1, Chisinau',
+    P_SIGN: pSign,
+  };
+
+  const inputs = Object.entries(params)
+    .map(([k, v]) =&gt; `  &lt;input type="hidden" name="${k}" value="${v}"/&gt;`)
+    .join('\n');
+
+  return `&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset="UTF-8"&gt;
+&lt;title&gt;Redirecting to VictoriaBank...&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;&lt;p&gt;Redirecting to payment page...&lt;/p&gt;
+&lt;form id="vbForm" method="POST" action="${GATEWAY_URL}"&gt;
+${inputs}
+&lt;/form&gt;
+&lt;script&gt;document.getElementById('vbForm').submit();&lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;`;
+}
+
+// Express route example:
+// app.post('/checkout', (req, res) =&gt; {
+//   res.send(buildPaymentForm(req.body.orderId, req.body.amount, req.body.email));
+// });
+</pre></div>
+<div class="lang-panel" data-code-lang="php"><pre>&lt;?php
+// Assumes helper functions from P_SIGN section: psignGenerate, generateNonce,
+// generateTimestamp, formatOrderId, formatAmount.
+
+$privateKeyPem = file_get_contents('/var/private/vb-keys/merchant_private.pem');
+
+$orderId   = formatOrderId(1023);    // "001023"
+$amount    = formatAmount(150.00);   // "150.00"
+$nonce     = generateNonce();        // 40-char hex (20 bytes)
+$timestamp = generateTimestamp();    // UTC: YYYYMMDDHHmmss
+$pSign     = psignGenerate($orderId, $nonce, $timestamp, '0', $amount, $privateKeyPem);
+
+$params = [
+    'AMOUNT'        =&gt; $amount,
+    'CURRENCY'      =&gt; 'MDL',
+    'ORDER'         =&gt; $orderId,
+    'DESC'          =&gt; 'Order #1023',
+    'MERCH_NAME'    =&gt; 'Your Company SRL',
+    'MERCH_URL'     =&gt; 'https://yoursite.md',
+    'MERCHANT'      =&gt; 'YOUR_MERCHANT_ID',    // 15-digit ID from bank
+    'TERMINAL'      =&gt; 'YOUR_TERMINAL_ID',    // 8-digit ID from bank
+    'EMAIL'         =&gt; 'client@example.com',
+    'TRTYPE'        =&gt; '0',
+    'COUNTRY'       =&gt; 'md',
+    'MERCH_GMT'     =&gt; '+2',
+    'TIMESTAMP'     =&gt; $timestamp,
+    'NONCE'         =&gt; $nonce,
+    'BACKREF'       =&gt; 'https://yoursite.md/payment-result',
+    'LANG'          =&gt; 'ro',
+    'MERCH_ADDRESS' =&gt; 'str. Exemplu 1, Chisinau',
+    'P_SIGN'        =&gt; $pSign,
+];
+
+// TEST endpoint (switch to vb059.vb.md for production)
+$endpoint = 'https://ecomt.victoriabank.md/cgi-bin/cgi_link';
+
+$inputs = '';
+foreach ($params as $k =&gt; $v) {
+    $inputs .= '  &lt;input type="hidden" name="' . htmlspecialchars($k)
+             . '" value="' . htmlspecialchars($v) . '"&gt;' . "\n";
+}
+echo &lt;&lt;&lt;HTML
+&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset="UTF-8"&gt;
+&lt;title&gt;Redirecting to VictoriaBank...&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;&lt;p&gt;Redirecting to payment page...&lt;/p&gt;
+&lt;form id="vbForm" method="POST" action="{$endpoint}"&gt;
+{$inputs}&lt;/form&gt;
+&lt;script&gt;document.getElementById('vbForm').submit();&lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;
+HTML;
+</pre></div>
+<div class="lang-panel" data-code-lang="python"><pre># Assumes helper functions from P_SIGN section are available.
+from cryptography.hazmat.primitives import serialization
+
+with open('/var/private/vb-keys/merchant_private.pem', 'rb') as f:
+    private_key = serialization.load_pem_private_key(f.read(), password=None)
+
+GATEWAY_URL = 'https://ecomt.victoriabank.md/cgi-bin/cgi_link'  # TEST
+# PRODUCTION: 'https://vb059.vb.md/cgi-bin/cgi_link'
+
+def build_payment_form(order_id: int, amount_float: float, customer_email: str) -&gt; str:
+    order     = format_order_id(order_id)
+    amount    = format_amount(amount_float)
+    nonce     = generate_nonce()
+    timestamp = generate_timestamp()
+    p_sign    = psign_generate(order, nonce, timestamp, '0', amount, private_key)
+
+    params = {
+        'AMOUNT': amount,           'CURRENCY': 'MDL',
+        'ORDER': order,             'DESC': f'Order #{order_id}',
+        'MERCH_NAME': 'Your Company SRL',
+        'MERCH_URL': 'https://yoursite.md',
+        'MERCHANT': 'YOUR_MERCHANT_ID',
+        'TERMINAL': 'YOUR_TERMINAL_ID',
+        'EMAIL': customer_email,    'TRTYPE': '0',
+        'COUNTRY': 'md',            'MERCH_GMT': '+2',
+        'TIMESTAMP': timestamp,     'NONCE': nonce,
+        'BACKREF': 'https://yoursite.md/payment-result',
+        'LANG': 'ro',
+        'MERCH_ADDRESS': 'str. Exemplu 1, Chisinau',
+        'P_SIGN': p_sign,
+    }
+
+    inputs = '\n'.join(
+        f'  &lt;input type="hidden" name="{k}" value="{v}"/&gt;'
+        for k, v in params.items()
+    )
+    return f'''&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset="UTF-8"&gt;
+&lt;title&gt;Redirecting to VictoriaBank...&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;&lt;p&gt;Redirecting...&lt;/p&gt;
+&lt;form id="vbForm" method="POST" action="{GATEWAY_URL}"&gt;
+{inputs}
+&lt;/form&gt;
+&lt;script&gt;document.getElementById('vbForm').submit();&lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;'''
+
+# Flask example:
+# @app.route('/checkout', methods=['POST'])
+# def checkout():
+#     return build_payment_form(int(request.form['order_id']),
+#                               float(request.form['amount']),
+#                               request.form['email'])
+</pre></div>
+<div class="lang-panel" data-code-lang="java"><pre>import java.net.URI;
+import java.net.http.*;
+import java.util.*;
+
+public class VBPaymentInit {
+    static final String GW_TEST = "https://ecomt.victoriabank.md/cgi-bin/cgi_link";
+    static final String GW_PROD = "https://vb059.vb.md/cgi-bin/cgi_link";
+
+    public static String buildPaymentForm(String orderId, String amount,
+                                           String email, PrivateKey pk) throws Exception {
+        String nonce     = PSignUtils.generateNonce();
+        String timestamp = PSignUtils.generateTimestamp();
+        String pSign     = PSignUtils.psignGenerate(orderId, nonce, timestamp, "0", amount, pk);
+
+        Map&lt;String,String&gt; p = new LinkedHashMap&lt;&gt;();
+        p.put("AMOUNT", amount);        p.put("CURRENCY","MDL");
+        p.put("ORDER", orderId);        p.put("DESC","Order "+orderId);
+        p.put("MERCH_NAME","Your Company SRL");
+        p.put("MERCH_URL","https://yoursite.md");
+        p.put("MERCHANT","YOUR_MERCHANT_ID");
+        p.put("TERMINAL","YOUR_TERMINAL_ID");
+        p.put("EMAIL", email);          p.put("TRTYPE","0");
+        p.put("COUNTRY","md");          p.put("MERCH_GMT","+2");
+        p.put("TIMESTAMP",timestamp);   p.put("NONCE",nonce);
+        p.put("BACKREF","https://yoursite.md/payment-result");
+        p.put("LANG","ro");             p.put("P_SIGN",pSign);
+
+        StringBuilder inputs = new StringBuilder();
+        for (var e : p.entrySet()) {
+            inputs.append(String.format("  &lt;input type=\"hidden\" name=\"%s\" value=\"%s\"/&gt;\n",
+                htmlEscape(e.getKey()), htmlEscape(e.getValue())));
+        }
+        return "&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset=\"UTF-8\"&gt;&lt;/head&gt;&lt;body&gt;\n"
+             + "&lt;form id=\"f\" method=\"POST\" action=\"" + GW_TEST + "\"&gt;\n"
+             + inputs + "&lt;/form&gt;\n"
+             + "&lt;script&gt;document.getElementById('f').submit();&lt;/script&gt;\n&lt;/body&gt;&lt;/html&gt;";
+    }
+
+    private static String htmlEscape(String s) {
+        return s.replace("&amp;","&amp;amp;").replace("&lt;","&amp;lt;").replace("\"","&amp;quot;");
+    }
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="csharp"><pre>using System.Web;
+
+public class VBPaymentInit
+{
+    const string GwTest = "https://ecomt.victoriabank.md/cgi-bin/cgi_link";
+    const string GwProd = "https://vb059.vb.md/cgi-bin/cgi_link";
+
+    public static string BuildPaymentForm(string orderId, string amount, string email, RSA rsa)
+    {
+        var nonce     = PSignUtils.GenerateNonce();
+        var timestamp = PSignUtils.GenerateTimestamp();
+        var pSign     = PSignUtils.PSignGenerate(orderId, nonce, timestamp, "0", amount, rsa);
+
+        var p = new Dictionary&lt;string,string&gt;
+        {
+            ["AMOUNT"] = amount,       ["CURRENCY"] = "MDL",
+            ["ORDER"] = orderId,       ["DESC"] = $"Order {orderId}",
+            ["MERCH_NAME"] = "Your Company SRL",
+            ["MERCH_URL"] = "https://yoursite.md",
+            ["MERCHANT"] = "YOUR_MERCHANT_ID",
+            ["TERMINAL"] = "YOUR_TERMINAL_ID",
+            ["EMAIL"] = email,         ["TRTYPE"] = "0",
+            ["COUNTRY"] = "md",        ["MERCH_GMT"] = "+2",
+            ["TIMESTAMP"] = timestamp, ["NONCE"] = nonce,
+            ["BACKREF"] = "https://yoursite.md/payment-result",
+            ["LANG"] = "ro",           ["P_SIGN"] = pSign,
+        };
+
+        var inputs = new System.Text.StringBuilder();
+        foreach (var kv in p)
+            inputs.AppendLine($"  &lt;input type=\"hidden\" name=\"{kv.Key}\" value=\"{HttpUtility.HtmlEncode(kv.Value)}\"/&gt;");
+
+        return $"&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset=\"UTF-8\"&gt;&lt;/head&gt;&lt;body&gt;\n"
+             + $"&lt;form id=\"f\" method=\"POST\" action=\"{GwTest}\"&gt;\n{inputs}&lt;/form&gt;\n"
+             + "&lt;script&gt;document.getElementById('f').submit();&lt;/script&gt;\n&lt;/body&gt;&lt;/html&gt;";
+    }
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="curl"><pre># TRTYPE=0 initiates a browser redirect. Your server builds the signed HTML form.
+# This cURL call demonstrates the raw POST structure.
+
+ORDER="001023"; AMOUNT="150.00"; CURRENCY="MDL"
+NONCE=$(openssl rand -hex 20 | tr '[:lower:]' '[:upper:]')
+TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+
+# Build and sign MAC (see P_SIGN cURL example for full script)
+mac() { echo -n "${#1}${1}"; }
+MAC="$(mac $ORDER)$(mac $NONCE)$(mac $TIMESTAMP)$(mac 0)$(mac $AMOUNT)"
+echo -n "$MAC" &gt; /tmp/mac.bin
+P_SIGN=$(openssl dgst -sha256 -sign /var/private/vb-keys/merchant_private.pem \
+         /tmp/mac.bin | xxd -p | tr -d '\n' | tr '[:lower:]' '[:upper:]')
+rm /tmp/mac.bin
+
+curl -sS -X POST https://ecomt.victoriabank.md/cgi-bin/cgi_link \
+  -d "AMOUNT=${AMOUNT}" -d "CURRENCY=${CURRENCY}" \
+  -d "ORDER=${ORDER}" -d "DESC=Order+1023" \
+  -d "MERCH_NAME=Your+Company+SRL" -d "MERCH_URL=https://yoursite.md" \
+  -d "MERCHANT=YOUR_MERCHANT_ID" -d "TERMINAL=YOUR_TERMINAL_ID" \
+  -d "EMAIL=client@example.com" -d "TRTYPE=0" \
+  -d "COUNTRY=md" -d "MERCH_GMT=%2B2" \
+  -d "TIMESTAMP=${TIMESTAMP}" -d "NONCE=${NONCE}" \
+  -d "BACKREF=https://yoursite.md/payment-result" \
+  -d "LANG=ro" -d "MERCH_ADDRESS=Chisinau" \
+  -d "P_SIGN=${P_SIGN}"
+# Response: HTML page that customer submits to bank's 3D-Secure page.
+</pre></div>
+</div>
+
+</section>
+
+<!-- ─────────────────── CALLBACK ─────────────────── -->
+<section id="callback">
+
+<div data-lang="en" class="active">
+<h2>Callback Notification</h2>
+<p>After processing the payment, VictoriaBank sends a server-to-server HTTP POST to your registered Callback URL. This happens for both successful and failed transactions.</p>
+<div class="alert alert-warn"><strong>Always respond HTTP 200.</strong> Any other status code may cause the bank to retry. Return 200 even when rejecting an invalid P_SIGN.</div>
+<h3>Callback POST Fields</h3>
+</div>
+<div data-lang="ro">
+<h2>Notificarea Callback</h2>
+<p>După procesarea plății, VictoriaBank trimite un HTTP POST server-to-server la URL-ul tău de Callback înregistrat. Acest lucru se întâmplă atât pentru tranzacțiile reușite, cât și pentru cele eșuate.</p>
+<div class="alert alert-warn"><strong>Răspunde întotdeauna cu HTTP 200.</strong> Orice alt cod de stare poate cauza retrimiterea de către bancă. Returnează 200 chiar și când respingi un P_SIGN invalid.</div>
+<h3>Câmpurile POST de callback</h3>
+</div>
+<div data-lang="ru">
+<h2>Callback-уведомление</h2>
+<p>После обработки платежа VictoriaBank отправляет HTTP POST между серверами на ваш зарегистрированный Callback URL. Это происходит как для успешных, так и для неудачных транзакций.</p>
+<div class="alert alert-warn"><strong>Всегда отвечайте HTTP 200.</strong> Любой другой код состояния может привести к повторной отправке банком. Возвращайте 200 даже при отклонении невалидного P_SIGN.</div>
+<h3>Поля Callback POST</h3>
+</div>
+
+<table class="field-table">
+  <tr><th>Field</th><th>Description</th></tr>
+  <tr><td>TERMINAL</td><td>Your Terminal ID</td></tr>
+  <tr><td>TRTYPE</td><td>Transaction type from original request</td></tr>
+  <tr><td>ORDER</td><td>Your order reference</td></tr>
+  <tr><td>AMOUNT</td><td>Transaction amount</td></tr>
+  <tr><td>CURRENCY</td><td>Currency code</td></tr>
+  <tr><td>ACTION</td><td>Result: 0=success, 2=declined, 3=error (see ACTION codes table)</td></tr>
+  <tr><td>RC</td><td>Response code: 00=approved, negative=error (see RC codes table)</td></tr>
+  <tr><td>TEXT</td><td>Human-readable description</td></tr>
+  <tr><td>APPROVAL</td><td>Authorization approval code</td></tr>
+  <tr><td>RRN</td><td>Bank reference number — <strong>save for TRTYPE=21/24</strong></td></tr>
+  <tr><td>INT_REF</td><td>Internal reference — <strong>save for TRTYPE=21/24</strong></td></tr>
+  <tr><td>TIMESTAMP</td><td>Bank processing timestamp</td></tr>
+  <tr><td>NONCE</td><td>Echoed from your original request</td></tr>
+  <tr><td>P_SIGN</td><td>Bank signature — verify with <code>victoria_pub.pem</code></td></tr>
+  <tr><td>BIN</td><td>Card BIN (first 6 digits)</td></tr>
+  <tr><td>CARD</td><td>Masked card number (e.g. 4779XXXXXXXX5764)</td></tr>
+  <tr><td>ECI</td><td>3D-Secure ECI value</td></tr>
+</table>
+
+<div data-lang="en" class="active">
+<h3>Success Criteria</h3>
+<p><strong>Both</strong> conditions must be true for an authorized transaction:</p>
+<ul>
+  <li><code>ACTION = 0</code></li>
+  <li><code>RC = 00</code></li>
+</ul>
+<p>Only then proceed to TRTYPE=21 (Sales Completion). Save RRN and INT_REF — required for TRTYPE=21 and TRTYPE=24.</p>
+</div>
+<div data-lang="ro">
+<h3>Criterii de succes</h3>
+<p>Ambele condiții trebuie să fie adevărate pentru o tranzacție autorizată:</p>
+<ul>
+  <li><code>ACTION = 0</code></li>
+  <li><code>RC = 00</code></li>
+</ul>
+<p>Numai atunci treci la TRTYPE=21 (Finalizare vânzare). Salvează RRN și INT_REF — necesare pentru TRTYPE=21 și TRTYPE=24.</p>
+</div>
+<div data-lang="ru">
+<h3>Критерии успеха</h3>
+<p>Оба условия должны быть выполнены для авторизованной транзакции:</p>
+<ul>
+  <li><code>ACTION = 0</code></li>
+  <li><code>RC = 00</code></li>
+</ul>
+<p>Только после этого выполняйте TRTYPE=21 (Завершение продажи). Сохраните RRN и INT_REF — они нужны для TRTYPE=21 и TRTYPE=24.</p>
+</div>
+
+<div class="code-block">
+  <div class="code-header"><span>Callback handler</span><span style="color:var(--text-muted);font-size:11px;">Node.js &middot; PHP &middot; Python &middot; Java &middot; C# &middot; cURL</span></div>
+  <div class="lang-tabs">
+    <button class="lang-tab active" data-code-lang="node" onclick="switchCodeLang(this,'node')">Node.js</button>
+    <button class="lang-tab" data-code-lang="php" onclick="switchCodeLang(this,'php')">PHP</button>
+    <button class="lang-tab" data-code-lang="python" onclick="switchCodeLang(this,'python')">Python</button>
+    <button class="lang-tab" data-code-lang="java" onclick="switchCodeLang(this,'java')">Java</button>
+    <button class="lang-tab" data-code-lang="csharp" onclick="switchCodeLang(this,'csharp')">C#</button>
+    <button class="lang-tab" data-code-lang="curl" onclick="switchCodeLang(this,'curl')">cURL</button>
+  </div>
+<div class="lang-panel active" data-code-lang="node"><pre>const express = require('express');
+const fs = require('fs');
+// Assumes psignVerifyCallback from P_SIGN section.
+// Assumes vbCompletion from TRTYPE=21 section.
+
+const BANK_PUBLIC_KEY = fs.readFileSync('/var/private/vb-keys/victoria_pub.pem','utf8');
+const app = express();
+
+app.post('/vb-callback', express.urlencoded({ extended: false }), async (req, res) =&gt; {
+  const ALLOWED = ['ORDER','TERMINAL','ACTION','RC','TEXT','APPROVAL','RRN','INT_REF',
+                   'TIMESTAMP','NONCE','P_SIGN','AMOUNT','CURRENCY','TRTYPE',
+                   'BIN','CARD','AUTH','ECI','Function'];
+  const data = {};
+  for (const k of ALLOWED) data[k] = (req.body[k] || '').trim();
+
+  // 1. Verify P_SIGN (always return 200 to prevent bank retries)
+  if (!psignVerifyCallback(data, BANK_PUBLIC_KEY)) {
+    console.error('VB callback: P_SIGN FAILED ORDER:', data.ORDER);
+    return res.status(200).send('OK');
+  }
+
+  const { ACTION, RC, ORDER, RRN, INT_REF, AMOUNT, CURRENCY } = data;
+
+  if (ACTION === '0' &amp;&amp; RC === '00') {
+    console.log(`Payment success: ORDER=${ORDER} RRN=${RRN}`);
+    // Fire TRTYPE=21 immediately
+    // const result = await vbCompletion(ORDER, AMOUNT, CURRENCY, RRN, INT_REF, TERMINAL_ID);
+    // if (result.RC === '00') await db.markOrderPaid(ORDER);
+  } else if (RC === '-25') {
+    console.log(`Cancelled by customer: ORDER=${ORDER}`);
+    // await db.markOrderCancelled(ORDER);
+  } else {
+    console.error(`Declined: ORDER=${ORDER} RC=${RC} ACTION=${ACTION}`);
+    // await db.markOrderFailed(ORDER, RC);
+  }
+
+  res.status(200).send('OK');
+});
+</pre></div>
+<div class="lang-panel" data-code-lang="php"><pre>&lt;?php
+$bankPublicKeyPem = file_get_contents('/var/private/vb-keys/victoria_pub.pem');
+
+// 1. Sanitize POST fields
+$allowed = ['ORDER','TERMINAL','ACTION','RC','TEXT','APPROVAL','RRN','INT_REF',
+            'TIMESTAMP','NONCE','P_SIGN','AMOUNT','CURRENCY','TRTYPE',
+            'BIN','CARD','AUTH','ECI','Function'];
+$data = [];
+foreach ($allowed as $k) {
+    $data[$k] = trim(strip_tags($_POST[$k] ?? ''));
+}
+
+// 2. Verify P_SIGN (always return 200 to prevent bank retries)
+if (!psignVerifyCallback($data, $bankPublicKeyPem)) {
+    error_log('VB callback: P_SIGN FAILED for ORDER: ' . $data['ORDER']);
+    http_response_code(200);
+    exit('OK');
+}
+
+// 3. Process result
+$action = $data['ACTION'];
+$rc     = $data['RC'];
+$order  = $data['ORDER'];
+$rrn    = $data['RRN'];
+$intRef = $data['INT_REF'];
+$amount = $data['AMOUNT'];
+$curr   = $data['CURRENCY'];
+
+if ($action === '0' &amp;&amp; $rc === '00') {
+    // SUCCESS - capture funds immediately
+    // $result = vbCompletion($order, $amount, $curr, $rrn, $intRef, $privateKey, $terminal);
+    // markOrderAsPaid($order);
+} elseif ($rc === '-25') {
+    // Customer cancelled voluntarily
+    // markOrderAsCancelled($order);
+} else {
+    error_log("VB declined: ORDER=$order RC=$rc ACTION=$action");
+    // markOrderAsFailed($order, $rc);
+}
+
+http_response_code(200);
+exit('OK');
+</pre></div>
+<div class="lang-panel" data-code-lang="python"><pre>from flask import Flask, request
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+app = Flask(__name__)
+
+with open('/var/private/vb-keys/victoria_pub.pem', 'rb') as f:
+    bank_public_key = load_pem_public_key(f.read())
+
+ALLOWED = ['ORDER','TERMINAL','ACTION','RC','TEXT','APPROVAL','RRN','INT_REF',
+           'TIMESTAMP','NONCE','P_SIGN','AMOUNT','CURRENCY','TRTYPE',
+           'BIN','CARD','AUTH','ECI','Function']
+
+@app.post('/vb-callback')
+def vb_callback():
+    data = {k: request.form.get(k,'').strip() for k in ALLOWED}
+
+    # 1. Verify P_SIGN (always return 200)
+    if not psign_verify_callback(data, bank_public_key):
+        app.logger.error(f"P_SIGN FAILED: ORDER={data.get('ORDER')}")
+        return 'OK', 200
+
+    action   = data.get('ACTION')
+    rc       = data.get('RC')
+    order    = data.get('ORDER')
+    rrn      = data.get('RRN')
+    int_ref  = data.get('INT_REF')
+    amount   = data.get('AMOUNT')
+    currency = data.get('CURRENCY')
+
+    if action == '0' and rc == '00':
+        app.logger.info(f'SUCCESS: ORDER={order} RRN={rrn}')
+        # vb_completion(order, amount, currency, rrn, int_ref, private_key, terminal_id)
+    elif rc == '-25':
+        app.logger.info(f'Cancelled: ORDER={order}')
+    else:
+        app.logger.error(f'Declined: ORDER={order} RC={rc} ACTION={action}')
+
+    return 'OK', 200
+</pre></div>
+<div class="lang-panel" data-code-lang="java"><pre>import jakarta.servlet.http.*;
+import java.io.*;
+import java.util.*;
+
+@WebServlet("/vb-callback")
+public class VBCallbackServlet extends HttpServlet {
+
+    static final List&lt;String&gt; ALLOWED = List.of(
+        "ORDER","TERMINAL","ACTION","RC","TEXT","APPROVAL","RRN","INT_REF",
+        "TIMESTAMP","NONCE","P_SIGN","AMOUNT","CURRENCY","TRTYPE","BIN","CARD");
+
+    PublicKey bankPublicKey; // inject via @Resource or load in init()
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws IOException {
+        Map&lt;String,String&gt; data = new HashMap&lt;&gt;();
+        for (String k : ALLOWED) {
+            String v = req.getParameter(k);
+            data.put(k, v != null ? v.trim() : "");
+        }
+
+        // 1. Verify P_SIGN (always respond 200)
+        try {
+            if (!PSignUtils.psignVerifyCallback(data, bankPublicKey)) {
+                log("P_SIGN FAILED: ORDER=" + data.get("ORDER"));
+                resp.getWriter().print("OK"); return;
+            }
+        } catch (Exception e) { resp.getWriter().print("OK"); return; }
+
+        String action = data.get("ACTION");
+        String rc     = data.get("RC");
+        String order  = data.get("ORDER");
+
+        if ("0".equals(action) &amp;&amp; "00".equals(rc)) {
+            log("Payment success: ORDER=" + order);
+            // executeCompletion(order, data.get("AMOUNT"), ...);
+        } else if ("-25".equals(rc)) {
+            log("Cancelled: ORDER=" + order);
+        } else {
+            log("Declined: ORDER=" + order + " RC=" + rc);
+        }
+
+        resp.setStatus(200);
+        resp.getWriter().print("OK");
+    }
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="csharp"><pre>using Microsoft.AspNetCore.Mvc;
+using System.Security.Cryptography;
+
+[ApiController, Route("vb-callback")]
+public class VBCallbackController : ControllerBase
+{
+    static readonly string[] Allowed = [
+        "ORDER","TERMINAL","ACTION","RC","TEXT","APPROVAL","RRN","INT_REF",
+        "TIMESTAMP","NONCE","P_SIGN","AMOUNT","CURRENCY","TRTYPE","BIN","CARD"
+    ];
+    readonly RSA _bankPubKey; // injected, loaded from victoria_pub.pem
+
+    [HttpPost]
+    public IActionResult Callback([FromForm] IFormCollection form)
+    {
+        var data = new Dictionary&lt;string,string&gt;();
+        foreach (var k in Allowed) data[k] = form[k].ToString().Trim();
+
+        // 1. Verify P_SIGN (always return 200)
+        if (!PSignUtils.PSignVerifyCallback(data, _bankPubKey))
+            return Ok("OK");
+
+        var action = data["ACTION"];
+        var rc     = data["RC"];
+        var order  = data["ORDER"];
+
+        if (action == "0" &amp;&amp; rc == "00")
+        {
+            // Fire TRTYPE=21 immediately
+            // await _vbService.CompleteAsync(order, data["AMOUNT"], data["RRN"], data["INT_REF"]);
+        }
+        else if (rc == "-25") { /* Cancelled */ }
+        else { /* Declined */ }
+
+        return Ok("OK");
+    }
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="curl"><pre># Simulate a bank callback POST for local testing.
+# The real callback is sent by VictoriaBank's server to your registered Callback URL.
+
+curl -X POST http://localhost:3000/vb-callback \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "TERMINAL=YOUR_TERMINAL_ID" \
+  -d "TRTYPE=0" \
+  -d "ORDER=001023" \
+  -d "AMOUNT=150.00" \
+  -d "CURRENCY=MDL" \
+  -d "ACTION=0" \
+  -d "RC=00" \
+  -d "TEXT=Approved" \
+  -d "APPROVAL=A1B2C3" \
+  -d "RRN=123456789012" \
+  -d "INT_REF=ABCDEF123456" \
+  -d "TIMESTAMP=20260401120000" \
+  -d "NONCE=A3F1B2C4D5E6F7A8B9C0A1B2C3D4E5F6A7B8C9D0" \
+  -d "P_SIGN=REPLACE_WITH_REAL_BANK_P_SIGN_FROM_TEST_TRANSACTION" \
+  -d "BIN=477912" \
+  -d "CARD=4779XXXXXXXX5764" \
+  -d "ECI=05"
+# Expected response: HTTP 200 with body "OK"
+</pre></div>
+</div>
+
+</section>
+
+<!-- ─────────────────── TRTYPE=21 ─────────────────── -->
+<section id="trtype-21">
+
+<div data-lang="en" class="active">
+<h2>TRTYPE=21 — Sales Completion (Capture)</h2>
+<p>Captures the authorized funds. Must be sent immediately after a successful TRTYPE=0 callback (ACTION=0, RC=00). This is a server-to-server POST — the customer is not redirected.</p>
+<div class="alert alert-warn"><strong>Use the exact same AMOUNT as the authorization.</strong> A different amount returns "Invalid amount" error. Can only be executed once per transaction.</div>
+<h3>Required Fields</h3>
+</div>
+<div data-lang="ro">
+<h2>TRTYPE=21 — Finalizare Vânzare (Captură)</h2>
+<p>Capturează fondurile autorizate. Trebuie trimis imediat după un callback TRTYPE=0 reușit (ACTION=0, RC=00). Aceasta este o cerere server-to-server — clientul nu este redirecționat.</p>
+<div class="alert alert-warn"><strong>Folosește exact același AMOUNT ca la autorizare.</strong> Un alt sum returnează eroarea "Invalid amount". Poate fi executat o singură dată per tranzacție.</div>
+<h3>Câmpuri necesare</h3>
+</div>
+<div data-lang="ru">
+<h2>TRTYPE=21 — Завершение продажи (Захват средств)</h2>
+<p>Захватывает авторизованные средства. Должен отправляться сразу после успешного callback TRTYPE=0 (ACTION=0, RC=00). Это запрос между серверами — покупатель не перенаправляется.</p>
+<div class="alert alert-warn"><strong>Используйте точно такую же AMOUNT как при авторизации.</strong> Другая сумма вернёт ошибку "Invalid amount". Может быть выполнен только один раз для транзакции.</div>
+<h3>Обязательные поля</h3>
+</div>
+
+<table class="field-table">
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>ORDER</td><td>Same ORDER as the authorization</td></tr>
+  <tr><td>AMOUNT</td><td>Exact same amount as authorization</td></tr>
+  <tr><td>CURRENCY</td><td>Same currency as authorization</td></tr>
+  <tr><td>TERMINAL</td><td>Your Terminal ID</td></tr>
+  <tr><td>TRTYPE</td><td><code>21</code></td></tr>
+  <tr><td>TIMESTAMP</td><td>Fresh UTC timestamp (YYYYMMDDHHmmss)</td></tr>
+  <tr><td>NONCE</td><td>Fresh random hex, min 40 chars (20 bytes)</td></tr>
+  <tr><td>RRN</td><td>RRN received in the TRTYPE=0 callback</td></tr>
+  <tr><td>INT_REF</td><td>INT_REF received in the TRTYPE=0 callback</td></tr>
+  <tr><td>P_SIGN</td><td>Signed: ORDER → NONCE → TIMESTAMP → TRTYPE → AMOUNT</td></tr>
+</table>
+
+<div data-lang="en" class="active"><h3>Response Format</h3><p>Bank returns an HTML page with hidden <code>&lt;input&gt;</code> fields. Parse with regex. Check <code>RC=00</code> for success.</p></div>
+<div data-lang="ro"><h3>Formatul răspunsului</h3><p>Banca returnează o pagină HTML cu câmpuri <code>&lt;input&gt;</code> ascunse. Parsează cu regex. Verifică <code>RC=00</code> pentru succes.</p></div>
+<div data-lang="ru"><h3>Формат ответа</h3><p>Банк возвращает HTML-страницу со скрытыми полями <code>&lt;input&gt;</code>. Разбирайте с помощью регулярных выражений. Проверьте <code>RC=00</code> для успеха.</p></div>
+
+<div class="code-block">
+  <div class="code-header"><span>TRTYPE=21 — Sales Completion</span><span style="color:var(--text-muted);font-size:11px;">Node.js &middot; PHP &middot; Python &middot; Java &middot; C# &middot; cURL</span></div>
+  <div class="lang-tabs">
+    <button class="lang-tab active" data-code-lang="node" onclick="switchCodeLang(this,'node')">Node.js</button>
+    <button class="lang-tab" data-code-lang="php" onclick="switchCodeLang(this,'php')">PHP</button>
+    <button class="lang-tab" data-code-lang="python" onclick="switchCodeLang(this,'python')">Python</button>
+    <button class="lang-tab" data-code-lang="java" onclick="switchCodeLang(this,'java')">Java</button>
+    <button class="lang-tab" data-code-lang="csharp" onclick="switchCodeLang(this,'csharp')">C#</button>
+    <button class="lang-tab" data-code-lang="curl" onclick="switchCodeLang(this,'curl')">cURL</button>
+  </div>
+<div class="lang-panel active" data-code-lang="node"><pre>const https = require('https');
+const querystring = require('querystring');
+const fs = require('fs');
+// Assumes psignGenerate, generateNonce, generateTimestamp from P_SIGN section.
+
+const PRIVATE_KEY = fs.readFileSync('/var/private/vb-keys/merchant_private.pem','utf8');
+
+async function vbCompletion(orderId, amount, currency, rrn, intRef, terminalId, testMode=false) {
+  const nonce     = generateNonce();
+  const timestamp = generateTimestamp();
+  const pSign     = psignGenerate(orderId, nonce, timestamp, '21', amount, PRIVATE_KEY);
+
+  const params = {
+    ORDER: orderId,    AMOUNT: amount,    CURRENCY: currency,
+    TERMINAL: terminalId, TRTYPE: '21',
+    TIMESTAMP: timestamp, NONCE: nonce,
+    RRN: rrn, INT_REF: intRef, P_SIGN: pSign,
+  };
+
+  const host = testMode ? 'ecomt.victoriabank.md' : 'vb059.vb.md';
+
+  return new Promise((resolve, reject) =&gt; {
+    const body = querystring.stringify(params);
+    const req = https.request({
+      hostname: host, path: '/cgi-bin/cgi_link', method: 'POST', timeout: 30000,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded',
+                 'Content-Length': Buffer.byteLength(body) }
+    }, res =&gt; {
+      let html = '';
+      res.on('data', c =&gt; html += c);
+      res.on('end', () =&gt; {
+        // Bank returns HTML with hidden INPUT fields
+        const result = {};
+        const re = /name="(\w+)"[^&gt;]+value="([^"]*)"/gi;
+        let m;
+        while ((m = re.exec(html)) !== null) result[m[1]] = m[2];
+        resolve(result);
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// Usage:
+// const result = await vbCompletion(order, amount, currency, rrn, intRef, terminalId, true);
+// if (result.RC === '00') await db.markOrderPaid(order);
+// else console.error('Completion failed RC=' + result.RC);
+</pre></div>
+<div class="lang-panel" data-code-lang="php"><pre>&lt;?php
+function vbCompletion(string $orderId, string $amount, string $currency,
+                      string $rrn, string $intRef, string $privateKeyPem,
+                      string $terminalId, bool $testMode = false): array
+{
+    $nonce     = generateNonce();
+    $timestamp = generateTimestamp();
+    $pSign     = psignGenerate($orderId, $nonce, $timestamp, '21', $amount, $privateKeyPem);
+
+    $params = [
+        'ORDER'    =&gt; $orderId, 'AMOUNT'    =&gt; $amount,
+        'CURRENCY' =&gt; $currency,'TERMINAL'  =&gt; $terminalId,
+        'TRTYPE'   =&gt; '21',    'TIMESTAMP' =&gt; $timestamp,
+        'NONCE'    =&gt; $nonce,  'RRN'       =&gt; $rrn,
+        'INT_REF'  =&gt; $intRef, 'P_SIGN'    =&gt; $pSign,
+    ];
+
+    $endpoint = $testMode
+        ? 'https://ecomt.victoriabank.md/cgi-bin/cgi_link'
+        : 'https://vb059.vb.md/cgi-bin/cgi_link';
+
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           =&gt; true,
+        CURLOPT_POSTFIELDS     =&gt; http_build_query($params),
+        CURLOPT_RETURNTRANSFER =&gt; true,
+        CURLOPT_TIMEOUT        =&gt; 30,
+        CURLOPT_SSL_VERIFYPEER =&gt; true,
+    ]);
+    $html = curl_exec($ch);
+    curl_close($ch);
+
+    // Bank returns HTML with hidden INPUT fields
+    preg_match_all('/&lt;input[^&gt;]+name=["\'](\w+)["\'][^&gt;]+value=["\']([^"\']*)/i',
+                   $html, $matches, PREG_SET_ORDER);
+    $response = [];
+    foreach ($matches as $m) $response[$m[1]] = $m[2];
+    return $response; // Check $response['RC'] === '00' for success
+}
+
+// Usage:
+// $result = vbCompletion($order, $amount, $currency, $rrn, $intRef, $privateKey, $terminal);
+// if ($result['RC'] === '00') markOrderAsPaid($order);
+</pre></div>
+<div class="lang-panel" data-code-lang="python"><pre>import re, ssl, urllib.parse, urllib.request
+
+def vb_completion(order_id: str, amount: str, currency: str, rrn: str, int_ref: str,
+                  private_key, terminal_id: str, test_mode: bool = False) -&gt; dict:
+    """TRTYPE=21 — Sales Completion. Call immediately after ACTION=0 RC=00 callback."""
+    nonce     = generate_nonce()
+    timestamp = generate_timestamp()
+    p_sign    = psign_generate(order_id, nonce, timestamp, '21', amount, private_key)
+
+    params = {
+        'ORDER': order_id,    'AMOUNT': amount,   'CURRENCY': currency,
+        'TERMINAL': terminal_id, 'TRTYPE': '21',
+        'TIMESTAMP': timestamp, 'NONCE': nonce,
+        'RRN': rrn,           'INT_REF': int_ref, 'P_SIGN': p_sign,
+    }
+
+    endpoint = ('https://ecomt.victoriabank.md/cgi-bin/cgi_link' if test_mode
+                else 'https://vb059.vb.md/cgi-bin/cgi_link')
+
+    body = urllib.parse.urlencode(params).encode()
+    req  = urllib.request.Request(endpoint, data=body,
+           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    ctx = ssl.create_default_context()
+    with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+        html = resp.read().decode('utf-8', errors='replace')
+
+    # Bank returns HTML page with hidden INPUT fields
+    result = {}
+    for m in re.finditer(r'name=["\'](\w+)["\'][^&gt;]+value=["\']([^"\']*)', html, re.I):
+        result[m.group(1)] = m.group(2)
+    return result
+
+# Usage:
+# result = vb_completion(order, amount, currency, rrn, int_ref, private_key, terminal_id)
+# if result.get('RC') == '00': mark_order_paid(order)
+</pre></div>
+<div class="lang-panel" data-code-lang="java"><pre>import java.net.URI;
+import java.net.http.*;
+import java.util.*;
+import java.util.regex.*;
+
+public class VBCompletion {
+    static final String GW_TEST = "https://ecomt.victoriabank.md/cgi-bin/cgi_link";
+    static final String GW_PROD = "https://vb059.vb.md/cgi-bin/cgi_link";
+
+    public static Map&lt;String,String&gt; execute(String orderId, String amount, String currency,
+            String rrn, String intRef, String terminalId, PrivateKey pk, boolean test) throws Exception {
+        String nonce     = PSignUtils.generateNonce();
+        String timestamp = PSignUtils.generateTimestamp();
+        String pSign     = PSignUtils.psignGenerate(orderId, nonce, timestamp, "21", amount, pk);
+
+        String body = "ORDER=" + enc(orderId) + "&amp;AMOUNT=" + enc(amount)
+            + "&amp;CURRENCY=" + enc(currency) + "&amp;TERMINAL=" + enc(terminalId)
+            + "&amp;TRTYPE=21&amp;TIMESTAMP=" + enc(timestamp) + "&amp;NONCE=" + enc(nonce)
+            + "&amp;RRN=" + enc(rrn) + "&amp;INT_REF=" + enc(intRef) + "&amp;P_SIGN=" + enc(pSign);
+
+        var resp = HttpClient.newHttpClient().send(
+            HttpRequest.newBuilder().uri(URI.create(test ? GW_TEST : GW_PROD))
+                .header("Content-Type","application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .timeout(java.time.Duration.ofSeconds(30)).build(),
+            HttpResponse.BodyHandlers.ofString());
+
+        // Parse HTML response (hidden INPUT fields)
+        Map&lt;String,String&gt; result = new HashMap&lt;&gt;();
+        Matcher m = Pattern.compile("name=\"(\\w+)\"[^&gt;]+value=\"([^\"]*)\"",
+                    Pattern.CASE_INSENSITIVE).matcher(resp.body());
+        while (m.find()) result.put(m.group(1), m.group(2));
+        return result; // Check result.get("RC").equals("00") for success
+    }
+    static String enc(String s) throws Exception { return java.net.URLEncoder.encode(s,"UTF-8"); }
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="csharp"><pre>using System.Net;
+using System.Text.RegularExpressions;
+
+public class VBCompletion
+{
+    const string GwTest = "https://ecomt.victoriabank.md/cgi-bin/cgi_link";
+    const string GwProd = "https://vb059.vb.md/cgi-bin/cgi_link";
+
+    public static async Task&lt;Dictionary&lt;string,string&gt;&gt; ExecuteAsync(
+        string orderId, string amount, string currency,
+        string rrn, string intRef, string terminalId, RSA rsa, bool testMode = false)
+    {
+        var nonce     = PSignUtils.GenerateNonce();
+        var timestamp = PSignUtils.GenerateTimestamp();
+        var pSign     = PSignUtils.PSignGenerate(orderId, nonce, timestamp, "21", amount, rsa);
+
+        var content = new FormUrlEncodedContent(new Dictionary&lt;string,string&gt;
+        {
+            ["ORDER"]=orderId, ["AMOUNT"]=amount, ["CURRENCY"]=currency,
+            ["TERMINAL"]=terminalId, ["TRTYPE"]="21",
+            ["TIMESTAMP"]=timestamp, ["NONCE"]=nonce,
+            ["RRN"]=rrn, ["INT_REF"]=intRef, ["P_SIGN"]=pSign,
+        });
+
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        var html = await (await client.PostAsync(testMode ? GwTest : GwProd, content))
+                         .Content.ReadAsStringAsync();
+
+        // Bank returns HTML with hidden INPUT fields
+        var result = new Dictionary&lt;string,string&gt;();
+        foreach (Match m in Regex.Matches(html,
+            @"name=""(\w+)""[^&gt;]+value=""([^""]*)""", RegexOptions.IgnoreCase))
+            result[m.Groups[1].Value] = m.Groups[2].Value;
+        return result; // Check result["RC"] == "00" for success
+    }
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="curl"><pre># TRTYPE=21 — Sales Completion. Run server-side after ACTION=0 RC=00 callback.
+ORDER="001023"; AMOUNT="150.00"; CURRENCY="MDL"
+RRN="123456789012"; INT_REF="ABCDEF123456"
+TERMINAL="YOUR_TERMINAL_ID"
+NONCE=$(openssl rand -hex 20 | tr '[:lower:]' '[:upper:]')
+TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+
+mac() { echo -n "${#1}${1}"; }
+MAC="$(mac $ORDER)$(mac $NONCE)$(mac $TIMESTAMP)$(mac 21)$(mac $AMOUNT)"
+echo -n "$MAC" &gt; /tmp/mac21.bin
+P_SIGN=$(openssl dgst -sha256 -sign /var/private/vb-keys/merchant_private.pem \
+         /tmp/mac21.bin | xxd -p | tr -d '\n' | tr '[:lower:]' '[:upper:]')
+rm /tmp/mac21.bin
+
+curl -sS -X POST https://ecomt.victoriabank.md/cgi-bin/cgi_link \
+  -d "ORDER=${ORDER}" -d "AMOUNT=${AMOUNT}" -d "CURRENCY=${CURRENCY}" \
+  -d "TERMINAL=${TERMINAL}" -d "TRTYPE=21" \
+  -d "TIMESTAMP=${TIMESTAMP}" -d "NONCE=${NONCE}" \
+  -d "RRN=${RRN}" -d "INT_REF=${INT_REF}" \
+  -d "P_SIGN=${P_SIGN}"
+# Response: HTML with hidden INPUT fields. RC=00 = success.
+</pre></div>
+</div>
+
+</section>
+
+<!-- ─────────────────── TRTYPE=24 ─────────────────── -->
+<section id="trtype-24">
+
+<div data-lang="en" class="active">
+<h2>TRTYPE=24 — Reversal (Refund)</h2>
+<p>Refunds a completed transaction. Supports full or partial amounts.</p>
+<div class="alert alert-danger"><strong>Only one reversal per transaction.</strong> A second attempt returns <code>RC=95</code>. Note: RC=95 means the reversal was already successfully processed — check your records before assuming failure.</div>
+<h3>Partial Refund Rules</h3>
+<ul>
+  <li><strong>After TRTYPE=21 completes:</strong> reversal can be for any amount ≤ original</li>
+  <li><strong>Before TRTYPE=21:</strong> do TRTYPE=21 for the remaining amount first, then reverse for the difference</li>
+</ul>
+<h3>Required Fields</h3>
+</div>
+<div data-lang="ro">
+<h2>TRTYPE=24 — Reversare (Rambursare)</h2>
+<p>Rambursează o tranzacție finalizată. Suportă sume complete sau parțiale.</p>
+<div class="alert alert-danger"><strong>Doar o singură reversare per tranzacție.</strong> O a doua încercare returnează <code>RC=95</code>. Notă: RC=95 înseamnă că reversarea a fost deja procesată cu succes — verifică-ți înregistrările înainte de a presupune eșec.</div>
+<h3>Reguli de rambursare parțială</h3>
+<ul>
+  <li><strong>După finalizarea TRTYPE=21:</strong> reversarea poate fi pentru orice sumă ≤ suma originală</li>
+  <li><strong>Înainte de TRTYPE=21:</strong> execută mai întâi TRTYPE=21 pentru suma rămasă, apoi reversarea pentru diferență</li>
+</ul>
+<h3>Câmpuri necesare</h3>
+</div>
+<div data-lang="ru">
+<h2>TRTYPE=24 — Реверсал (Возврат)</h2>
+<p>Возвращает средства по завершённой транзакции. Поддерживает полные и частичные суммы.</p>
+<div class="alert alert-danger"><strong>Только один реверсал на транзакцию.</strong> Повторная попытка вернёт <code>RC=95</code>. Примечание: RC=95 означает, что реверсал уже был успешно обработан — проверьте свои записи, прежде чем считать это ошибкой.</div>
+<h3>Правила частичного возврата</h3>
+<ul>
+  <li><strong>После завершения TRTYPE=21:</strong> реверсал может быть на любую сумму ≤ оригинальной</li>
+  <li><strong>До TRTYPE=21:</strong> сначала выполните TRTYPE=21 на оставшуюся сумму, затем реверсал на разницу</li>
+</ul>
+<h3>Обязательные поля</h3>
+</div>
+
+<table class="field-table">
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>ORDER</td><td>Original ORDER value</td></tr>
+  <tr><td>AMOUNT</td><td>Amount to refund (full or partial)</td></tr>
+  <tr><td>CURRENCY</td><td>Original currency</td></tr>
+  <tr><td>TERMINAL</td><td>Your Terminal ID</td></tr>
+  <tr><td>TRTYPE</td><td><code>24</code></td></tr>
+  <tr><td>TIMESTAMP</td><td>Fresh UTC timestamp</td></tr>
+  <tr><td>NONCE</td><td>Fresh random hex, min 40 chars (20 bytes)</td></tr>
+  <tr><td>RRN</td><td>RRN from original TRTYPE=0 callback</td></tr>
+  <tr><td>INT_REF</td><td>INT_REF from original TRTYPE=0 callback</td></tr>
+  <tr><td>P_SIGN</td><td>Signed: ORDER → NONCE → TIMESTAMP → TRTYPE → AMOUNT</td></tr>
+</table>
+
+<div data-lang="en" class="active"><h3>Response Format</h3><p>Bank returns a <strong>URL-encoded string</strong> (different from TRTYPE=21 which returns HTML). Parse with <code>parse_str()</code>.</p></div>
+<div data-lang="ro"><h3>Formatul răspunsului</h3><p>Banca returnează un <strong>șir URL-encoded</strong> (diferit de TRTYPE=21 care returnează HTML). Parsează cu <code>parse_str()</code>.</p></div>
+<div data-lang="ru"><h3>Формат ответа</h3><p>Банк возвращает <strong>URL-encoded строку</strong> (в отличие от TRTYPE=21, который возвращает HTML). Разбирайте с помощью <code>parse_str()</code>.</p></div>
+
+<div class="code-block">
+  <div class="code-header"><span>TRTYPE=24 — Reversal / Refund</span><span style="color:var(--text-muted);font-size:11px;">Node.js &middot; PHP &middot; Python &middot; Java &middot; C# &middot; cURL</span></div>
+  <div class="lang-tabs">
+    <button class="lang-tab active" data-code-lang="node" onclick="switchCodeLang(this,'node')">Node.js</button>
+    <button class="lang-tab" data-code-lang="php" onclick="switchCodeLang(this,'php')">PHP</button>
+    <button class="lang-tab" data-code-lang="python" onclick="switchCodeLang(this,'python')">Python</button>
+    <button class="lang-tab" data-code-lang="java" onclick="switchCodeLang(this,'java')">Java</button>
+    <button class="lang-tab" data-code-lang="csharp" onclick="switchCodeLang(this,'csharp')">C#</button>
+    <button class="lang-tab" data-code-lang="curl" onclick="switchCodeLang(this,'curl')">cURL</button>
+  </div>
+<div class="lang-panel active" data-code-lang="node"><pre>async function vbReversal(orderId, amount, currency, rrn, intRef, terminalId, testMode=false) {
+  const nonce     = generateNonce();
+  const timestamp = generateTimestamp();
+  const pSign     = psignGenerate(orderId, nonce, timestamp, '24', amount, PRIVATE_KEY);
+
+  const params = {
+    ORDER: orderId,    AMOUNT: amount,    CURRENCY: currency,
+    TERMINAL: terminalId, TRTYPE: '24',
+    TIMESTAMP: timestamp, NONCE: nonce,
+    RRN: rrn, INT_REF: intRef, P_SIGN: pSign,
+  };
+
+  const host = testMode ? 'ecomt.victoriabank.md' : 'vb059.vb.md';
+
+  return new Promise((resolve, reject) =&gt; {
+    const body = new URLSearchParams(params).toString();
+    const req = require('https').request({
+      hostname: host, path: '/cgi-bin/cgi_link', method: 'POST', timeout: 30000,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded',
+                 'Content-Length': Buffer.byteLength(body) }
+    }, res =&gt; {
+      let data = '';
+      res.on('data', c =&gt; data += c);
+      res.on('end', () =&gt; {
+        // TRTYPE=24 response is URL-encoded (NOT HTML like TRTYPE=21!)
+        resolve(Object.fromEntries(new URLSearchParams(data)));
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// Usage:
+// const r = await vbReversal(order, amount, currency, rrn, intRef, terminal, true);
+// if (r.RC === '00')  console.log('Refund OK');
+// if (r.RC === '95')  console.log('Already reversed - check records');
+</pre></div>
+<div class="lang-panel" data-code-lang="php"><pre>&lt;?php
+function vbReversal(string $orderId, string $amount, string $currency,
+                    string $rrn, string $intRef, string $privateKeyPem,
+                    string $terminalId, bool $testMode = false): array
+{
+    $nonce     = generateNonce();
+    $timestamp = generateTimestamp();
+    $pSign     = psignGenerate($orderId, $nonce, $timestamp, '24', $amount, $privateKeyPem);
+
+    $params = [
+        'ORDER'    =&gt; $orderId, 'AMOUNT'    =&gt; $amount,
+        'CURRENCY' =&gt; $currency,'TERMINAL'  =&gt; $terminalId,
+        'TRTYPE'   =&gt; '24',    'TIMESTAMP' =&gt; $timestamp,
+        'NONCE'    =&gt; $nonce,  'RRN'       =&gt; $rrn,
+        'INT_REF'  =&gt; $intRef, 'P_SIGN'    =&gt; $pSign,
+    ];
+
+    $endpoint = $testMode
+        ? 'https://ecomt.victoriabank.md/cgi-bin/cgi_link'
+        : 'https://vb059.vb.md/cgi-bin/cgi_link';
+
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [CURLOPT_POST=&gt;true, CURLOPT_POSTFIELDS=&gt;http_build_query($params),
+                            CURLOPT_RETURNTRANSFER=&gt;true, CURLOPT_TIMEOUT=&gt;30]);
+    $body = curl_exec($ch);
+    curl_close($ch);
+
+    // IMPORTANT: TRTYPE=24 response is URL-encoded (NOT HTML!)
+    $response = [];
+    parse_str($body, $response);
+    return $response;
+}
+
+// Usage:
+// $result = vbReversal($order, $amount, $currency, $rrn, $intRef, $privateKey, $terminal);
+// if ($result['RC'] === '00')  { /* Refund successful */ }
+// elseif ($result['RC'] === '95') { /* Already reversed - check records */ }
+</pre></div>
+<div class="lang-panel" data-code-lang="python"><pre>import urllib.parse, urllib.request, ssl
+
+def vb_reversal(order_id: str, amount: str, currency: str, rrn: str, int_ref: str,
+                private_key, terminal_id: str, test_mode: bool = False) -&gt; dict:
+    """TRTYPE=24 Reversal. Response is URL-encoded (not HTML!)."""
+    nonce     = generate_nonce()
+    timestamp = generate_timestamp()
+    p_sign    = psign_generate(order_id, nonce, timestamp, '24', amount, private_key)
+
+    params = {
+        'ORDER': order_id,    'AMOUNT': amount,   'CURRENCY': currency,
+        'TERMINAL': terminal_id, 'TRTYPE': '24',
+        'TIMESTAMP': timestamp, 'NONCE': nonce,
+        'RRN': rrn,           'INT_REF': int_ref, 'P_SIGN': p_sign,
+    }
+
+    endpoint = ('https://ecomt.victoriabank.md/cgi-bin/cgi_link' if test_mode
+                else 'https://vb059.vb.md/cgi-bin/cgi_link')
+
+    body = urllib.parse.urlencode(params).encode()
+    req  = urllib.request.Request(endpoint, data=body,
+           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    ctx = ssl.create_default_context()
+    with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+        response_body = resp.read().decode('utf-8', errors='replace')
+
+    # IMPORTANT: TRTYPE=24 response is URL-encoded, NOT HTML
+    return dict(urllib.parse.parse_qsl(response_body))
+
+# Usage:
+# r = vb_reversal(order, amount, currency, rrn, int_ref, private_key, terminal_id)
+# if r.get('RC') == '00': mark_refunded(order)
+# elif r.get('RC') == '95': pass  # already reversed - do not retry
+</pre></div>
+<div class="lang-panel" data-code-lang="java"><pre>import java.net.URI;
+import java.net.http.*;
+import java.util.*;
+
+// TRTYPE=24 - response is URL-encoded (NOT HTML like TRTYPE=21!)
+public static Map&lt;String,String&gt; executeReversal(String orderId, String amount, String currency,
+        String rrn, String intRef, String terminalId, PrivateKey pk, boolean test) throws Exception {
+    String nonce     = PSignUtils.generateNonce();
+    String timestamp = PSignUtils.generateTimestamp();
+    String pSign     = PSignUtils.psignGenerate(orderId, nonce, timestamp, "24", amount, pk);
+
+    String body = "ORDER=" + enc(orderId) + "&amp;AMOUNT=" + enc(amount)
+        + "&amp;CURRENCY=" + enc(currency) + "&amp;TERMINAL=" + enc(terminalId)
+        + "&amp;TRTYPE=24&amp;TIMESTAMP=" + enc(timestamp) + "&amp;NONCE=" + enc(nonce)
+        + "&amp;RRN=" + enc(rrn) + "&amp;INT_REF=" + enc(intRef) + "&amp;P_SIGN=" + enc(pSign);
+
+    var respBody = HttpClient.newHttpClient().send(
+        HttpRequest.newBuilder().uri(URI.create(test ? GW_TEST : GW_PROD))
+            .header("Content-Type","application/x-www-form-urlencoded")
+            .POST(HttpRequest.BodyPublishers.ofString(body)).build(),
+        HttpResponse.BodyHandlers.ofString()).body();
+
+    // Parse URL-encoded response (different from TRTYPE=21 which returns HTML)
+    Map&lt;String,String&gt; result = new HashMap&lt;&gt;();
+    for (String pair : respBody.split("&amp;")) {
+        int eq = pair.indexOf('=');
+        if (eq &gt; 0)
+            result.put(java.net.URLDecoder.decode(pair.substring(0,eq),"UTF-8"),
+                       java.net.URLDecoder.decode(pair.substring(eq+1),"UTF-8"));
+    }
+    return result; // RC=00=success, RC=95=already reversed
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="csharp"><pre>// TRTYPE=24 Reversal - response is URL-encoded (NOT HTML!)
+public static async Task&lt;Dictionary&lt;string,string&gt;&gt; ReversalAsync(
+    string orderId, string amount, string currency,
+    string rrn, string intRef, string terminalId, RSA rsa, bool testMode = false)
+{
+    var nonce     = PSignUtils.GenerateNonce();
+    var timestamp = PSignUtils.GenerateTimestamp();
+    var pSign     = PSignUtils.PSignGenerate(orderId, nonce, timestamp, "24", amount, rsa);
+
+    var content = new FormUrlEncodedContent(new Dictionary&lt;string,string&gt;
+    {
+        ["ORDER"]=orderId,     ["AMOUNT"]=amount,     ["CURRENCY"]=currency,
+        ["TERMINAL"]=terminalId, ["TRTYPE"]="24",
+        ["TIMESTAMP"]=timestamp, ["NONCE"]=nonce,
+        ["RRN"]=rrn,           ["INT_REF"]=intRef,    ["P_SIGN"]=pSign,
+    });
+
+    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    var body = await (await client.PostAsync(testMode ? GwTest : GwProd, content))
+                     .Content.ReadAsStringAsync();
+
+    // TRTYPE=24 returns URL-encoded string (unlike TRTYPE=21 which returns HTML)
+    var result = new Dictionary&lt;string,string&gt;();
+    foreach (var pair in body.Split('&amp;'))
+    {
+        var eq = pair.IndexOf('=');
+        if (eq &gt; 0)
+            result[Uri.UnescapeDataString(pair[..eq])] = Uri.UnescapeDataString(pair[(eq+1)..]);
+    }
+    return result; // RC=00=success, RC=95=already reversed
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="curl"><pre>ORDER="001023"; AMOUNT="150.00"; CURRENCY="MDL"
+RRN="123456789012"; INT_REF="ABCDEF123456"
+TERMINAL="YOUR_TERMINAL_ID"
+NONCE=$(openssl rand -hex 20 | tr '[:lower:]' '[:upper:]')
+TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+
+mac() { echo -n "${#1}${1}"; }
+MAC="$(mac $ORDER)$(mac $NONCE)$(mac $TIMESTAMP)$(mac 24)$(mac $AMOUNT)"
+echo -n "$MAC" &gt; /tmp/mac24.bin
+P_SIGN=$(openssl dgst -sha256 -sign /var/private/vb-keys/merchant_private.pem \
+         /tmp/mac24.bin | xxd -p | tr -d '\n' | tr '[:lower:]' '[:upper:]')
+rm /tmp/mac24.bin
+
+curl -sS -X POST https://ecomt.victoriabank.md/cgi-bin/cgi_link \
+  -d "ORDER=${ORDER}" -d "AMOUNT=${AMOUNT}" -d "CURRENCY=${CURRENCY}" \
+  -d "TERMINAL=${TERMINAL}" -d "TRTYPE=24" \
+  -d "TIMESTAMP=${TIMESTAMP}" -d "NONCE=${NONCE}" \
+  -d "RRN=${RRN}" -d "INT_REF=${INT_REF}" \
+  -d "P_SIGN=${P_SIGN}"
+# Response: URL-encoded string (NOT HTML!)
+# RC=00 = refund successful
+# RC=95 = already reversed (money was already returned - do not retry)
+</pre></div>
+</div>
+
+</section>
+
+<!-- ─────────────────── TRTYPE=90 ─────────────────── -->
+<section id="trtype-90">
+
+<div data-lang="en" class="active">
+<h2>TRTYPE=90 — Status Check (Polling Fallback)</h2>
+<p>Queries the current status of a transaction. Use when the callback push notification hasn't arrived within the expected time (e.g., customer closed the browser before completing 3DS).</p>
+<div class="alert alert-ok"><strong>No P_SIGN, TIMESTAMP, or NONCE required</strong> for TRTYPE=90 — the simplest request type.</div>
+<h3>Polling Strategy</h3>
+<ul>
+  <li>Start polling if no callback arrives within 5 minutes</li>
+  <li>Poll every 3 minutes, for up to 60 minutes total</li>
+  <li>Stop when you receive a final result: <code>ACTION=0</code> (success) or <code>ACTION=2/3</code> (failure)</li>
+  <li>After 60 minutes with no definitive result — treat as failed and contact VictoriaBank support</li>
+</ul>
+</div>
+<div data-lang="ro">
+<h2>TRTYPE=90 — Verificare Status (Polling de rezervă)</h2>
+<p>Interogă starea curentă a unei tranzacții. Folosește când notificarea callback nu a sosit în timpul așteptat (ex.: clientul a închis browserul înainte de finalizarea 3DS).</p>
+<div class="alert alert-ok"><strong>Nu necesită P_SIGN, TIMESTAMP sau NONCE</strong> — cel mai simplu tip de cerere.</div>
+<h3>Strategia de polling</h3>
+<ul>
+  <li>Începe polling-ul dacă nu sosește callback în 5 minute</li>
+  <li>Fă polling la fiecare 3 minute, pentru maximum 60 de minute</li>
+  <li>Oprește când primești un rezultat final: <code>ACTION=0</code> (succes) sau <code>ACTION=2/3</code> (eșec)</li>
+  <li>După 60 de minute fără rezultat definitiv — tratează ca eșuat și contactează suportul VictoriaBank</li>
+</ul>
+</div>
+<div data-lang="ru">
+<h2>TRTYPE=90 — Проверка статуса (Резервное опрашивание)</h2>
+<p>Запрашивает текущий статус транзакции. Используйте, когда callback-уведомление не пришло в ожидаемое время (например, покупатель закрыл браузер до завершения 3DS).</p>
+<div class="alert alert-ok"><strong>Не требуется P_SIGN, TIMESTAMP или NONCE</strong> — самый простой тип запроса.</div>
+<h3>Стратегия опрашивания</h3>
+<ul>
+  <li>Начинайте опрашивание если callback не пришёл в течение 5 минут</li>
+  <li>Опрашивайте каждые 3 минуты, до 60 минут</li>
+  <li>Останавливайтесь при получении окончательного результата: <code>ACTION=0</code> (успех) или <code>ACTION=2/3</code> (неудача)</li>
+  <li>После 60 минут без результата — считайте транзакцию неудачной и свяжитесь со службой поддержки VictoriaBank</li>
+</ul>
+</div>
+
+<table class="field-table">
+  <tr><th>Field</th><th>Value</th></tr>
+  <tr><td>TERMINAL</td><td>Your Terminal ID</td></tr>
+  <tr><td>TRTYPE</td><td><code>90</code></td></tr>
+  <tr><td>TRAN_TRTYPE</td><td>Type of transaction to check (usually <code>0</code>)</td></tr>
+  <tr><td>ORDER</td><td>The ORDER value to check</td></tr>
+</table>
+
+<div data-lang="en" class="active"><h3>Decision Matrix (TRTYPE=90 Response)</h3></div>
+<div data-lang="ro"><h3>Matricea de decizie (răspuns TRTYPE=90)</h3></div>
+<div data-lang="ru"><h3>Матрица принятия решений (ответ TRTYPE=90)</h3></div>
+
+<table class="field-table">
+  <tr><th>ACTION</th><th>RC</th><th>Meaning</th><th>Next action</th></tr>
+  <tr><td><code>0</code></td><td><code>00</code></td><td style="color:#4ade80">Paid</td><td>Execute TRTYPE=21 immediately</td></tr>
+  <tr><td><code>1</code></td><td><code>00</code></td><td style="color:#fbbf24">Duplicate</td><td>Already processed — skip TRTYPE=21</td></tr>
+  <tr><td><code>2</code></td><td>negative</td><td style="color:#f87171">Declined</td><td>Stop polling, mark order as failed</td></tr>
+  <tr><td><code>3</code></td><td>negative</td><td style="color:#f87171">Error</td><td>Stop polling, mark order as failed</td></tr>
+  <tr><td>any</td><td><code>-25</code></td><td style="color:#8b949e">Cancelled</td><td>Stop polling, customer cancelled</td></tr>
+</table>
+
+<div class="code-block">
+  <div class="code-header"><span>TRTYPE=90 — Status Check with polling loop</span><span style="color:var(--text-muted);font-size:11px;">Node.js &middot; PHP &middot; Python &middot; Java &middot; C# &middot; cURL</span></div>
+  <div class="lang-tabs">
+    <button class="lang-tab active" data-code-lang="node" onclick="switchCodeLang(this,'node')">Node.js</button>
+    <button class="lang-tab" data-code-lang="php" onclick="switchCodeLang(this,'php')">PHP</button>
+    <button class="lang-tab" data-code-lang="python" onclick="switchCodeLang(this,'python')">Python</button>
+    <button class="lang-tab" data-code-lang="java" onclick="switchCodeLang(this,'java')">Java</button>
+    <button class="lang-tab" data-code-lang="csharp" onclick="switchCodeLang(this,'csharp')">C#</button>
+    <button class="lang-tab" data-code-lang="curl" onclick="switchCodeLang(this,'curl')">cURL</button>
+  </div>
+<div class="lang-panel active" data-code-lang="node"><pre>async function vbStatusCheck(orderId, terminalId, testMode=false) {
+  // No P_SIGN, TIMESTAMP, or NONCE required for TRTYPE=90
+  const params = { TERMINAL: terminalId, TRTYPE: '90', TRAN_TRTYPE: '0', ORDER: orderId };
+  const host = testMode ? 'ecomt.victoriabank.md' : 'vb059.vb.md';
+
+  return new Promise((resolve, reject) =&gt; {
+    const body = new URLSearchParams(params).toString();
+    const req = require('https').request({
+      hostname: host, path: '/cgi-bin/cgi_link', method: 'POST', timeout: 30000,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded',
+                 'Content-Length': Buffer.byteLength(body) }
+    }, res =&gt; {
+      let html = '';
+      res.on('data', c =&gt; html += c);
+      res.on('end', () =&gt; {
+        const result = {};
+        const re = /name="(\w+)"[^&gt;]+value="([^"]*)"/gi;
+        let m;
+        while ((m = re.exec(html)) !== null) result[m[1]] = m[2];
+        resolve(result);
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// Poll every 3 min for up to 60 min (start after 5 min of no callback)
+async function vbPollStatus(orderId, terminalId, maxAttempts=20, intervalMs=180000, testMode=false) {
+  const FAIL_ACTIONS = new Set(['2','3','6','14']);
+  const FAIL_RCS     = new Set(['-25','-30']);
+  for (let i = 1; i &lt;= maxAttempts; i++) {
+    const r = await vbStatusCheck(orderId, terminalId, testMode);
+    if (r.ACTION === '0' &amp;&amp; r.RC === '00') return r;   // Paid
+    if (FAIL_ACTIONS.has(r.ACTION) || FAIL_RCS.has(r.RC)) return r; // Final failure
+    if (i &lt; maxAttempts) await new Promise(res =&gt; setTimeout(res, intervalMs));
+  }
+  return null; // Timeout - treat as failed, contact bank support
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="php"><pre>&lt;?php
+function vbStatusCheck(string $orderId, string $terminalId, bool $testMode = false): array
+{
+    // No P_SIGN, TIMESTAMP, or NONCE required for TRTYPE=90
+    $params = ['TERMINAL' =&gt; $terminalId, 'TRTYPE' =&gt; '90',
+               'TRAN_TRTYPE' =&gt; '0', 'ORDER' =&gt; $orderId];
+
+    $endpoint = $testMode
+        ? 'https://ecomt.victoriabank.md/cgi-bin/cgi_link'
+        : 'https://vb059.vb.md/cgi-bin/cgi_link';
+
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [CURLOPT_POST=&gt;true, CURLOPT_POSTFIELDS=&gt;http_build_query($params),
+                            CURLOPT_RETURNTRANSFER=&gt;true, CURLOPT_TIMEOUT=&gt;30]);
+    $html = curl_exec($ch);
+    curl_close($ch);
+
+    preg_match_all('/&lt;input[^&gt;]+name=["\'](\w+)["\'][^&gt;]+value=["\']([^"\']*)/i',
+                   $html, $matches, PREG_SET_ORDER);
+    $result = [];
+    foreach ($matches as $m) $result[$m[1]] = $m[2];
+    return $result;
+}
+
+function vbPollStatus(string $orderId, string $terminalId,
+                      int $maxAttempts = 20, int $intervalSec = 180,
+                      bool $testMode = false): ?array
+{
+    $failActions = ['2','3','6','14'];
+    for ($i = 1; $i &lt;= $maxAttempts; $i++) {
+        $result = vbStatusCheck($orderId, $terminalId, $testMode);
+        $action = $result['ACTION'] ?? '';
+        $rc     = $result['RC']     ?? '';
+        if ($action === '0' &amp;&amp; $rc === '00') return $result;
+        if (in_array($action, $failActions) || in_array($rc, ['-25','-30'])) return $result;
+        if ($i &lt; $maxAttempts) sleep($intervalSec);
+    }
+    return null;
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="python"><pre>import re, ssl, time, urllib.parse, urllib.request
+
+def vb_status_check(order_id: str, terminal_id: str, test_mode: bool = False) -&gt; dict:
+    """TRTYPE=90 - No P_SIGN, TIMESTAMP, or NONCE required."""
+    params = {'TERMINAL': terminal_id, 'TRTYPE': '90',
+              'TRAN_TRTYPE': '0', 'ORDER': order_id}
+
+    endpoint = ('https://ecomt.victoriabank.md/cgi-bin/cgi_link' if test_mode
+                else 'https://vb059.vb.md/cgi-bin/cgi_link')
+
+    body = urllib.parse.urlencode(params).encode()
+    req  = urllib.request.Request(endpoint, data=body,
+           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    ctx = ssl.create_default_context()
+    with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+        html = resp.read().decode('utf-8', errors='replace')
+
+    result = {}
+    for m in re.finditer(r'name=["\'](\w+)["\'][^&gt;]+value=["\']([^"\']*)', html, re.I):
+        result[m.group(1)] = m.group(2)
+    return result
+
+def vb_poll_status(order_id: str, terminal_id: str,
+                   max_attempts: int = 20, interval_sec: int = 180,
+                   test_mode: bool = False) -&gt; dict | None:
+    FAIL_ACTIONS = {'2','3','6','14'}
+    FAIL_RCS     = {'-25','-30'}
+    for i in range(1, max_attempts + 1):
+        r = vb_status_check(order_id, terminal_id, test_mode)
+        if r.get('ACTION') == '0' and r.get('RC') == '00': return r
+        if r.get('ACTION') in FAIL_ACTIONS or r.get('RC') in FAIL_RCS: return r
+        if i &lt; max_attempts: time.sleep(interval_sec)
+    return None  # Timeout
+
+# Usage:
+# result = vb_poll_status(order, terminal_id, test_mode=True)
+# if result and result.get('RC') == '00': vb_completion(...)
+</pre></div>
+<div class="lang-panel" data-code-lang="java"><pre>import java.net.URI;
+import java.net.http.*;
+import java.util.*;
+import java.util.regex.*;
+
+// TRTYPE=90 - No P_SIGN required
+public static Map&lt;String,String&gt; statusCheck(String orderId, String terminalId,
+                                              boolean test) throws Exception {
+    String body = "TERMINAL=" + enc(terminalId) + "&amp;TRTYPE=90&amp;TRAN_TRTYPE=0&amp;ORDER=" + enc(orderId);
+
+    var html = HttpClient.newHttpClient().send(
+        HttpRequest.newBuilder().uri(URI.create(test ? GW_TEST : GW_PROD))
+            .header("Content-Type","application/x-www-form-urlencoded")
+            .POST(HttpRequest.BodyPublishers.ofString(body)).build(),
+        HttpResponse.BodyHandlers.ofString()).body();
+
+    Map&lt;String,String&gt; result = new HashMap&lt;&gt;();
+    Matcher m = Pattern.compile("name=\"(\\w+)\"[^&gt;]+value=\"([^\"]*)\"",
+                Pattern.CASE_INSENSITIVE).matcher(html);
+    while (m.find()) result.put(m.group(1), m.group(2));
+    return result;
+}
+
+public static Map&lt;String,String&gt; pollStatus(String orderId, String terminalId,
+        int maxAttempts, long intervalMs, boolean test) throws Exception {
+    var failActions = Set.of("2","3","6","14");
+    var failRCs     = Set.of("-25","-30");
+    for (int i = 1; i &lt;= maxAttempts; i++) {
+        var r = statusCheck(orderId, terminalId, test);
+        if ("0".equals(r.get("ACTION")) &amp;&amp; "00".equals(r.get("RC"))) return r;
+        if (failActions.contains(r.get("ACTION")) || failRCs.contains(r.get("RC"))) return r;
+        if (i &lt; maxAttempts) Thread.sleep(intervalMs);
+    }
+    return null;
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="csharp"><pre>using System.Text.RegularExpressions;
+
+// TRTYPE=90 - No P_SIGN required
+public static async Task&lt;Dictionary&lt;string,string&gt;&gt; StatusCheckAsync(
+    string orderId, string terminalId, bool testMode = false)
+{
+    var content = new FormUrlEncodedContent(new Dictionary&lt;string,string&gt;
+    {
+        ["TERMINAL"] = terminalId, ["TRTYPE"] = "90",
+        ["TRAN_TRTYPE"] = "0",     ["ORDER"] = orderId,
+    });
+    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    var html = await (await client.PostAsync(testMode ? GwTest : GwProd, content))
+                     .Content.ReadAsStringAsync();
+
+    var result = new Dictionary&lt;string,string&gt;();
+    foreach (Match m in Regex.Matches(html,
+        @"name=""(\w+)""[^&gt;]+value=""([^""]*)""", RegexOptions.IgnoreCase))
+        result[m.Groups[1].Value] = m.Groups[2].Value;
+    return result;
+}
+
+public static async Task&lt;Dictionary&lt;string,string&gt;?&gt; PollStatusAsync(
+    string orderId, string terminalId, int maxAttempts=20,
+    int intervalMs=180000, bool testMode=false)
+{
+    var failActions = new HashSet&lt;string&gt; {"2","3","6","14"};
+    var failRCs     = new HashSet&lt;string&gt; {"-25","-30"};
+    for (int i = 1; i &lt;= maxAttempts; i++)
+    {
+        var r = await StatusCheckAsync(orderId, terminalId, testMode);
+        if (r.GetValueOrDefault("ACTION") == "0" &amp;&amp; r.GetValueOrDefault("RC") == "00") return r;
+        if (failActions.Contains(r.GetValueOrDefault("ACTION","")) ||
+            failRCs.Contains(r.GetValueOrDefault("RC",""))) return r;
+        if (i &lt; maxAttempts) await Task.Delay(intervalMs);
+    }
+    return null;
+}
+</pre></div>
+<div class="lang-panel" data-code-lang="curl"><pre># TRTYPE=90 - No P_SIGN, TIMESTAMP, or NONCE required (simplest request type)
+
+curl -sS -X POST https://ecomt.victoriabank.md/cgi-bin/cgi_link \
+  -d "TERMINAL=YOUR_TERMINAL_ID" \
+  -d "TRTYPE=90" \
+  -d "TRAN_TRTYPE=0" \
+  -d "ORDER=001023"
+
+# Response: HTML with hidden INPUT fields
+# ACTION=0 + RC=00 -&gt; PAID, execute TRTYPE=21 immediately
+# ACTION=1 + RC=00 -&gt; Already captured (skip TRTYPE=21)
+# ACTION=2/3       -&gt; Declined/Error, stop polling
+# RC=-25           -&gt; Customer cancelled
+# No result after 60 min -&gt; Contact VictoriaBank support
+</pre></div>
+</div>
+
+</section>
+
+<!-- ─────────────────── CURRENCIES ─────────────────── -->
+<section id="currencies">
+
+<div data-lang="en" class="active"><h2>Currencies &amp; Payment Types</h2></div>
+<div data-lang="ro"><h2>Valute și Tipuri de Plată</h2></div>
+<div data-lang="ru"><h2>Валюты и типы платежей</h2></div>
+
+<table class="field-table" style="max-width:600px;">
+  <tr><th>CURRENCY</th><th>Payment type</th><th>Notes</th></tr>
+  <tr><td><code>MDL</code></td><td>Visa / Mastercard</td><td>Standard card payment in Moldovan Lei</td></tr>
+  <tr><td><code>MDL</code></td><td>StarCard Installments</td><td>Installment payment with StarCard</td></tr>
+  <tr><td><code>USD</code></td><td>Visa / Mastercard</td><td>US Dollar payments (if enabled by bank)</td></tr>
+  <tr><td><code>EUR</code></td><td>Visa / Mastercard</td><td>Euro payments (if enabled by bank)</td></tr>
+  <tr><td><code>06S</code></td><td>StarCard Points</td><td>Loyalty points — also add <code>ACCNT_SEL=08</code></td></tr>
+</table>
+
+</section>
+
+<!-- ─────────────────── RC CODES ─────────────────── -->
+<section id="rc-codes">
+
+<div data-lang="en" class="active"><h2>RC Response Codes</h2><p>Returned in all callbacks and server responses. The RC field is the definitive result indicator.</p></div>
+<div data-lang="ro"><h2>Coduri RC de răspuns</h2><p>Returnate în toate callback-urile și răspunsurile server. Câmpul RC este indicatorul definitiv al rezultatului.</p></div>
+<div data-lang="ru"><h2>Коды RC ответа</h2><p>Возвращаются во всех callback и серверных ответах. Поле RC является окончательным индикатором результата.</p></div>
+
+<div class="rc-grid">
+  <div class="rc-item"><span class="rc-code rc-ok">00</span><span class="rc-desc">Transaction approved / success</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">95</span><span class="rc-desc">Reversal already executed (duplicate TRTYPE=24)</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-1</span><span class="rc-desc">Missing mandatory request field</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-2</span><span class="rc-desc">CGI request validation failed</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-3</span><span class="rc-desc">Acquirer host not responding / invalid template</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-4</span><span class="rc-desc">No connection to acquirer host</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-5</span><span class="rc-desc">Connection to acquirer failed during processing</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-6</span><span class="rc-desc">e-Gateway configuration error</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-7</span><span class="rc-desc">Invalid response from acquirer (mandatory fields missing)</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-8</span><span class="rc-desc">Error in card number field</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-9</span><span class="rc-desc">Error in card expiration date field</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-10</span><span class="rc-desc">Error in Amount field (wrong format)</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-11</span><span class="rc-desc">Error in Currency field</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-12</span><span class="rc-desc">Error in Merchant ID field</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-13</span><span class="rc-desc">Referrer IP not whitelisted by bank</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-15</span><span class="rc-desc">Error in RRN field</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-16</span><span class="rc-desc">Another transaction in progress on this terminal</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-17</span><span class="rc-desc"><strong>Access denied — P_SIGN invalid or wrong keys</strong></span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-18</span><span class="rc-desc">Error in CVC2 field</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-19</span><span class="rc-desc">Authentication failed</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-20</span><span class="rc-desc"><strong>TIMESTAMP expired — server clock &gt;1 hour from UTC</strong></span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-21</span><span class="rc-desc">Transaction already executed (duplicate)</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-22</span><span class="rc-desc">Invalid authentication information</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-23</span><span class="rc-desc">Invalid transaction context</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-24</span><span class="rc-desc">Transaction context data mismatch</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">-25</span><span class="rc-desc">Transaction cancelled by customer</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-26</span><span class="rc-desc">Invalid action BIN</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-27</span><span class="rc-desc">Invalid merchant name</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-28</span><span class="rc-desc">Invalid incoming addendum(s)</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-29</span><span class="rc-desc">Invalid / duplicate authentication reference</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-30</span><span class="rc-desc">Transaction declined as fraud</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-31</span><span class="rc-desc">Transaction already in progress</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-32</span><span class="rc-desc">Duplicate declined transaction</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-33</span><span class="rc-desc">Customer authentication in progress</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-34</span><span class="rc-desc">Mastercard Installment customer choice in progress</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-35</span><span class="rc-desc">Mastercard Installment auto cancelled</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-36</span><span class="rc-desc">Mastercard Installment user cancelled</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-37</span><span class="rc-desc">Invalid recurring expiration date</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-38</span><span class="rc-desc">China Union Pay server error</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">-46</span><span class="rc-desc">Non-critical error, can retry</span></div>
+</div>
+
+</section>
+
+<!-- ─────────────────── ACTION CODES ─────────────────── -->
+<section id="action-codes">
+
+<div data-lang="en" class="active"><h2>ACTION Codes</h2><p>Returned in callbacks and TRTYPE=90 responses. Indicates the overall transaction state.</p></div>
+<div data-lang="ro"><h2>Coduri ACTION</h2><p>Returnate în callback-uri și răspunsuri TRTYPE=90. Indică starea generală a tranzacției.</p></div>
+<div data-lang="ru"><h2>Коды ACTION</h2><p>Возвращаются в callback и ответах TRTYPE=90. Указывает общее состояние транзакции.</p></div>
+
+<div class="rc-grid">
+  <div class="rc-item"><span class="rc-code rc-ok">0</span><span class="rc-desc">Transaction success</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">1</span><span class="rc-desc">Duplicate transaction (already processed)</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">2</span><span class="rc-desc">Transaction declined</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">3</span><span class="rc-desc">Transaction error</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">5</span><span class="rc-desc">3D-Secure response from issuer</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">6</span><span class="rc-desc">Duplicate decline</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">7</span><span class="rc-desc">Duplicate authentication error</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">9</span><span class="rc-desc">MasterCard installment transaction</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">10</span><span class="rc-desc">Verify cardholder by OTP</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">11</span><span class="rc-desc">Verify cardholder by random amount</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">12</span><span class="rc-desc">MasterCard installment auto cancelled</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">13</span><span class="rc-desc">MasterCard installment auto full payment</span></div>
+  <div class="rc-item"><span class="rc-code rc-err">14</span><span class="rc-desc">MasterCard installment user cancelled</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">21</span><span class="rc-desc">Strong Customer Authentication required</span></div>
+  <div class="rc-item"><span class="rc-code rc-warn">22</span><span class="rc-desc">3D-Secure FingerPrint request</span></div>
+</div>
+
+</section>
+
+<!-- ─────────────────── TESTING ─────────────────── -->
+<section id="testing">
+
+<div data-lang="en" class="active">
+<h2>Testing</h2>
+<p>Use the TEST endpoint with test credentials provided by VictoriaBank. Test credentials are separate from production — different RSA keys, different terminal ID and merchant ID.</p>
+<div class="endpoint-row"><span class="badge badge-test">TEST</span><span class="badge badge-post">POST</span><span class="endpoint-url">https://ecomt.victoriabank.md/cgi-bin/cgi_link</span></div>
+<h3>Integration Checklist</h3>
+<ul class="checklist">
+  <li>P_SIGN generates correctly — no <code>RC=-17</code></li>
+  <li>TIMESTAMP is within ±1 hour of UTC — no <code>RC=-20</code></li>
+  <li>Callback URL is publicly accessible from the internet (not localhost, not VPN)</li>
+  <li>Callback URL responds HTTP 200 for all incoming requests</li>
+  <li>P_SIGN verification works in your callback handler</li>
+  <li>Empty RRN in declined callback MAC is handled correctly (encoded as <code>"-"</code>)</li>
+  <li>TRTYPE=21 fires automatically after successful callback (ACTION=0, RC=00)</li>
+  <li>TRTYPE=21 with correct amount returns <code>RC=00</code></li>
+  <li>TRTYPE=90 returns correct status when callback is simulated as missing</li>
+  <li>TRTYPE=24 full refund returns <code>RC=00</code></li>
+  <li>Second TRTYPE=24 attempt returns <code>RC=95</code></li>
+</ul>
+</div>
+<div data-lang="ro">
+<h2>Testare</h2>
+<p>Folosește endpoint-ul TEST cu credențialele de test furnizate de VictoriaBank. Credențialele de test sunt separate de producție — chei RSA diferite, ID terminal și ID comerciant diferite.</p>
+<div class="endpoint-row"><span class="badge badge-test">TEST</span><span class="badge badge-post">POST</span><span class="endpoint-url">https://ecomt.victoriabank.md/cgi-bin/cgi_link</span></div>
+<h3>Lista de verificare pentru integrare</h3>
+<ul class="checklist">
+  <li>P_SIGN se generează corect — fără <code>RC=-17</code></li>
+  <li>TIMESTAMP este în interval de ±1 oră față de UTC — fără <code>RC=-20</code></li>
+  <li>URL-ul Callback este accesibil public de pe internet (nu localhost, nu VPN)</li>
+  <li>URL-ul Callback răspunde cu HTTP 200 pentru toate cererile primite</li>
+  <li>Verificarea P_SIGN funcționează în handlerul tău de callback</li>
+  <li>RRN gol în MAC-ul callback-ului refuzat este gestionat corect (encodat ca <code>"-"</code>)</li>
+  <li>TRTYPE=21 se declanșează automat după un callback reușit (ACTION=0, RC=00)</li>
+  <li>TRTYPE=21 cu suma corectă returnează <code>RC=00</code></li>
+  <li>TRTYPE=90 returnează statusul corect când callback-ul este simulat ca lipsă</li>
+  <li>Rambursarea completă TRTYPE=24 returnează <code>RC=00</code></li>
+  <li>A doua încercare TRTYPE=24 returnează <code>RC=95</code></li>
+</ul>
+</div>
+<div data-lang="ru">
+<h2>Тестирование</h2>
+<p>Используйте TEST-эндпоинт с тестовыми учётными данными, предоставленными VictoriaBank. Тестовые учётные данные отделены от производственных — разные RSA-ключи, разные ID терминала и ID продавца.</p>
+<div class="endpoint-row"><span class="badge badge-test">TEST</span><span class="badge badge-post">POST</span><span class="endpoint-url">https://ecomt.victoriabank.md/cgi-bin/cgi_link</span></div>
+<h3>Чеклист интеграции</h3>
+<ul class="checklist">
+  <li>P_SIGN генерируется корректно — нет <code>RC=-17</code></li>
+  <li>TIMESTAMP в пределах ±1 часа от UTC — нет <code>RC=-20</code></li>
+  <li>Callback URL доступен из интернета (не localhost, не VPN)</li>
+  <li>Callback URL возвращает HTTP 200 для всех входящих запросов</li>
+  <li>Проверка P_SIGN работает в вашем callback-обработчике</li>
+  <li>Пустой RRN в MAC отклонённого callback обрабатывается корректно (кодируется как <code>"-"</code>)</li>
+  <li>TRTYPE=21 выполняется автоматически после успешного callback (ACTION=0, RC=00)</li>
+  <li>TRTYPE=21 с правильной суммой возвращает <code>RC=00</code></li>
+  <li>TRTYPE=90 возвращает корректный статус при симуляции отсутствия callback</li>
+  <li>Полный возврат TRTYPE=24 возвращает <code>RC=00</code></li>
+  <li>Повторная попытка TRTYPE=24 возвращает <code>RC=95</code></li>
+</ul>
+</div>
+
+</section>
+
+<!-- ─────────────────── TROUBLESHOOTING ─────────────────── -->
+<section id="troubleshooting">
+
+<div data-lang="en" class="active"><h2>Troubleshooting</h2></div>
+<div data-lang="ro"><h2>Depanare</h2></div>
+<div data-lang="ru"><h2>Устранение неполадок</h2></div>
+
+<h3>RC=-17 (Access denied — P_SIGN invalid)</h3>
+<div data-lang="en" class="active"><p>Most common causes:</p></div>
+<div data-lang="ro"><p>Cele mai frecvente cauze:</p></div>
+<div data-lang="ru"><p>Наиболее распространённые причины:</p></div>
+<ul>
+  <li data-lang-en="1">Wrong MAC field order — must be exactly <code>ORDER → NONCE → TIMESTAMP → TRTYPE → AMOUNT</code></li>
+  <li>Extra whitespace in any field value — always <code>trim()</code> values</li>
+  <li>Using test keys on production terminal or vice versa</li>
+  <li>AMOUNT format wrong — must use dot as decimal separator: <code>150.00</code> not <code>150</code> or <code>150,00</code></li>
+  <li>ORDER not padded to minimum 6 digits</li>
+</ul>
+
+<div class="code-block">
+  <div class="code-header"><span>Debug: print exact MAC string</span><span style="color:var(--text-muted);font-size:11px;">Node.js</span></div>
+  <div class="lang-tabs"><button class="lang-tab active" data-code-lang="node" onclick="switchCodeLang(this,'node')">Node.js</button></div>
+<div class="lang-panel active" data-code-lang="node"><pre>// Debug: print exact MAC string to diagnose RC=-17 (P_SIGN invalid)
+const fields = {
+  ORDER:     '001023',
+  NONCE:     'A3F1B2C4D5E6F7A8B9C0A1B2C3D4E5F6A7B8C9D0',
+  TIMESTAMP: '20260401120000',
+  TRTYPE:    '0',
+  AMOUNT:    '150.00',
+};
+
+let mac = '';
+console.log('MAC components:');
+for (const [name, value] of Object.entries(fields)) {
+  const part = `${value.length}${value}`;
+  mac += part;
+  console.log(`  ${name.padEnd(12)} ${part}`);
+}
+console.log(`
+Full MAC string:
+${mac}`);
+// Expected:
+//   ORDER        6001023
+//   NONCE        40A3F1B2C4D5E6F7A8B9C0A1B2C3D4E5F6A7B8C9D0
+//   TIMESTAMP    1420260401120000
+//   TRTYPE       10
+//   AMOUNT       6150.00
+</pre></div>
+</div>
+<div data-lang="ro">
+<h2>Cheia publică a băncii (victoria_pub.pem)</h2>
+<p>Cheia publică RSA a VictoriaBank utilizată pentru verificarea câmpului P_SIGN din toate notificările callback POST primite. Salvează-o ca <code>victoria_pub.pem</code> în afara web root-ului și încarcă-o în handlerul tău de callback.</p>
+<div class="alert alert-info"><strong>Nu modifica această cheie.</strong> Este furnizată de VictoriaBank și este identificatorul gateway-ului. Dacă callback-urile eșuează la verificarea P_SIGN, asigură-te că folosești exact acest fișier de cheie.</div>
+</div>
+<div data-lang="ru">
+<h2>Публичный ключ банка (victoria_pub.pem)</h2>
+<p>RSA публичный ключ VictoriaBank для проверки поля P_SIGN во всех входящих callback POST-уведомлениях. Сохраните как <code>victoria_pub.pem</code> вне веб-директории и загружайте в вашем callback-обработчике.</p>
+<div class="alert alert-info"><strong>Не изменяйте этот ключ.</strong> Он предоставлен VictoriaBank и является идентификатором шлюза. Если callback не проходят проверку P_SIGN — убедитесь, что используете именно этот файл ключа.</div>
+</div>
+
+<div class="code-block">
+  <div class="code-header"><span>victoria_pub.pem</span><span>RSA Public Key — VictoriaBank e-Gateway</span></div>
+  <pre>-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqDkVMvfZdInVfZ1DGOn8
+DAh3Cd6hNdaGxVaBgZLJGbfXFu6M94iLfvECLQI07+yfbkdarHb8EGA/XTze3IdF
+6fJ7WDHQtRPX6TVcNkXiYeVBrBKYNCMoUrvhSv/2+QboTq4pYsczhzgB/VjthqiF
+FGvd8Il52jyed4AYxuHRYyfZTIVKtx2JsYav3frO2Y6wlVJAisBcwLoCRd11mQwR
+NIImcN7CZB+f/3n92KOOrtWUbfzrQKY4KoncSmAs1IbnZaK321n9OkImOPeGDuyp
+qILUlsgXlY1TnFy5VBlRecaxGcN+qmuM6iqHmKO61yXamvGEI9UtueAu5t2MfI85
+xQIDAJzD
+-----END PUBLIC KEY-----</pre>
+</div>
+
+<div data-lang="en" class="active">
+<ul>
+  <li><strong>Algorithm:</strong> RSA 2048-bit</li>
+  <li><strong>Usage:</strong> Verify P_SIGN in all incoming bank callback notifications</li>
+  <li><strong>Storage:</strong> Save outside web root, e.g. <code>/var/private/vb-keys/victoria_pub.pem</code></li>
+</ul>
+</div>
+<div data-lang="ro">
+<ul>
+  <li><strong>Algoritm:</strong> RSA 2048-bit</li>
+  <li><strong>Utilizare:</strong> Verifică P_SIGN din toate notificările callback primite de la bancă</li>
+  <li><strong>Stocare:</strong> Salvează în afara web root-ului, ex. <code>/var/private/vb-keys/victoria_pub.pem</code></li>
+</ul>
+</div>
+<div data-lang="ru">
+<ul>
+  <li><strong>Алгоритм:</strong> RSA 2048-bit</li>
+  <li><strong>Использование:</strong> Проверка P_SIGN во всех входящих callback-уведомлениях от банка</li>
+  <li><strong>Хранение:</strong> Сохраните вне веб-директории, например <code>/var/private/vb-keys/victoria_pub.pem</code></li>
+</ul>
+</div>
+
+</section>
+
+
+<!-- ─────────────────── MERCHANT REQUIREMENTS ─────────────────── -->
+<section id="merchant-requirements">
+
+<div data-lang="en" class="active">
+<h2>Merchant Website Requirements</h2>
+<p>Before going live with VictoriaBank e-Gateway, your website must comply with all mandatory requirements set by Visa and Mastercard. VictoriaBank verifies these during onboarding and periodic audits.</p>
+</div>
+<div data-lang="ro">
+<h2>Cerințele obligatorii ale sistemelor de plăți</h2>
+<p>Înainte de lansarea integrării e-Gateway, site-ul tău trebuie să respecte cerințele obligatorii impuse de Visa și Mastercard. VictoriaBank le verifică la conectare și în auditorii periodice.</p>
+</div>
+<div data-lang="ru">
+<h2>Обязательные требования платёжных систем к сайту</h2>
+<p>Перед запуском e-Gateway ваш сайт должен соответствовать обязательным требованиям Visa и Mastercard. VictoriaBank проверяет их при подключении и в ходе периодических аудитов.</p>
+</div>
+
+<div class="req-grid">
+  <div class="req-card"><div class="req-num">1</div><div class="req-body">
+    <strong>Visa &amp; Mastercard logos in Footer</strong>
+    <span>Place official Visa and Mastercard acceptance logos on the homepage footer. Download from official brand portals only.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">2</div><div class="req-body">
+    <strong>Product / service description</strong>
+    <span>Clearly describe all goods and services offered for sale on the website.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">3</div><div class="req-body">
+    <strong>Payment terms &amp; refund/cancellation policy</strong>
+    <span>Display payment terms and return/cancellation conditions. Required reference: <em>Legea nr. 105 din 13.03.2003 a Republicii Moldova privind protecția consumatorilor</em>.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">4</div><div class="req-body">
+    <strong>Delivery address &amp; return location</strong>
+    <span>Provide the warehouse/pickup address where customers can return or exchange goods, per Moldovan law.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">5</div><div class="req-body">
+    <strong>Data security &amp; privacy policy</strong>
+    <span>Display a security and privacy statement. Required reference: <em>Legea nr. 133 a Republicii Moldova cu privire la prelucrarea datelor cu caracter personal</em>.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">6</div><div class="req-body">
+    <strong>Customer registration fields</strong>
+    <span>Checkout must collect: first name, last name, country, city, address, e-mail, and phone number.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">7</div><div class="req-body">
+    <strong>Terms &amp; conditions checkbox</strong>
+    <span>Customer must actively accept the T&amp;C and Return Policy via a checkbox before completing payment. Return terms must be included in the T&amp;C text.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">8</div><div class="req-body">
+    <strong>Email confirmation after registration</strong>
+    <span>After account registration or order placement, the customer must receive an automated confirmation email.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">9</div><div class="req-body">
+    <strong>Working hours &amp; support contacts</strong>
+    <span>Display the store's operating hours and customer support / informational support contact details.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">10</div><div class="req-body">
+    <strong>Legal name &amp; legal address in Footer</strong>
+    <span>The company's full legal name and registered address in the Republic of Moldova must appear on the homepage footer.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">11</div><div class="req-body">
+    <strong>HTTPS encryption</strong>
+    <span>The entire website must use HTTPS with a valid, trusted TLS certificate. Mixed-content HTTP pages are not permitted.</span>
+  </div></div>
+  <div class="req-card"><div class="req-num">12</div><div class="req-body">
+    <strong>Multi-language content consistency</strong>
+    <span>All required information must be present and consistent in every language version the website operates in.</span>
+  </div></div>
+</div>
+
+<hr class="sep">
+
+<div data-lang="en" class="active">
+<h3>Electronic Receipt — Required Fields</h3>
+<p>The e-mail receipt sent to the customer after each successful transaction must contain all fields below.</p>
+</div>
+<div data-lang="ro">
+<h3>Bon electronic — Câmpuri obligatorii</h3>
+<p>Bonul electronic trimis clientului pe e-mail după fiecare tranzacție reușită trebuie să conțină câmpurile de mai jos.</p>
+</div>
+<div data-lang="ru">
+<h3>Электронный чек — Обязательные поля</h3>
+<p>Электронный чек, отправляемый клиенту по e-mail после каждой успешной транзакции, должен содержать следующие поля.</p>
+</div>
+
+<table class="receipt-table">
+  <thead><tr><th>Field</th><th>Description</th><th>Example / Source</th></tr></thead>
+  <tbody>
+    <tr><td>Merchant Name</td><td>Full legal company name</td><td>My Company SRL</td></tr>
+    <tr><td>Merchant Country</td><td>Country of the seller</td><td>Republic of Moldova</td></tr>
+    <tr><td>Merchant Online Address</td><td>Website URL</td><td>https://myshop.md</td></tr>
+    <tr><td>Transaction Date/Time</td><td>Format: DD/MM/YYYY HH:MM:SS</td><td>01/04/2026 14:32:05</td></tr>
+    <tr><td>Transaction Amount &amp; Currency</td><td>Amount + ISO currency code</td><td>150.00 MDL</td></tr>
+    <tr><td>Order Number</td><td>Your internal order reference (<code>ORDER</code>)</td><td>001023</td></tr>
+    <tr><td>RRN</td><td>Retrieval Reference Number from callback</td><td>123456789012</td></tr>
+    <tr><td>Customer Name (Buyer)</td><td>Cardholder name</td><td>Ion Popescu</td></tr>
+    <tr><td>Authorization Code</td><td>Approval code from <code>APPROVAL</code> field</td><td>A1B2C3</td></tr>
+    <tr><td>Transaction Type</td><td>Payment method description</td><td>Card payment Visa / Mastercard</td></tr>
+    <tr><td>Card Number (last 4 digits)</td><td>Masked card number</td><td>**** **** **** 5764</td></tr>
+    <tr><td>Product/Service Description</td><td>What was purchased</td><td>Electronics — Laptop</td></tr>
+    <tr><td>Return / Refund Policy</td><td>Link or summary of return conditions</td><td>https://myshop.md/returns</td></tr>
+    <tr><td>Delivery Conditions</td><td>If applicable — agreed delivery date/location</td><td>Delivery within 3 working days</td></tr>
+    <tr><td>Customer Support Contact</td><td>Support phone / e-mail</td><td>+373 22 123456 / support@myshop.md</td></tr>
+  </tbody>
+</table>
+
+<div class="alert alert-warn">
+  <strong>Important:</strong> Failure to comply with any of the above requirements may result in suspension of card acceptance privileges until corrective measures are taken.
+</div>
+
+</section>
+
+</main>
+
+<script>
+
+// ── Code block language tabs ───────────────────────────────────────
+function switchCodeLang(btn, lang) {
+  var block = btn.closest('.code-block');
+  if (!block) return;
+  block.querySelectorAll('.lang-tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.codeLang === lang);
+  });
+  block.querySelectorAll('.lang-panel').forEach(function(p) {
+    p.classList.toggle('active', p.dataset.codeLang === lang);
+  });
+}
+
+// ── Language switcher ──────────────────────────────────────────────
+function setLang(lang) {
+    // Update buttons
+    document.querySelectorAll('.lang-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent.toLowerCase() === lang);
+    });
+
+    // Show/hide content blocks
+    document.querySelectorAll('[data-lang]').forEach(el => {
+        el.classList.toggle('active', el.dataset.lang === lang);
+    });
+
+    // Update sidebar text
+    const labels = {
+        en: {
+            intro: 'Introduction', integration: 'Integration', ref: 'Reference', res: 'Resources', auth: 'Authentication',
+            overview: 'Overview', flow: 'Payment Flow', endpoints: 'Endpoints',
+            rsa: 'RSA Keys', psign: 'P_SIGN Algorithm',
+            t0: 'TRTYPE=0 Authorization', callback: 'Callback Handling',
+            t21: 'TRTYPE=21 Completion', t24: 'TRTYPE=24 Reversal', t90: 'TRTYPE=90 Status Check',
+            curr: 'Currencies', rc: 'RC Codes', action: 'ACTION Codes',
+            testing: 'Testing', trouble: 'Troubleshooting', bankkey: 'Bank Public Key',
+        },
+        ro: {
+            intro: 'Introducere', integration: 'Integrare', ref: 'Referință', res: 'Resurse', auth: 'Autentificare',
+            overview: 'Prezentare generală', flow: 'Fluxul de plată', endpoints: 'Endpoint-uri',
+            rsa: 'Chei RSA', psign: 'Algoritmul P_SIGN',
+            t0: 'TRTYPE=0 Autorizare', callback: 'Gestionare Callback',
+            t21: 'TRTYPE=21 Finalizare', t24: 'TRTYPE=24 Reversare', t90: 'TRTYPE=90 Status',
+            curr: 'Valute', rc: 'Coduri RC', action: 'Coduri ACTION',
+            testing: 'Testare', trouble: 'Depanare', bankkey: 'Cheia publică bancă',
+        },
+        ru: {
+            intro: 'Введение', integration: 'Интеграция', ref: 'Справочник', res: 'Ресурсы', auth: 'Аутентификация',
+            overview: 'Обзор', flow: 'Схема платежа', endpoints: 'Эндпоинты',
+            rsa: 'RSA-ключи', psign: 'Алгоритм P_SIGN',
+            t0: 'TRTYPE=0 Авторизация', callback: 'Обработка Callback',
+            t21: 'TRTYPE=21 Завершение', t24: 'TRTYPE=24 Реверсал', t90: 'TRTYPE=90 Статус',
+            curr: 'Валюты', rc: 'Коды RC', action: 'Коды ACTION',
+            testing: 'Тестирование', trouble: 'Устранение неполадок', bankkey: 'Публичный ключ банка',
+        }
+    };
+
+    const l = labels[lang];
+    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    set('nav-title-intro', l.intro);
+    set('nav-title-auth', l.auth);
+    set('nav-title-integration', l.integration);
+    set('nav-title-ref', l.ref);
+    set('nav-title-res', l.res);
+    set('nav-overview', l.overview);
+    set('nav-flow', l.flow);
+    set('nav-endpoints', l.endpoints);
+    set('nav-rsa', l.rsa);
+    set('nav-psign', l.psign);
+    set('nav-t0', l.t0);
+    set('nav-callback', l.callback);
+    set('nav-t21', l.t21);
+    set('nav-t24', l.t24);
+    set('nav-t90', l.t90);
+    set('nav-curr', l.curr);
+    set('nav-rc', l.rc);
+    set('nav-action', l.action);
+    set('nav-testing', l.testing);
+    set('nav-trouble', l.trouble);
+    set('nav-bankkey', l.bankkey);
+
+    try { localStorage.setItem('vb-lang', lang); } catch(e) {}
+    var mreqLabels = {en:'Merchant Requirements', ro:'Cerinte comercianti', ru:'Trebovaniia k saitu'};
+    var mreqEl = document.getElementById('nav-mreq');
+    if (mreqEl) mreqEl.textContent = mreqLabels[lang] || 'Merchant Requirements';
+}
+
+// ── Active sidebar link on scroll ──────────────────────────────────
+const sections = document.querySelectorAll('section[id]');
+const links = document.querySelectorAll('.sidebar-link');
+
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            const active = document.querySelector(`.sidebar-link[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+        }
+    });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+sections.forEach(s => observer.observe(s));
+
+// ── Restore saved language on load ────────────────────────────────
+(function() {
+  var saved = 'en';
+  try { saved = localStorage.getItem('vb-lang') || 'en'; } catch(e) {}
+  if (saved !== 'en') setLang(saved);
+})();
+</script>
+</body>
+</html>

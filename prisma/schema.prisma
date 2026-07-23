@@ -168,8 +168,37 @@ model User {
   creatorPosts         CreatorPost[]
   userFiles            UserFile[]
   emailVerificationTokens EmailVerificationToken[]
+  payments             Payment[]
 
   @@map("users")
+}
+
+// Платёж VictoriaBank e-Gateway. Создаётся при инициации (TRTYPE=0), обновляется
+// авторитетным server-to-server callback'ом (не BACKREF). ORDER — уникальный числовой.
+model Payment {
+  id        String          @id @default(cuid())
+  order     String          @unique // числовой ORDER, отправленный банку (min 6 цифр)
+  userId    String
+  plan      SubscriptionPlan // тариф, который активируется при успешной оплате
+  amount    String          // "300.00" / "500.00" (MDL), decimal с точкой
+  currency  String          @default("MDL")
+  status    PaymentStatus   @default(PENDING)
+  rrn       String?         // из callback — нужно для TRTYPE=21
+  intRef    String?         // из callback — нужно для TRTYPE=21
+  rc        String?         // последний код ответа банка
+  action    String?         // ACTION из callback
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
 }
 
 // Токен подтверждения e-mail. Одноразовый, живёт 24 часа. crypto.randomBytes(32).hex.
