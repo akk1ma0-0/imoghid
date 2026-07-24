@@ -44,47 +44,6 @@ function merchantPrivateKey(): string {
   return _privateKey;
 }
 
-// Диагностика: отпечаток публичного ключа, выведенного из загруженного приватного
-// (MERCHANT_PRIVATE_KEY_PATH → файл, иначе MERCHANT_PRIVATE_KEY → содержимое). Отпечаток
-// публичного ключа не секретен. Не трогает кэш — читает источник заново и сообщает,
-// применялась ли нормализация экранированных "\n".
-export function merchantKeyDiagnostics(): {
-  ok: boolean;
-  source: "path" | "env" | "none";
-  normalizedApplied: boolean;
-  spkiDerSha256?: string;
-  spkiPemMd5?: string;
-  error?: string;
-} {
-  const pathVar = process.env.MERCHANT_PRIVATE_KEY_PATH;
-  const content = process.env.MERCHANT_PRIVATE_KEY;
-  let source: "path" | "env" | "none" = "none";
-  let normalizedApplied = false;
-  try {
-    let raw: string;
-    if (pathVar) {
-      source = "path";
-      raw = fs.readFileSync(pathVar, "utf8");
-    } else if (content && content.trim()) {
-      source = "env";
-      normalizedApplied = !content.includes("\n"); // true = были экранированные "\n"
-      raw = normalizePem(content);
-    } else {
-      return { ok: false, source, normalizedApplied, error: "no private key configured" };
-    }
-    const pub = crypto.createPublicKey(raw);
-    return {
-      ok: true,
-      source,
-      normalizedApplied,
-      spkiDerSha256: crypto.createHash("sha256").update(pub.export({ type: "spki", format: "der" })).digest("hex"),
-      spkiPemMd5: crypto.createHash("md5").update(pub.export({ type: "spki", format: "pem" }) as string).digest("hex"),
-    };
-  } catch (e) {
-    return { ok: false, source, normalizedApplied, error: e instanceof Error ? e.message : "parse error" };
-  }
-}
-
 let _bankKey: string | null = null;
 function bankPublicKey(): string {
   if (_bankKey) return _bankKey;
