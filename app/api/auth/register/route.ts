@@ -74,6 +74,7 @@ export async function POST(request: Request) {
   const utmSource = dec("utm_source");
   const utmCampaign = dec("utm_campaign");
   const utmMedium = dec("utm_medium");
+  const visitorId = dec("visitor_id"); // анонимный ID посетителя (связь визитов с аккаунтом)
 
   try {
     // Регистрация открытая: без плана (plan = null) — активирует администратор.
@@ -91,6 +92,13 @@ export async function POST(request: Request) {
       },
       select: { id: true, email: true, plan: true },
     });
+
+    // Атрибуция: привязываем все прежние анонимные визиты этого посетителя к аккаунту.
+    if (visitorId) {
+      await prisma.pageVisit
+        .updateMany({ where: { visitorId, userId: null }, data: { userId: user.id } })
+        .catch((e) => console.error("link page visits error:", e));
+    }
 
     // Письмо подтверждения — сразу после создания (не блокируем регистрацию при сбое SMTP).
     try {

@@ -175,6 +175,7 @@ model User {
   userFiles            UserFile[]
   emailVerificationTokens EmailVerificationToken[]
   payments             Payment[]
+  pageVisits           PageVisit[]
 
   @@map("users")
 }
@@ -215,10 +216,16 @@ model PageVisit {
   utmSource   String?
   utmCampaign String?
   utmMedium   String?
+  // Анонимный ID посетителя (cookie visitor_id, 30 дней). Связывает визит с аккаунтом,
+  // когда посетитель регистрируется позже (userId проставляется при регистрации).
+  visitorId   String?
+  userId      String?
   createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([utmSource])
   @@index([createdAt])
+  @@index([visitorId])
   @@map("page_visits")
 }
 

@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     await prisma.pageVisit.create({
       data: {
         path,
+        visitorId: clip(body?.visitorId),
         utmSource: clip(body?.utmSource),
         utmCampaign: clip(body?.utmCampaign),
         utmMedium: clip(body?.utmMedium),
