@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
+  // Client-side Router Cache: не переиспользовать закэшированные страницы при soft-навигации.
+  // Иначе middleware-гейт можно обойти клиентским переходом на префетч-страницу (без запроса
+  // к серверу) — критично для /app/* с авторизацией. 0 = каждая навигация ходит на сервер.
+  experimental: {
+    staleTimes: { dynamic: 0, static: 0 },
+  },
+
   // Постоянный редирект старого URL инструментов на «Actele mele».
   // (Next отдаёт 308 Permanent Redirect — постоянный, метод-сохраняющий эквивалент 301.)
   async redirects() {
