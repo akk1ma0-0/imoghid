@@ -204,11 +204,10 @@ export function AdminPanel({
                           onChange={(e) => {
                             const v = e.target.value;
                             if (v === "BASIC" || v === "PRO") patchUser(u.id, { plan: v });
+                            else if (v === "") patchUser(u.id, { plan: null }); // снять план → în așteptare
                           }}
                         >
-                          <option value="" disabled>
-                            În așteptare
-                          </option>
+                          <option value="">În așteptare</option>
                           <option value="BASIC">BASIC</option>
                           <option value="PRO">PRO</option>
                         </select>

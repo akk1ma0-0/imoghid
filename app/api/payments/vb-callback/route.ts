@@ -68,12 +68,16 @@ export async function POST(request: Request) {
     }
 
     if (captureRc === "00") {
-      // Завершение успешно → активируем план пользователя.
+      // Завершение успешно → активируем план пользователя на 30 дней.
+      // Автопродление/повторное списание НЕ реализуем (ждём ответа банка по recurring);
+      // по истечении planExpiresAt cron обнулит план (см. /api/cron/check-expired-plans).
+      const now = new Date();
+      const planExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       await prisma.$transaction([
         prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
         prisma.user.update({
           where: { id: payment.userId },
-          data: { plan: payment.plan, planActivatedAt: new Date() },
+          data: { plan: payment.plan, planActivatedAt: now, planExpiresAt },
         }),
       ]);
       console.log(`[VB callback] PAID ORDER=${ORDER} plan=${payment.plan} user=${payment.userId}`);

@@ -7,7 +7,7 @@ import { isValidPlan } from "@/lib/plan";
 type Params = { params: Promise<{ id: string }> };
 
 // PATCH /api/admin/users/[id] — сменить план и/или заблокировать/разблокировать. Только ADMIN.
-// Тело: { plan?: "BASIC" | "PRO", isBlocked?: boolean }
+// Тело: { plan?: "BASIC" | "PRO" | null (снять план → în așteptare), isBlocked?: boolean }
 export async function PATCH(request: Request, { params }: Params) {
   const guard = await requireAdmin();
   if ("response" in guard) return guard.response;
@@ -31,12 +31,22 @@ export async function PATCH(request: Request, { params }: Params) {
   const data: Record<string, unknown> = {};
 
   if (body.plan !== undefined) {
-    if (!isValidPlan(body.plan)) {
+    if (body.plan === null) {
+      // Снятие плана — возврат в «în așteptare» (plan=null). Чистый сброс активации/срока.
+      // sessionVersion++ → мгновенный разлогин (не ждём, пока пользователь сам перезайдёт).
+      data.plan = null;
+      data.planActivatedAt = null;
+      data.planExpiresAt = null;
+      data.sessionVersion = { increment: 1 };
+    } else if (isValidPlan(body.plan)) {
+      data.plan = body.plan;
+      // Если план ещё не активировался — активируем сейчас, чтобы смена плана была эффективной.
+      if (!target.planActivatedAt) data.planActivatedAt = new Date();
+      // Ручное назначение админом — БЕЗ срока (не истекает; cron не трогает). Чистим старый срок.
+      data.planExpiresAt = null;
+    } else {
       return NextResponse.json({ error: "Plan invalid." }, { status: 400 });
     }
-    data.plan = body.plan;
-    // Если план ещё не активировался — активируем сейчас, чтобы смена плана была эффективной.
-    if (!target.planActivatedAt) data.planActivatedAt = new Date();
   }
 
   if (body.isBlocked !== undefined) {
