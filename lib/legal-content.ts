@@ -234,7 +234,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Aplicația poate utiliza cookie-uri și tehnologii similare pentru funcționare, securitate și statistici."
+        "text": "Aplicația poate utiliza cookie-uri și tehnologii similare pentru funcționare, securitate și statistici. Datele colectate anonim înainte de înregistrare (de exemplu, sursa vizitei) pot fi asociate contului dvs. după crearea acestuia, în scopul analizei utilizării platformei."
       },
       {
         "t": "h2",
