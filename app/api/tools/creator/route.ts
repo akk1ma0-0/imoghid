@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireSession } from "@/lib/transaction-auth";
+import { requirePaidAccess } from "@/lib/transaction-auth";
 import {
   generateSocial,
   type Language,
@@ -14,7 +14,8 @@ const SOCIAL_PLATFORMS: Platform[] = ["instagram", "tiktok", "facebook"];
 // platform "999" → анонс для 999.md (RO + RU, тот же генератор, что /generate-anunt).
 // иначе → контент для соцсетей (slides/reels/post).
 export async function POST(request: Request) {
-  const sess = await requireSession();
+  // Платный роут (Claude API): требует активный план/админа независимо от гейта страниц.
+  const sess = await requirePaidAccess();
   if ("response" in sess) return sess.response;
 
   let body: Record<string, unknown>;

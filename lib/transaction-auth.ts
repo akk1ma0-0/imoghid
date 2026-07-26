@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { Prisma, Transaction } from "@prisma/client";
+import type { Prisma, Transaction, SubscriptionPlan, UserRole } from "@prisma/client";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +15,40 @@ export async function requireSession(): Promise<
     };
   }
   return { userId: session.user.id };
+}
+
+// Серверная проверка ДОСТУПА к платным функциям (Claude API и пр.). Defense in depth:
+// НЕ полагается на middleware/гейт страниц (кэш роутера, edge, iOS-cookie и т.п. могут
+// пропустить пользователя на страницу). Проверяет план/роль по БД при каждом запросе.
+//   • нет сессии → 401
+//   • заблокирован / не найден → 403
+//   • ADMIN → доступ есть всегда
+//   • plan == null (в т.ч. waitlist/demo) → 403 (платные функции требуют активного плана)
+export async function requirePaidAccess(): Promise<
+  { userId: string; plan: SubscriptionPlan | null; role: UserRole } | { response: NextResponse }
+> {
+  const sess = await requireSession();
+  if ("response" in sess) return sess;
+
+  const user = await prisma.user.findUnique({
+    where: { id: sess.userId },
+    select: { plan: true, role: true, isBlocked: true },
+  });
+  if (!user || user.isBlocked) {
+    return { response: NextResponse.json({ error: "Acces interzis." }, { status: 403 }) };
+  }
+  if (user.role === "ADMIN") {
+    return { userId: sess.userId, plan: user.plan, role: user.role };
+  }
+  if (!user.plan) {
+    return {
+      response: NextResponse.json(
+        { error: "Această funcție necesită un abonament activ." },
+        { status: 403 },
+      ),
+    };
+  }
+  return { userId: sess.userId, plan: user.plan, role: user.role };
 }
 
 // Загружает транзакцию ТОЛЬКО если она принадлежит userId (иначе null — не раскрываем существование).

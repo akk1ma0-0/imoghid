@@ -28,9 +28,18 @@ export async function POST(_req: Request, { params }: Params) {
   // ── Лимит анализов по плану (месячный сброс) ──
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
-    select: { plan: true, analysisCount: true, analysisCountResetAt: true },
+    select: { plan: true, role: true, analysisCount: true, analysisCountResetAt: true },
   });
   if (!user) return notFound();
+
+  // Платный роут (Claude API): без активного плана (не админ) — доступа нет.
+  // Defense in depth: не полагаемся на гейт страниц (кэш роутера/edge/iOS-cookie).
+  if (user.role !== "ADMIN" && !user.plan) {
+    return NextResponse.json(
+      { error: "Această funcție necesită un abonament activ." },
+      { status: 403 },
+    );
+  }
 
   const limit = analysisLimit(user.plan);
   const now = new Date();

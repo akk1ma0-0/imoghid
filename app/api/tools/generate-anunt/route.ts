@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { requireSession } from "@/lib/transaction-auth";
+import { requirePaidAccess } from "@/lib/transaction-auth";
 import { generateAnunt } from "@/lib/tools-claude";
 
 // POST /api/tools/generate-anunt { input, lang } → текст объявления (Claude).
 // В Claude уходит ТОЛЬКО кешированный системный промпт + тезисы (без шаблонов/сделок/ExtractedField).
 export async function POST(request: Request) {
-  const sess = await requireSession();
+  // Платный роут (Claude API): требует активный план/админа независимо от гейта страниц.
+  const sess = await requirePaidAccess();
   if ("response" in sess) return sess.response;
 
   let body: Record<string, unknown>;
