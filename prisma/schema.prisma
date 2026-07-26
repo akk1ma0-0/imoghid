@@ -127,6 +127,12 @@ model User {
   // Versiune de sesiune: la incrementare (ex. schimbare e-mail) toate JWT-urile emise anterior
   // devin invalide (verificate în callback-ul jwt, Node runtime) → re-login pe toate dispozitivele.
   sessionVersion  Int              @default(0)
+  // Limba interfeței aleasă de utilizator (deocamdată doar pe pagina waitlist). Default: ro.
+  locale          String           @default("ro")
+  // Atribuire campanie: UTM din cookie la momentul înregistrării (prima atingere).
+  utmSource       String?
+  utmCampaign     String?
+  utmMedium       String?
 
   // Blocare cont (din panoul admin). Utilizatorul blocat nu se poate autentifica.
   isBlocked       Boolean          @default(false)
@@ -199,6 +205,21 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+}
+
+// Простой серверный счётчик визитов воронки (лендинг/регистрация) — для конверсии
+// «переход по рекламе → регистрация». Одна строка на визит; UTM — из cookie/URL.
+model PageVisit {
+  id          String   @id @default(cuid())
+  path        String   // например "register"
+  utmSource   String?
+  utmCampaign String?
+  utmMedium   String?
+  createdAt   DateTime @default(now())
+
+  @@index([utmSource])
+  @@index([createdAt])
+  @@map("page_visits")
 }
 
 // Токен подтверждения e-mail. Одноразовый, живёт 24 часа. crypto.randomBytes(32).hex.

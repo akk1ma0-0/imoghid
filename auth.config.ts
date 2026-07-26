@@ -59,9 +59,24 @@ export const authConfig = {
         return Response.redirect(new URL("/app", nextUrl));
       }
 
+      const isAdmin = auth!.user.role === "ADMIN";
+      const isWaitlist = nextUrl.pathname.startsWith("/app/waitlist");
+
+      // Режим waitlist (перед публичным запуском): пользователь без плана (не админ)
+      // видит страницу «ждите приглашение» вместо тарифов. Флаг — env WAITLIST_MODE.
+      // (Смена флага применяется при redeploy/перезапуске dev — edge-инлайн.)
+      const waitlistMode = process.env.WAITLIST_MODE === "true";
+      if (waitlistMode && !isAdmin && !auth!.user.plan) {
+        return isWaitlist ? true : Response.redirect(new URL("/app/waitlist", nextUrl));
+      }
+      // Вне waitlist-гейта на /app/waitlist делать нечего (админ/с планом/флаг выключен).
+      if (isWaitlist) {
+        return Response.redirect(new URL("/app", nextUrl));
+      }
+
       const isPending = nextUrl.pathname.startsWith("/app/pending");
 
-      // Без плана (plan = null) → страница ожидания активации администратором.
+      // Без плана (plan = null) → страница выбора тарифа / ожидания активации.
       if (!auth!.user.plan) {
         return isPending ? true : Response.redirect(new URL("/app/pending", nextUrl));
       }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 
 import { BrandPanel } from "../_components/BrandPanel";
+import { TrackVisit } from "@/components/TrackVisit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Молдавский формат: +373 XX XXX XXX (8 цифр после +373) или 0XX XXX XXX (9 цифр с 0).
@@ -106,6 +107,7 @@ export default function RegisterPage() {
 
   return (
     <div className="page">
+      <TrackVisit path="register" />
       <BrandPanel
         tag="Înregistrare"
         title="Începeți să lucrați mai eficient"

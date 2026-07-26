@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
@@ -59,11 +60,35 @@ export async function POST(request: Request) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
+  // Атрибуция кампании: UTM из cookie (проставлены UtmCapture при заходе по рекламе).
+  const jar = await cookies();
+  const dec = (name: string): string | null => {
+    const v = jar.get(name)?.value;
+    if (!v) return null;
+    try {
+      return decodeURIComponent(v);
+    } catch {
+      return v;
+    }
+  };
+  const utmSource = dec("utm_source");
+  const utmCampaign = dec("utm_campaign");
+  const utmMedium = dec("utm_medium");
+
   try {
     // Регистрация открытая: без плана (plan = null) — активирует администратор.
     // emailVerified = null → пользователь сначала подтверждает e-mail.
     const user = await prisma.user.create({
-      data: { name, email, phone: phone || null, passwordHash, agencyName },
+      data: {
+        name,
+        email,
+        phone: phone || null,
+        passwordHash,
+        agencyName,
+        utmSource,
+        utmCampaign,
+        utmMedium,
+      },
       select: { id: true, email: true, plan: true },
     });
 

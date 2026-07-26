@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
+import { UtmCapture } from "@/components/UtmCapture";
 
 export const metadata: Metadata = {
   title: "ImoGhid · Platforma agentului imobiliar",
@@ -13,7 +15,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <Suspense fallback={null}>
+          <UtmCapture />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }
