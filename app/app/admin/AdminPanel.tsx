@@ -112,6 +112,45 @@ export function AdminPanel({
     }
   }
 
+  // ── Удаление аккаунта (необратимо) — модалка с паролем подтверждения ──
+  const [delTarget, setDelTarget] = useState<AdminUser | null>(null);
+  const [delPassword, setDelPassword] = useState("");
+  const [delBusy, setDelBusy] = useState(false);
+  const [delError, setDelError] = useState<string | null>(null);
+
+  function openDelete(u: AdminUser) {
+    setDelTarget(u);
+    setDelPassword("");
+    setDelError(null);
+  }
+  function closeDelete() {
+    if (delBusy) return;
+    setDelTarget(null);
+    setDelPassword("");
+    setDelError(null);
+  }
+  async function confirmDelete() {
+    if (!delTarget || !delPassword) return;
+    setDelError(null);
+    setDelBusy(true);
+    try {
+      const r = await fetch(`/api/admin/users/${delTarget.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmPassword: delPassword }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error || "Eroare.");
+      setDelTarget(null);
+      setDelPassword("");
+      router.refresh();
+    } catch (e) {
+      setDelError(e instanceof Error ? e.message : "Eroare.");
+    } finally {
+      setDelBusy(false);
+    }
+  }
+
   return (
     <div className="ig-page">
       <div className="crumb">Administrare</div>
@@ -222,6 +261,21 @@ export function AdminPanel({
                           onClick={() => patchUser(u.id, { isBlocked: !u.isBlocked })}
                         >
                           {u.isBlocked ? "Deblocați" : "Blocați"}
+                        </button>
+                        <button
+                          className="btn"
+                          style={{ borderColor: "var(--red-br)", color: "var(--red)" }}
+                          disabled={busy || isSelf || u.role === "ADMIN"}
+                          title={
+                            isSelf
+                              ? "Nu vă puteți șterge propriul cont"
+                              : u.role === "ADMIN"
+                                ? "Conturile de administrator nu pot fi șterse"
+                                : "Șterge definitiv contul"
+                          }
+                          onClick={() => openDelete(u)}
+                        >
+                          Șterge contul
                         </button>
                       </div>
                     </td>
@@ -351,6 +405,74 @@ export function AdminPanel({
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Модалка подтверждения удаления аккаунта ── */}
+      {delTarget && (
+        <div
+          onClick={closeDelete}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(17,24,39,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card"
+            style={{ maxWidth: 460, width: "100%", borderColor: "var(--red-br)" }}
+          >
+            <div className="card-hd" style={{ background: "var(--red-bg)" }}>
+              <b style={{ color: "var(--red)" }}>Ștergeți contul</b>
+            </div>
+            <div className="card-bd" style={{ padding: 22 }}>
+              <p style={{ fontSize: 13.5, color: "var(--ink2)", marginBottom: 6 }}>
+                Cont: <b>{delTarget.email}</b>
+              </p>
+              <p style={{ fontSize: 13, color: "var(--red)", lineHeight: 1.6, marginBottom: 14 }}>
+                Această acțiune este ireversibilă — toate datele asociate (dosare, documente,
+                plăți) vor fi șterse definitiv.
+              </p>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
+                Parola de confirmare
+              </label>
+              <input
+                type="password"
+                value={delPassword}
+                autoComplete="off"
+                onChange={(e) => setDelPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") confirmDelete();
+                }}
+                style={{ width: "100%", height: 40, padding: "0 12px", fontSize: 14, marginBottom: 12 }}
+              />
+              {delError && (
+                <div className="notice red" style={{ marginBottom: 12 }}>
+                  <div className="notice-dot" />
+                  <div><b>{delError}</b></div>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn" onClick={closeDelete} disabled={delBusy}>
+                  Anulați
+                </button>
+                <button
+                  className="btn solid"
+                  style={{ background: "var(--red)", borderColor: "var(--red)" }}
+                  onClick={confirmDelete}
+                  disabled={delBusy || !delPassword}
+                >
+                  {delBusy ? "Se șterge…" : "Ștergeți definitiv"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
