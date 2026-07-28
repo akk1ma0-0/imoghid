@@ -11,8 +11,17 @@ export default async function PendingPage() {
   const session = await auth();
   const isAdmin = session?.user?.role === "ADMIN";
 
-  // Waitlist-режим: не-админ без плана → страница «ждите приглашение».
-  if (process.env.WAITLIST_MODE === "true" && !isAdmin) {
+  // Точечный обход waitlist для тестовых аккаунтов (напр. тест платежей при активной
+  // рекламной кампании). Список email в WAITLIST_BYPASS_EMAILS (через запятую).
+  const email = session?.user?.email?.toLowerCase() ?? "";
+  const bypassEmails = (process.env.WAITLIST_BYPASS_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const bypassWaitlist = isAdmin || (email !== "" && bypassEmails.includes(email));
+
+  // Waitlist-режим: не-админ без плана (и не в списке обхода) → страница «ждите приглашение».
+  if (process.env.WAITLIST_MODE === "true" && !bypassWaitlist) {
     redirect("/app/waitlist");
   }
 
