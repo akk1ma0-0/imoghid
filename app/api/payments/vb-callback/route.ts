@@ -53,6 +53,15 @@ export async function POST(request: Request) {
       data: { rrn: RRN || null, intRef: INT_REF || null, rc: RC, action: ACTION },
     });
 
+    // ⚠️ ВРЕМЕННЫЙ тестовый флаг (сертификация с банком, Testul 2 = чистый 0→24):
+    // при VB_SKIP_AUTO_COMPLETION=true НЕ вызываем TRTYPE=21 и НЕ активируем план —
+    // авторизация сохранена, транзакция остаётся незавершённой для ручного возврата.
+    // ПОСЛЕ теста флаг ОБЯЗАТЕЛЬНО вернуть в false, иначе реальные оплаты не активируют план!
+    if (process.env.VB_SKIP_AUTO_COMPLETION === "true") {
+      console.log(`[VB callback] AUTHORIZED (skip auto-21, TEST) ORDER=${ORDER} RRN=${RRN}`);
+      return new NextResponse("OK", { status: 200 });
+    }
+
     let captureRc = "";
     try {
       const result = await vbCompletion({

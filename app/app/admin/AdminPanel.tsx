@@ -112,6 +112,37 @@ export function AdminPanel({
     }
   }
 
+  // ── VictoriaBank — временный тестовый инструмент (сертификация: TRTYPE=21/24) ──
+  const [vbOrder, setVbOrder] = useState("");
+  const [vbAmount, setVbAmount] = useState("");
+  const [vbBusy, setVbBusy] = useState(false);
+  const [vbResult, setVbResult] = useState<string | null>(null);
+  const [vbErr, setVbErr] = useState<string | null>(null);
+  async function runVbTest(action: "refund" | "complete") {
+    if (!vbOrder.trim()) return;
+    setVbErr(null);
+    setVbResult(null);
+    setVbBusy(true);
+    try {
+      const r = await fetch("/api/admin/vb-test-refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order: vbOrder.trim(),
+          action,
+          ...(vbAmount.trim() ? { amount: vbAmount.trim() } : {}),
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error || "Eroare.");
+      setVbResult(JSON.stringify(d, null, 2));
+    } catch (e) {
+      setVbErr(e instanceof Error ? e.message : "Eroare.");
+    } finally {
+      setVbBusy(false);
+    }
+  }
+
   // ── Удаление аккаунта (необратимо) — модалка с паролем подтверждения ──
   const [delTarget, setDelTarget] = useState<AdminUser | null>(null);
   const [delPassword, setDelPassword] = useState("");
@@ -402,6 +433,57 @@ export function AdminPanel({
                 (claude-sonnet-4-6, $3/$15 per 1M). Analizele de documente nu se loghează
                 per-apel (doar contorul lunar), de aceea costul lor este o estimare.
               </p>
+            </div>
+          </div>
+
+          {/* ── ВРЕМЕННЫЙ инструмент сертификации VictoriaBank (TRTYPE=21/24) ── */}
+          <div className="card" style={{ marginTop: 16, borderColor: "var(--amber-br, #f0c36d)" }}>
+            <div className="card-hd">
+              <b>VictoriaBank — test finalizare / rambursare (temporar)</b>
+            </div>
+            <div className="card-bd">
+              <p style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 12 }}>
+                Instrument de certificare cu banca. Introduceți <b>ORDER</b>-ul unei plăți existente
+                (RRN/INT_REF se iau din baza de date). Rambursare = TRTYPE=24, Finalizare = TRTYPE=21.
+                Suma opțională — pentru rambursare parțială.
+              </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div className="field-group" style={{ flex: "1 1 220px", margin: 0 }}>
+                  <label style={{ fontSize: 12 }}>ORDER</label>
+                  <input value={vbOrder} onChange={(e) => setVbOrder(e.target.value)} placeholder="ex: 1784…" />
+                </div>
+                <div className="field-group" style={{ flex: "0 1 130px", margin: 0 }}>
+                  <label style={{ fontSize: 12 }}>AMOUNT (opțional)</label>
+                  <input value={vbAmount} onChange={(e) => setVbAmount(e.target.value)} placeholder="ex: 100.00" />
+                </div>
+                <button className="btn solid" disabled={vbBusy || !vbOrder.trim()} onClick={() => runVbTest("refund")}>
+                  {vbBusy ? "…" : "Rambursare (24)"}
+                </button>
+                <button className="btn" disabled={vbBusy || !vbOrder.trim()} onClick={() => runVbTest("complete")}>
+                  Finalizare (21)
+                </button>
+              </div>
+              {vbErr && (
+                <div className="notice red" style={{ marginTop: 12 }}>
+                  <div className="notice-dot" />
+                  <div><b>{vbErr}</b></div>
+                </div>
+              )}
+              {vbResult && (
+                <pre
+                  style={{
+                    marginTop: 12,
+                    background: "var(--line2, #f3f4f6)",
+                    padding: 12,
+                    borderRadius: 8,
+                    fontSize: 12,
+                    overflowX: "auto",
+                    fontFamily: "IBM Plex Mono, monospace",
+                  }}
+                >
+                  {vbResult}
+                </pre>
+              )}
             </div>
           </div>
         </>

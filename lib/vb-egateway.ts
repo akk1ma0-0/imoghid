@@ -214,3 +214,46 @@ export async function vbCompletion(args: {
   while ((m = re.exec(html)) !== null) result[m[1]] = m[2];
   return result;
 }
+
+// ── TRTYPE=24: возврат/реверсал (полный или частичный), server-to-server ──
+// По докам: рефандит завершённую транзакцию; поддерживает частичную сумму (≤ оригинала).
+// Только один реверсал на транзакцию (повторный → RC=95 = «уже успешно реверсирован»).
+// Поля: ORDER/AMOUNT/CURRENCY/TERMINAL/TRTYPE=24/TIMESTAMP/NONCE/RRN/INT_REF/P_SIGN,
+// RRN и INT_REF — из исходного callback TRTYPE=0. MAC: ORDER→NONCE→TIMESTAMP→TRTYPE→AMOUNT.
+// ⚠️ Ответ TRTYPE=24 — URL-encoded строка (НЕ HTML, как у TRTYPE=21).
+export async function vbRefund(args: {
+  order: string;
+  amount: string;
+  currency: string;
+  rrn: string;
+  intRef: string;
+}): Promise<Record<string, string>> {
+  const c = vbConfig();
+  const nonce = generateNonce();
+  const timestamp = generateTimestamp();
+  const pSign = psignGenerate(args.order, nonce, timestamp, "24", args.amount);
+
+  const params: Record<string, string> = {
+    ORDER: args.order,
+    AMOUNT: args.amount,
+    CURRENCY: args.currency,
+    TERMINAL: c.terminal,
+    TRTYPE: "24",
+    TIMESTAMP: timestamp,
+    NONCE: nonce,
+    RRN: args.rrn,
+    INT_REF: args.intRef,
+    P_SIGN: pSign,
+  };
+
+  const res = await fetch(c.gatewayUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(params).toString(),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const text = await res.text();
+
+  // Ответ — URL-encoded строка (в отличие от HTML у TRTYPE=21).
+  return Object.fromEntries(new URLSearchParams(text)) as Record<string, string>;
+}
