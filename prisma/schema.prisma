@@ -194,6 +194,9 @@ model Payment {
   intRef    String?         // из callback — нужно для TRTYPE=21
   rc        String?         // последний код ответа банка
   action    String?         // ACTION из callback
+  // Пропуск авто-TRTYPE=21 для КОНКРЕТНОГО тестового платежа (сертификация, Testul 2 = чистый
+  // 0→24). Проставляется при инициации из admin-панели; детерминирован, не зависит от env/раскатки.
+  skipAutoCompletion Boolean  @default(false)
   // Идемпотентность: атомарный «клейм» перед вызовом TRTYPE=21. Только первый callback
   // переводит null → now(); повторные/параллельные callback'и банка не дублируют завершение.
   completionStartedAt DateTime?

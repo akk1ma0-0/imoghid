@@ -47,16 +47,15 @@ export async function POST(request: Request) {
   }
 
   if (ACTION === "0" && RC === "00") {
-    // ⚠️ ВРЕМЕННЫЙ тестовый флаг (сертификация с банком, Testul 2 = чистый 0→24):
-    // при VB_SKIP_AUTO_COMPLETION=true НЕ вызываем TRTYPE=21 и НЕ активируем план —
-    // авторизация сохранена, транзакция остаётся незавершённой для ручного возврата.
-    // ПОСЛЕ теста флаг ОБЯЗАТЕЛЬНО вернуть в false, иначе реальные оплаты не активируют план!
-    if (process.env.VB_SKIP_AUTO_COMPLETION === "true") {
+    // Пропуск авто-TRTYPE=21 для КОНКРЕТНОГО тестового платежа (Testul 2 = чистый 0→24).
+    // Флаг на самой записи Payment (проставлен при инициации из admin-панели) — детерминирован,
+    // не зависит от env/раскатки. Обычные платежи (skipAutoCompletion=false) не затрагиваются.
+    if (payment.skipAutoCompletion) {
       await prisma.payment.update({
         where: { id: payment.id },
         data: { rrn: RRN || null, intRef: INT_REF || null, rc: RC, action: ACTION },
       });
-      console.log(`[VB callback] AUTHORIZED (skip auto-21, TEST) ORDER=${ORDER} RRN=${RRN}`);
+      console.log(`[VB callback] AUTHORIZED (skip auto-21, per-Payment TEST) ORDER=${ORDER} RRN=${RRN}`);
       return new NextResponse("OK", { status: 200 });
     }
 

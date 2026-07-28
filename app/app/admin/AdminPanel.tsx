@@ -442,10 +442,28 @@ export function AdminPanel({
               <b>VictoriaBank — test finalizare / rambursare (temporar)</b>
             </div>
             <div className="card-bd">
+              {/* Инициация тестового платежа (full-page → редирект на банк). skip → чистый 0→24. */}
+              <form
+                method="POST"
+                action="/api/admin/vb-test-initiate"
+                style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid var(--line)" }}
+              >
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>Inițiază plată test:</span>
+                <select name="plan" defaultValue="BASIC" style={{ height: 34 }}>
+                  <option value="BASIC">BASIC (300)</option>
+                  <option value="PRO">PRO (500)</option>
+                </select>
+                <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 5 }}>
+                  <input type="checkbox" name="skip" value="1" />
+                  skip auto-21 (Testul 2 = 0→24)
+                </label>
+                <button type="submit" className="btn solid" style={{ height: 34 }}>
+                  Start → bancă
+                </button>
+              </form>
               <p style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 12 }}>
-                Instrument de certificare cu banca. Introduceți <b>ORDER</b>-ul unei plăți existente
-                (RRN/INT_REF se iau din baza de date). Rambursare = TRTYPE=24, Finalizare = TRTYPE=21.
-                Suma opțională — pentru rambursare parțială.
+                Sau rambursare/finalizare pe un ORDER existent (RRN/INT_REF din baza de date).
+                Rambursare = TRTYPE=24, Finalizare = TRTYPE=21. Suma opțională — rambursare parțială.
               </p>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
                 <div className="field-group" style={{ flex: "1 1 220px", margin: 0 }}>
