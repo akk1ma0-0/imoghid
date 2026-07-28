@@ -47,18 +47,36 @@ export async function POST(request: Request) {
   }
 
   if (ACTION === "0" && RC === "00") {
-    // Авторизация успешна → сохранить RRN/INT_REF и захватить средства (TRTYPE=21).
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: { rrn: RRN || null, intRef: INT_REF || null, rc: RC, action: ACTION },
-    });
-
     // ⚠️ ВРЕМЕННЫЙ тестовый флаг (сертификация с банком, Testul 2 = чистый 0→24):
     // при VB_SKIP_AUTO_COMPLETION=true НЕ вызываем TRTYPE=21 и НЕ активируем план —
     // авторизация сохранена, транзакция остаётся незавершённой для ручного возврата.
     // ПОСЛЕ теста флаг ОБЯЗАТЕЛЬНО вернуть в false, иначе реальные оплаты не активируют план!
     if (process.env.VB_SKIP_AUTO_COMPLETION === "true") {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { rrn: RRN || null, intRef: INT_REF || null, rc: RC, action: ACTION },
+      });
       console.log(`[VB callback] AUTHORIZED (skip auto-21, TEST) ORDER=${ORDER} RRN=${RRN}`);
+      return new NextResponse("OK", { status: 200 });
+    }
+
+    // Идемпотентный АТОМАРНЫЙ клейм: только ОДИН callback переводит completionStartedAt
+    // null → now() (updateMany = один UPDATE с блокировкой строки в БД). Банк ретраит
+    // callback при медленном/повторном ответе — без этого параллельные/повторные вызовы
+    // дублировали бы TRTYPE=21 (баг «finalizată de 2 ori»). Проигравшие → 200 без 21.
+    const claim = await prisma.payment.updateMany({
+      where: { id: payment.id, status: "PENDING", completionStartedAt: null },
+      data: {
+        completionStartedAt: new Date(),
+        rrn: RRN || null,
+        intRef: INT_REF || null,
+        rc: RC,
+        action: ACTION,
+      },
+    });
+    if (claim.count === 0) {
+      // Другой callback уже начал/завершил обработку этого ORDER → не дублируем завершение.
+      console.log(`[VB callback] duplicate/late callback ignored ORDER=${ORDER}`);
       return new NextResponse("OK", { status: 200 });
     }
 
@@ -92,7 +110,9 @@ export async function POST(request: Request) {
       console.log(`[VB callback] PAID ORDER=${ORDER} plan=${payment.plan} user=${payment.userId}`);
     } else {
       console.error(`[VB callback] capture failed ORDER=${ORDER} RC=${captureRc}`);
-      // Оставляем PENDING (авторизация есть, захват не прошёл) — разбор вручную.
+      // Оставляем PENDING, но completionStartedAt уже проставлен (клейм) → повторные
+      // callback'и НЕ будут повторять TRTYPE=21. Разбор вручную (могла быть и таймаут-ошибка
+      // при фактически успешном захвате — поэтому автоповтор намеренно не делаем).
     }
   } else {
     await prisma.payment.update({
