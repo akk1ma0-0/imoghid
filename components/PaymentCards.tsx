@@ -1,10 +1,11 @@
 // Логотипы принимаемых карт (Visa/Mastercard). Ассеты — public/visa.svg,
 // public/mastercard.svg (заменяемы на официальные бренд-файлы под теми же именами).
-// Размер задаём инлайн-CSS (height+width явно) — SVG-as-<img> с одним лишь height
-// ненадёжно масштабируется в некоторых браузерах (WebKit/iOS).
+// Размер — ТОЛЬКО по высоте, ширина auto: масштабируется корректно под реальный
+// aspect-ratio каждого файла (оба SVG теперь с viewBox), без искажений и привязки
+// к пропорциям конкретного логотипа.
 const cardStyle: React.CSSProperties = {
-  height: 20,
-  width: 30, // ~соотношение viewBox 131.39×86.9
+  height: 22,
+  width: "auto",
   border: "1px solid #e5e7eb",
   borderRadius: 4,
 };
