@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { useDemo } from "@/app/contexts/DemoContext";
 
@@ -21,6 +23,7 @@ const TARIFFS: Tariff[] = [
 
 export function PendingTariffs() {
   const { startDemo } = useDemo();
+  const [agreed, setAgreed] = useState(false);
 
   return (
     <div className="ig-page" style={{ maxWidth: 720, margin: "0 auto" }}>
@@ -31,12 +34,45 @@ export function PendingTariffs() {
         </p>
       </div>
 
+      {/* Согласие с условиями оплаты/возврата — обязательно до перехода на страницу банка (SIP п.7) */}
+      <label
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+          maxWidth: 560,
+          margin: "18px auto 0",
+          fontSize: 13,
+          color: "var(--ink2)",
+          lineHeight: 1.55,
+          cursor: "pointer",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
+          style={{ marginTop: 2, flexShrink: 0 }}
+        />
+        <span>
+          Sunt de acord cu{" "}
+          <Link href="/termeni" target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue, #2563eb)" }}>
+            Termenii și Condițiile de plată
+          </Link>{" "}
+          și cu{" "}
+          <Link href="/termeni" target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue, #2563eb)" }}>
+            Politica de returnare
+          </Link>
+          .
+        </span>
+      </label>
+
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
           gap: 16,
-          marginTop: 20,
+          marginTop: 16,
         }}
       >
         {TARIFFS.map((t) => (
@@ -56,8 +92,10 @@ export function PendingTariffs() {
               </p>
               <form method="POST" action="/api/payments/vb-initiate">
                 <input type="hidden" name="plan" value={t.plan} />
+                <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
                 <button
                   type="submit"
+                  disabled={!agreed}
                   className={t.highlight ? "btn solid" : "btn"}
                   style={{ width: "100%", justifyContent: "center", height: 44 }}
                 >

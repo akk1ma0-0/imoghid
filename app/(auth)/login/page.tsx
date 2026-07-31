@@ -6,6 +6,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 
 import { BrandPanel } from "../_components/BrandPanel";
+import { PaymentCards } from "@/components/PaymentCards";
 
 export default function LoginPage() {
   // useSearchParams требует Suspense-границы при статической генерации.
@@ -153,6 +154,8 @@ function LoginForm() {
             <a href="/confidentialitate" target="_blank" rel="noopener noreferrer">Politica de confidențialitate</a>. Responsabilitatea
             finală pentru tranzacție revine notarului și agentului.
           </div>
+
+          <PaymentCards />
         </div>
       </div>
     </div>

@@ -27,6 +27,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Plan invalid." }, { status: 400 });
   }
 
+  // Согласие с условиями оплаты/возврата — обязательно (SIP п.7). Не полагаемся на
+  // frontend-disabled: проверяем и на сервере. Без agreedToTerms=true → 400.
+  const agreedToTerms = form ? String(form.get("agreedToTerms") ?? "") === "true" : false;
+  if (!agreedToTerms) {
+    return NextResponse.json(
+      { error: "Trebuie să acceptați Termenii și Condițiile de plată și Politica de returnare." },
+      { status: 400 },
+    );
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
     select: { email: true },

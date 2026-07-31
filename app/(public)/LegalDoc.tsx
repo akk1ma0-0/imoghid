@@ -86,6 +86,12 @@ export function LegalDoc({ docKey }: { docKey: keyof typeof LEGAL_DOCS }) {
           <div className="legal-foot-legal">
             © 2026 BlackSpace Tech SRL · IDNO 1024600065567 · bd. Decebal 99D, mun. Chișinău
           </div>
+          <div className="legal-foot-cards" aria-label="Metode de plată acceptate">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/visa.svg" alt="Visa" height={22} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/mastercard.svg" alt="Mastercard" height={22} />
+          </div>
         </footer>
       </div>
     </div>

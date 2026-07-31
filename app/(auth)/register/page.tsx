@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react";
 
 import { BrandPanel } from "../_components/BrandPanel";
 import { TrackVisit } from "@/components/TrackVisit";
+import { PaymentCards } from "@/components/PaymentCards";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Молдавский формат: +373 XX XXX XXX (8 цифр после +373) или 0XX XXX XXX (9 цифр с 0).
@@ -238,6 +239,8 @@ export default function RegisterPage() {
             și{" "}
             <a href="/confidentialitate" target="_blank" rel="noopener noreferrer">Politica de confidențialitate</a>.
           </div>
+
+          <PaymentCards />
         </div>
       </div>
     </div>
