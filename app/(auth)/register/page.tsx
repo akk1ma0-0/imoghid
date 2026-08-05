@@ -8,6 +8,7 @@ import { signIn } from "next-auth/react";
 import { BrandPanel } from "../_components/BrandPanel";
 import { TrackVisit } from "@/components/TrackVisit";
 import { PaymentCards } from "@/components/PaymentCards";
+import { PasswordInput } from "@/components/PasswordInput";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Молдавский формат: +373 XX XXX XXX (8 цифр после +373) или 0XX XXX XXX (9 цифр с 0).
@@ -183,9 +184,8 @@ export default function RegisterPage() {
 
             <div className="field">
               <label htmlFor="password">Parolă</label>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 placeholder="Minimum 8 caractere"
                 autoComplete="new-password"
                 required
@@ -202,9 +202,8 @@ export default function RegisterPage() {
 
             <div className="field">
               <label htmlFor="confirmPassword">Confirmați parola</label>
-              <input
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 placeholder="Repetați parola"
                 autoComplete="new-password"
                 required
@@ -222,15 +221,12 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <div className="trial-banner">
-            <span aria-hidden>🎁</span>
-            <span>
-              <b>Primele 7 zile — gratuit.</b>
-            </span>
-          </div>
-
           <div className="link-row" style={{ marginTop: 16 }}>
             Aveți deja cont? <Link href="/login">Intrați</Link>
+          </div>
+
+          <div className="link-row" style={{ marginTop: 6 }}>
+            <Link href="/app/pending">Vezi planurile și prețurile →</Link>
           </div>
 
           <div className="disclaimer">

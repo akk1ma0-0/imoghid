@@ -20,7 +20,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "ImoGhid este un produs dezvoltat sub marca comercială BiSeeTh, de „BlackSpace Tech” SRL, în colaborare cu Liudmila Popovscaia, expert în drept imobiliar, care a contribuit la concepția juridică și funcțională a platformei. Contact: liudmila.popovscaia@gmail.com. Răspundem în maximum 36 de ore lucrătoare."
+        "text": "ImoGhid este un produs dezvoltat sub marca comercială BiSeeTh, de „BlackSpace Tech” SRL, în colaborare cu Liudmila Popovscaia, expert în drept imobiliar, care a contribuit la concepția juridică și funcțională a platformei. Contact: liudmila.popovscaia@gmail.com. Răspundem în maximum 36 de ore lucrătoare. Telefon de contact: +373 69 427 567."
       }
     ]
   },
@@ -102,7 +102,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "li",
-        "text": "Contact: info@biseeth.md. Răspundem în maximum 36 de ore lucrătoare."
+        "text": "Contact: info@biseeth.md. Răspundem în maximum 36 de ore lucrătoare. Telefon de contact: +373 69 427 567."
       },
       {
         "t": "h2",
@@ -372,6 +372,18 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       {
         "t": "p",
         "text": "Termenii pot fi actualizați; versiunea în vigoare se publică în Aplicație. Data ultimei actualizări: 20.06.2026."
+      },
+      {
+        "t": "h2",
+        "text": "Plată și rambursare"
+      },
+      {
+        "t": "p",
+        "text": "Procedura de returnare a produselor. Fiind un serviciu digital, „returnarea\" se realizează prin exercitarea dreptului de retragere și/sau prin cerere de rambursare. Cererea se transmite la info@biseeth.md și include datele contului, plata vizată și motivul. Ca regulă a contractului la distanță, consumatorul dispune de un termen de 14 zile calendaristice pentru retragere, fără justificare. Întrucât serviciul este digital și furnizat imediat, dacă utilizatorul a solicitat expres începerea prestării și a utilizat funcțiile Aplicației, dreptul de retragere nu se mai poate exercita pentru perioada respectivă. Rambursarea rămâne datorată în cazul neconformității serviciului (remediere, iar dacă nu este posibilă — reducere de preț sau rambursare proporțională) și în cazul plăților duble/erorilor de facturare imputabile Companiei, conform Legii nr. 105/2003 privind protecția consumatorilor."
+      },
+      {
+        "t": "p",
+        "text": "Termenii și condițiile de creditare a conturilor clienților în caz de retur sau anulare. Atunci când rambursarea este datorată, suma se creditează integral, prin aceeași modalitate de plată utilizată la achitare (pe cardul de pe care s-a efectuat plata), fără reținerea vreunui comision sau taxă în sarcina clientului, în cel mult 14 zile de la aprobarea cererii, dacă legea nu prevede un alt termen. La dezactivarea abonamentului în cursul unei perioade deja achitate, accesul continuă până la finalul acesteia, fără restituirea diferenței pentru perioada rămasă."
       }
     ]
   }

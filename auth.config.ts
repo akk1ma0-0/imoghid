@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import type { NextAuthConfig } from "next-auth";
 import type { SubscriptionPlan } from "@prisma/client";
 
@@ -45,6 +46,17 @@ export const authConfig = {
         request.cookies.get("imo_demo")?.value === "1" ||
         nextUrl.searchParams.get("demo") === "true";
       if (isDemo) return true;
+
+      // Публичная страница тарифов (SIP: банк требует публичную страницу цен).
+      // /app/pending открыта и анонимным посетителям. Путь пробрасываем в заголовок,
+      // чтобы серверный гейт /app-лейаута (auth() → redirect /login) тоже её пропустил.
+      // Все проверки для залогиненных (verify-email / plan / waitlist) остаются в самой
+      // странице (серверный компонент), а не здесь.
+      if (nextUrl.pathname.startsWith("/app/pending")) {
+        const headers = new Headers(request.headers);
+        headers.set("x-pathname", nextUrl.pathname);
+        return NextResponse.next({ request: { headers } });
+      }
 
       // Нет сессии → false → NextAuth редиректит на pages.signIn (/login)
       if (!isLoggedIn) return false;

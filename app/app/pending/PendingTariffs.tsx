@@ -21,20 +21,26 @@ const TARIFFS: Tariff[] = [
   { plan: "PRO", label: "Pro", price: "500 MDL", desc: "Plan avansat cu toate instrumentele — text temporar.", highlight: true },
 ];
 
-export function PendingTariffs() {
+export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: boolean }) {
   const { startDemo } = useDemo();
   const [agreed, setAgreed] = useState(false);
 
   return (
     <div className="ig-page" style={{ maxWidth: 720, margin: "0 auto" }}>
       <div style={{ textAlign: "center", marginTop: 32, marginBottom: 8 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Alegeți un plan</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+          {isAuthenticated ? "Alegeți un plan" : "Planuri și prețuri"}
+        </h1>
         <p style={{ fontSize: 14, color: "var(--ink3)", lineHeight: 1.6 }}>
-          Activați abonamentul pentru a începe. Plata este procesată securizat de VictoriaBank.
+          {isAuthenticated
+            ? "Activați abonamentul pentru a începe. Plata este procesată securizat de VictoriaBank."
+            : "Creați un cont pentru a activa un abonament. Plata este procesată securizat de VictoriaBank."}
         </p>
       </div>
 
-      {/* Согласие с условиями оплаты/возврата — обязательно до перехода на страницу банка (SIP п.7) */}
+      {/* Согласие с условиями оплаты/возврата — обязательно до перехода на страницу банка (SIP п.7).
+          Только для залогиненных (у анонимного оплаты нет — он идёт на регистрацию). */}
+      {isAuthenticated && (
       <label
         style={{
           display: "flex",
@@ -66,6 +72,7 @@ export function PendingTariffs() {
           .
         </span>
       </label>
+      )}
 
       <div
         style={{
@@ -90,18 +97,28 @@ export function PendingTariffs() {
               <p style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.55, margin: "14px 0 18px", minHeight: 40 }}>
                 {t.desc}
               </p>
-              <form method="POST" action="/api/payments/vb-initiate">
-                <input type="hidden" name="plan" value={t.plan} />
-                <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
-                <button
-                  type="submit"
-                  disabled={!agreed}
+              {isAuthenticated ? (
+                <form method="POST" action="/api/payments/vb-initiate">
+                  <input type="hidden" name="plan" value={t.plan} />
+                  <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+                  <button
+                    type="submit"
+                    disabled={!agreed}
+                    className={t.highlight ? "btn solid" : "btn"}
+                    style={{ width: "100%", justifyContent: "center", height: 44 }}
+                  >
+                    Alege planul {t.label}
+                  </button>
+                </form>
+              ) : (
+                <Link
+                  href="/register"
                   className={t.highlight ? "btn solid" : "btn"}
                   style={{ width: "100%", justifyContent: "center", height: 44 }}
                 >
-                  Alege planul {t.label}
-                </button>
-              </form>
+                  Înregistrează-te
+                </Link>
+              )}
             </div>
           </div>
         ))}
@@ -117,9 +134,15 @@ export function PendingTariffs() {
             ✨ Încearcă demo-ul gratuit
           </button>
           <div>
-            <button className="btn" onClick={() => signOut({ callbackUrl: "/login" })}>
-              Deconectați-vă
-            </button>
+            {isAuthenticated ? (
+              <button className="btn" onClick={() => signOut({ callbackUrl: "/login" })}>
+                Deconectați-vă
+              </button>
+            ) : (
+              <Link className="btn" href="/login" style={{ justifyContent: "center" }}>
+                Aveți deja cont? Autentificați-vă
+              </Link>
+            )}
           </div>
         </div>
       </div>

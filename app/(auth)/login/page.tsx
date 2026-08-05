@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react";
 
 import { BrandPanel } from "../_components/BrandPanel";
 import { PaymentCards } from "@/components/PaymentCards";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default function LoginPage() {
   // useSearchParams требует Suspense-границы при статической генерации.
@@ -97,9 +98,8 @@ function LoginForm() {
             </div>
             <div className="field">
               <label htmlFor="password">Parolă</label>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 placeholder="••••••••"
                 autoComplete="current-password"
                 required
@@ -146,6 +146,10 @@ function LoginForm() {
 
           <div className="link-row">
             Nu aveți cont? <Link href="/register">Înregistrați-vă</Link>
+          </div>
+
+          <div className="link-row" style={{ marginTop: 6 }}>
+            <Link href="/app/pending">Vezi planurile și prețurile →</Link>
           </div>
 
           <div className="disclaimer">

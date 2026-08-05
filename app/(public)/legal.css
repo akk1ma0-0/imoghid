@@ -49,7 +49,8 @@
   padding-bottom: 18px;
   margin-bottom: 28px;
 }
-.legal-brand { display: flex; align-items: center; gap: 9px; }
+.legal-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
+.legal-brand:hover .legal-mark { text-decoration: underline; }
 .legal-logo {
   width: 30px; height: 30px; border-radius: 7px;
   background: var(--ink); color: #fff;
@@ -57,9 +58,9 @@
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 12px; font-weight: 600; flex-shrink: 0;
 }
-.legal-mark { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.legal-mark { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink2); }
 .legal-dot { margin: 0 6px; color: #d1d5db; }
-.legal-app { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+.legal-app { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
 .legal-letter { font-size: 12px; color: var(--ink3); margin: 11px 0 0; }
 .legal-meta { font-size: 11px; color: var(--ink4); line-height: 1.6; margin: 6px 0 0; }
 

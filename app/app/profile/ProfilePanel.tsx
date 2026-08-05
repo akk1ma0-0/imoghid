@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signOut } from "next-auth/react";
+import { PasswordInput } from "@/components/PasswordInput";
 
 type Initial = {
   name: string;
@@ -213,16 +214,16 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
         <div className="card-bd">
           <div className="field-group">
             <label>Parola curentă</label>
-            <input type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
+            <PasswordInput value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
           </div>
           <div className="field-row">
             <div className="field-group">
               <label>Parola nouă</label>
-              <input type="password" value={nw} onChange={(e) => setNw(e.target.value)} autoComplete="new-password" />
+              <PasswordInput value={nw} onChange={(e) => setNw(e.target.value)} autoComplete="new-password" />
             </div>
             <div className="field-group">
               <label>Confirmați parola</label>
-              <input type="password" value={cf} onChange={(e) => setCf(e.target.value)} autoComplete="new-password" />
+              <PasswordInput value={cf} onChange={(e) => setCf(e.target.value)} autoComplete="new-password" />
             </div>
           </div>
           <button className="btn solid" onClick={savePassword} disabled={pwBusy || !cur || !nw || !cf}>
@@ -253,8 +254,7 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
             </div>
             <div className="field-group">
               <label>Parola curentă</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={emCur}
                 onChange={(e) => setEmCur(e.target.value)}
                 autoComplete="current-password"

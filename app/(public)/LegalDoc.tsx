@@ -55,14 +55,12 @@ export function LegalDoc({ docKey }: { docKey: keyof typeof LEGAL_DOCS }) {
         </div>
 
         <header className="legal-head">
-          <div className="legal-brand">
+          <Link href="/" className="legal-brand" aria-label="Pagina principală">
             <div className="legal-logo">IG</div>
             <div>
               <span className="legal-mark">BiSeeTh</span>
-              <span className="legal-dot">·</span>
-              <span className="legal-app">ImoGhid</span>
             </div>
-          </div>
+          </Link>
           <p className="legal-letter">ImoGhid — Documente legale și informative</p>
           <p className="legal-meta">
             BiSeeTh este o marcă comercială administrată de „BlackSpace Tech” SRL, IDNO

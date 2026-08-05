@@ -82,8 +82,8 @@
   font-size: 11px;
   font-weight: 600;
 }
-.logo-name { font-size: 14px; font-weight: 700; letter-spacing: -0.03em; }
-.logo-sub { font-size: 10px; font-family: var(--mono); color: var(--ink3); display: block; margin-top: -1px; }
+.logo-name { font-size: 14px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
+.logo-sub { font-size: 10px; font-family: var(--mono); color: var(--ink2); display: block; margin-top: -1px; }
 .nav { display: flex; gap: 2px; }
 .nav-btn {
   font-family: var(--sans);
