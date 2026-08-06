@@ -3,6 +3,7 @@ import type { DealType, PartyType } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
+import { isDemoRequest, DEMO_TX_ID } from "@/lib/demo-guard";
 import { stepToNumber, TOTAL_STEPS } from "@/lib/steps";
 
 const DEAL_TYPES: DealType[] = ["VANZARE_CUMPARARE", "DONATIE", "SCHIMB", "ALT_TIP"];
@@ -10,6 +11,11 @@ const PARTY_TYPES: PartyType[] = ["PERSOANA_FIZICA", "PERSOANA_JURIDICA"];
 
 // POST /api/transactions — создать транзакцию из формы шага 1.
 export async function POST(request: Request) {
+  // Demo-режим не пишет в боевую БД — отдаём фиктивный ID, чтобы фронтенд-тур продолжил.
+  if (await isDemoRequest()) {
+    return NextResponse.json({ id: DEMO_TX_ID }, { status: 201 });
+  }
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
 

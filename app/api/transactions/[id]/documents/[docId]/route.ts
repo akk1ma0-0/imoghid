@@ -3,12 +3,16 @@ import { del } from "@vercel/blob";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 
 type Params = { params: Promise<{ id: string; docId: string }> };
 
 // DELETE /api/transactions/[id]/documents/[docId]
 // Удаляет документ: blob в Vercel Blob + запись TransactionDocument. Подтверждение не нужно (UI).
 export async function DELETE(_req: Request, { params }: Params) {
+  // Demo не трогает БД/блобы — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id, docId } = await params;

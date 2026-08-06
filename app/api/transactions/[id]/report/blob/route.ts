@@ -3,6 +3,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
 import { auth } from "@/auth";
 import { loadOwnedTransaction } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,6 +16,14 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 // POST /api/transactions/[id]/report/blob
 // Авторизация прямой загрузки сгенерированного .docx «Fișa obiectului» в Vercel Blob.
 export async function POST(request: Request, { params }: Params) {
+  // Demo не выдаёт токен на загрузку в Blob (никакой записи файлов в demo).
+  if (await isDemoRequest()) {
+    return NextResponse.json(
+      { error: "Indisponibil în modul demo." },
+      { status: 403 },
+    );
+  }
+
   const { id } = await params;
   const session = await auth();
   const body = (await request.json()) as HandleUploadBody;

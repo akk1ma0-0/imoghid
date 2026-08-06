@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 import { buildChecklist } from "@/lib/checklist/catalog";
 
 type Params = { params: Promise<{ id: string }> };
@@ -24,6 +25,9 @@ export async function GET(_req: Request, { params }: Params) {
 
 // POST /api/transactions/[id]/checklist — (пере)генерация списка из dealType + флагов.
 export async function POST(_req: Request, { params }: Params) {
+  // Demo не генерирует/не пишет чеклист в БД — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id } = await params;

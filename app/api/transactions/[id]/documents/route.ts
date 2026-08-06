@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -12,6 +13,9 @@ const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 // Файл уже загружен напрямую в Vercel Blob (см. .../documents/blob). Здесь приходит
 // только метадата (URL + имя/размер/тип) — крошечный JSON, без лимита тела.
 export async function POST(request: Request, { params }: Params) {
+  // Demo не регистрирует документы в БД — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id } = await params;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 
 type Params = { params: Promise<{ id: string; ownerId: string }> };
 
@@ -20,6 +21,9 @@ const BOOL_FIELDS = [
 
 // PATCH /api/transactions/[id]/owners/[ownerId] — переключатели согласований.
 export async function PATCH(request: Request, { params }: Params) {
+  // Demo не меняет данные собственников в БД — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id, ownerId } = await params;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 import { analysisLimit, isPastMonth } from "@/lib/analysis-limits";
 import { analyzeDocuments, type VerificareImobilData } from "@/lib/claude";
 import { isInheritanceBasis, parseOwnerCota } from "@/lib/analyze/flags";
@@ -10,6 +11,9 @@ type Params = { params: Promise<{ id: string }> };
 
 // POST /api/transactions/[id]/analyze — анализ документов Claude (Pasul 3) → ExtractedField + TransactionFlag + owners.
 export async function POST(_req: Request, { params }: Params) {
+  // Demo не вызывает Claude и не пишет флаги/поля в БД — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id } = await params;

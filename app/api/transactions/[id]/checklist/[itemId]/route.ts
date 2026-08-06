@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 
 type Params = { params: Promise<{ id: string; itemId: string }> };
 
 // PATCH /api/transactions/[id]/checklist/[itemId] — отметить isUploaded.
 export async function PATCH(request: Request, { params }: Params) {
+  // Demo не меняет состояние чеклиста в БД — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id, itemId } = await params;

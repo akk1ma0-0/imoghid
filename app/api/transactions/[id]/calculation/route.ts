@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 import { calcCapitalGain, calcDonation, calcSchimb, calcNotary } from "@/lib/calc";
 
 type Params = { params: Promise<{ id: string }> };
@@ -13,6 +14,9 @@ function num(v: unknown): number | null {
 
 // POST /api/transactions/[id]/calculation — пересчёт и upsert TransactionCalculation.
 export async function POST(request: Request, { params }: Params) {
+  // Demo не сохраняет расчёт в БД — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id } = await params;

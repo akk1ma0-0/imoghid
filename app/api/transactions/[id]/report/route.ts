@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,6 +22,9 @@ export async function GET(_req: Request, { params }: Params) {
 
 // POST /api/transactions/[id]/report — создаёт/обновляет отчёт (upsert).
 export async function POST(req: Request, { params }: Params) {
+  // Demo не сохраняет отчёт в БД — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id } = await params;

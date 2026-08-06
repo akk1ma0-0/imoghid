@@ -6,6 +6,7 @@ import type { DealType, PartyType, TransactionStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
+import { isDemoRequest, DEMO_TX_ID, demoFlowTx } from "@/lib/demo-guard";
 import { stepToNumber, numberToStep, isValidStepNumber } from "@/lib/steps";
 
 type Params = { params: Promise<{ id: string }> };
@@ -15,9 +16,15 @@ const PARTY_TYPES: PartyType[] = ["PERSOANA_FIZICA", "PERSOANA_JURIDICA"];
 
 // GET /api/transactions/[id] — полная транзакция со связями.
 export async function GET(_req: Request, { params }: Params) {
+  const { id } = await params;
+  // Demo: фиктивное досье — отдаём мок без обращения к БД, чтобы deviation-путь тура
+  // (реальная форма, открытая в demo) отрисовал шаги.
+  if (id === DEMO_TX_ID && (await isDemoRequest())) {
+    return NextResponse.json({ transaction: demoFlowTx() });
+  }
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
-  const { id } = await params;
 
   const tx = await loadOwnedTransaction(id, sess.userId, {
     documents: { orderBy: { uploadedAt: "asc" } },
@@ -36,6 +43,9 @@ export async function GET(_req: Request, { params }: Params) {
 
 // PATCH /api/transactions/[id] — обновить поля и/или currentStep (число 1–8).
 export async function PATCH(request: Request, { params }: Params) {
+  // Demo не пишет в БД — фиктивный успех (фронтенд перечитает GET → мок).
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id } = await params;
@@ -109,6 +119,9 @@ export async function PATCH(request: Request, { params }: Params) {
 
 // DELETE /api/transactions/[id] — удаление транзакции с каскадом и физическими файлами.
 export async function DELETE(_req: Request, { params }: Params) {
+  // Demo не трогает БД/блобы — фиктивный успех.
+  if (await isDemoRequest()) return NextResponse.json({ ok: true });
+
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
   const { id } = await params;
