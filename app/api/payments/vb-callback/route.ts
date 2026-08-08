@@ -13,6 +13,17 @@ const ALLOWED = [
 
 export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
+
+  // TEMP (Шаг 1 диагностики bon electronic): полный дамп ВСЕХ полей callback банка —
+  // чтобы один раз увидеть реальный набор (CARD/NAME/APPROVAL/…), а не только ALLOWED.
+  // Логируется ДО любой фильтрации. Удалить после снятия одного тестового платежа.
+  if (form) {
+    console.log(
+      "[VB callback] FULL RAW BODY:",
+      JSON.stringify(Object.fromEntries(form.entries())),
+    );
+  }
+
   const data: Record<string, string> = {};
   if (form) {
     for (const k of ALLOWED) data[k] = String(form.get(k) ?? "").trim();
