@@ -194,6 +194,10 @@ model Payment {
   intRef    String?         // из callback — нужно для TRTYPE=21
   rc        String?         // последний код ответа банка
   action    String?         // ACTION из callback
+  // Для bon electronic (email-чек). Приходят в callback авторизации (TRTYPE=0);
+  // в TRTYPE=21 CARD/BIN уже пустые — сохраняем на шаге TRTYPE=0.
+  approval  String?         // APPROVAL — код авторизации банка
+  cardLast4 String?         // последние 4 цифры маскированного PAN (CARD)
   // Пропуск авто-TRTYPE=21 для КОНКРЕТНОГО тестового платежа (сертификация, Testul 2 = чистый
   // 0→24). Проставляется при инициации из admin-панели; детерминирован, не зависит от env/раскатки.
   skipAutoCompletion Boolean  @default(false)

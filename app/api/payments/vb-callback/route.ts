@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { psignVerifyCallback, vbCompletion } from "@/lib/vb-egateway";
+import { sendReceiptEmail } from "@/lib/email";
 
 // POST /api/payments/vb-callback — авторитетный server-to-server callback банка.
 // Всегда отвечаем HTTP 200 (иначе банк ретраит), даже при невалидной подписи.
@@ -13,17 +14,6 @@ const ALLOWED = [
 
 export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
-
-  // TEMP (Шаг 1 диагностики bon electronic): полный дамп ВСЕХ полей callback банка —
-  // чтобы один раз увидеть реальный набор (CARD/NAME/APPROVAL/…), а не только ALLOWED.
-  // Логируется ДО любой фильтрации. Удалить после снятия одного тестового платежа.
-  if (form) {
-    console.log(
-      "[VB callback] FULL RAW BODY:",
-      JSON.stringify(Object.fromEntries(form.entries())),
-    );
-  }
-
   const data: Record<string, string> = {};
   if (form) {
     for (const k of ALLOWED) data[k] = String(form.get(k) ?? "").trim();
@@ -58,13 +48,34 @@ export async function POST(request: Request) {
   }
 
   if (ACTION === "0" && RC === "00") {
+    // Данные для bon electronic приходят ИМЕННО в callback авторизации (TRTYPE=0):
+    // CARD (маскированный PAN) и APPROVAL. В TRTYPE=21 они уже пустые — сохраняем здесь.
+    const approval = data.APPROVAL || null;
+    const cardLast4 =
+      data.CARD && data.CARD.length >= 4 ? data.CARD.slice(-4) : null;
+    // Платёжная сеть по первой цифре PAN (4 = Visa; 2/5 = Mastercard).
+    const firstDigit = data.CARD?.[0];
+    const cardNetwork =
+      firstDigit === "4"
+        ? "Visa"
+        : firstDigit === "5" || firstDigit === "2"
+          ? "Mastercard"
+          : null;
+
     // Пропуск авто-TRTYPE=21 для КОНКРЕТНОГО тестового платежа (Testul 2 = чистый 0→24).
     // Флаг на самой записи Payment (проставлен при инициации из admin-панели) — детерминирован,
     // не зависит от env/раскатки. Обычные платежи (skipAutoCompletion=false) не затрагиваются.
     if (payment.skipAutoCompletion) {
       await prisma.payment.update({
         where: { id: payment.id },
-        data: { rrn: RRN || null, intRef: INT_REF || null, rc: RC, action: ACTION },
+        data: {
+          rrn: RRN || null,
+          intRef: INT_REF || null,
+          rc: RC,
+          action: ACTION,
+          approval,
+          cardLast4,
+        },
       });
       console.log(`[VB callback] AUTHORIZED (skip auto-21, per-Payment TEST) ORDER=${ORDER} RRN=${RRN}`);
       return new NextResponse("OK", { status: 200 });
@@ -82,6 +93,8 @@ export async function POST(request: Request) {
         intRef: INT_REF || null,
         rc: RC,
         action: ACTION,
+        approval,
+        cardLast4,
       },
     });
     if (claim.count === 0) {
@@ -110,7 +123,7 @@ export async function POST(request: Request) {
       // по истечении planExpiresAt cron обнулит план (см. /api/cron/check-expired-plans).
       const now = new Date();
       const planExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      await prisma.$transaction([
+      const [, paidUser] = await prisma.$transaction([
         prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
         prisma.user.update({
           where: { id: payment.userId },
@@ -118,6 +131,27 @@ export async function POST(request: Request) {
         }),
       ]);
       console.log(`[VB callback] PAID ORDER=${ORDER} plan=${payment.plan} user=${payment.userId}`);
+
+      // Bon electronic — чек на e-mail пользователя. Non-blocking: сбой почты НЕ должен
+      // ломать обработку платежа (callback обязан вернуть 200). Поля carte/approval —
+      // из локальных переменных этого же TRTYPE=0 (в БД они тоже сохранены клеймом).
+      if (paidUser?.email) {
+        try {
+          await sendReceiptEmail(paidUser.email, {
+            order: ORDER,
+            amount: payment.amount,
+            currency: CURRENCY || payment.currency,
+            plan: payment.plan,
+            rrn: RRN || null,
+            approval,
+            cardLast4,
+            cardNetwork,
+            paidAt: now,
+          });
+        } catch (e) {
+          console.error("[VB callback] receipt email error ORDER=" + ORDER, e);
+        }
+      }
     } else {
       console.error(`[VB callback] capture failed ORDER=${ORDER} RC=${captureRc}`);
       // Оставляем PENDING, но completionStartedAt уже проставлен (клейм) → повторные
