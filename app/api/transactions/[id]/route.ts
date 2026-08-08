@@ -82,6 +82,29 @@ export async function PATCH(request: Request, { params }: Params) {
   if (PARTY_TYPES.includes(body.sellerType as PartyType)) data.sellerType = body.sellerType;
   if (PARTY_TYPES.includes(body.buyerType as PartyType)) data.buyerType = body.buyerType;
 
+  // Consimțământ GDPR (Legea 195/2024) — verificăm DOAR când PATCH-ul atinge datele
+  // clientului (Step 1 save). PATCH-urile de tip {currentStep}/{status} nu sunt afectate.
+  if ("clientName" in body || "clientPhone" in body) {
+    const effName = "clientName" in body ? str(body.clientName) : existing.clientName;
+    const effPhone = "clientPhone" in body ? str(body.clientPhone) : existing.clientPhone;
+    const hasClientPII = !!(effName || effPhone);
+    const alreadyConsented = !!existing.clientConsentGivenAt;
+    const consentNow = body.clientConsentGiven === true;
+    if (hasClientPII && !alreadyConsented && !consentNow) {
+      return NextResponse.json(
+        {
+          error:
+            "Confirmați consimțământul persoanei vizate pentru prelucrarea datelor clientului (Legea 195/2024).",
+        },
+        { status: 400 },
+      );
+    }
+    // Fixăm timestamp-ul o singură dată (prima bifare) — rămâne ca dovadă.
+    if (hasClientPII && consentNow && !alreadyConsented) {
+      data.clientConsentGivenAt = new Date();
+    }
+  }
+
   if (body.currentStep !== undefined) {
     if (!isValidStepNumber(body.currentStep)) {
       return NextResponse.json({ error: "Pas invalid." }, { status: 400 });

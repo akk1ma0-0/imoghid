@@ -36,6 +36,22 @@ export async function POST(request: Request) {
     );
   }
 
+  // Consimțământ GDPR (Legea 195/2024) — obligatoriu când se introduc date terță parte
+  // (nume/telefon client). Defense in depth: verificăm pe server, nu doar în UI.
+  const clientName = str(body.clientName);
+  const clientPhone = str(body.clientPhone);
+  const hasClientPII = !!(clientName || clientPhone);
+  const consentGiven = body.clientConsentGiven === true;
+  if (hasClientPII && !consentGiven) {
+    return NextResponse.json(
+      {
+        error:
+          "Confirmați consimțământul persoanei vizate pentru prelucrarea datelor clientului (Legea 195/2024).",
+      },
+      { status: 400 },
+    );
+  }
+
   const dealType = DEAL_TYPES.includes(body.dealType as DealType)
     ? (body.dealType as DealType)
     : "VANZARE_CUMPARARE";
@@ -59,9 +75,10 @@ export async function POST(request: Request) {
       dealType,
       sellerType,
       buyerType,
-      clientName: str(body.clientName),
-      clientPhone: str(body.clientPhone),
+      clientName,
+      clientPhone,
       clientContractRef: str(body.clientContractRef),
+      clientConsentGivenAt: hasClientPII && consentGiven ? new Date() : null,
       currentStep: "DATE_OBIECT",
     },
     select: { id: true },

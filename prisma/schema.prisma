@@ -349,6 +349,10 @@ model Transaction {
   clientName        String?
   clientPhone       String?
   clientContractRef String?   // nr. contract cu clientul
+  // Consimțământul persoanei vizate (clientul — date terță parte) pentru prelucrarea
+  // datelor, conform Legii nr. 195/2024. Timestamp = momentul bifării (dovadă la control).
+  // Obligatoriu când se introduc nume/telefon client (enforce în POST/PATCH /api/transactions).
+  clientConsentGivenAt DateTime?
 
   // Progres
   currentStep TransactionStep   @default(DATE_OBIECT)

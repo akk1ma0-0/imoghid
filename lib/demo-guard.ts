@@ -34,6 +34,7 @@ export function demoFlowTx(): FlowTx {
     clientName: null,
     clientPhone: null,
     clientContractRef: null,
+    clientConsentGivenAt: null,
     currentStepNumber: 1,
     completedAt: null,
     documents: [],

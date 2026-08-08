@@ -74,6 +74,7 @@ export type FlowTx = {
   clientName: string | null;
   clientPhone: string | null;
   clientContractRef: string | null;
+  clientConsentGivenAt: string | null;
   currentStepNumber: number;
   completedAt: string | null;
   documents: FlowDoc[];

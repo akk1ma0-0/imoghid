@@ -57,6 +57,9 @@ export function Step1Date({
   const [clientName, setClientName] = useState(tx?.clientName ?? "");
   const [clientPhone, setClientPhone] = useState(tx?.clientPhone ?? "");
   const [clientContractRef, setClientContractRef] = useState(tx?.clientContractRef ?? "");
+  // Consimțământ GDPR (Legea 195/2024) pentru datele clientului. Dacă tranzacția are deja
+  // timestamp de consimțământ — bifat implicit (la editare nu se cere din nou).
+  const [consent, setConsent] = useState(!!tx?.clientConsentGivenAt);
   const [contractFileName, setContractFileName] = useState<string | null>(null);
   const contractFileRef = useRef<HTMLInputElement>(null);
 
@@ -119,16 +122,27 @@ export function Step1Date({
     router.push(`/app/cadastru?target=${target}`);
   }
 
+  // Consimțământ obligatoriu doar când se introduc date terță parte (nume/telefon client).
+  const hasClientPII = !!(clientName.trim() || clientPhone.trim());
+  const consentMissing = hasClientPII && !consent;
+
   async function save() {
     setError(null);
     if (!address.trim() && !cadastralNo.trim()) {
       setError("Introduceți adresa sau numărul cadastral.");
       return;
     }
+    if (consentMissing) {
+      setError(
+        "Confirmați consimțământul persoanei vizate pentru prelucrarea datelor clientului (Legea 195/2024).",
+      );
+      return;
+    }
     setBusy(true);
     const payload = {
       address, cadastralNo, objectType, suprafata, destinatie, valoare,
       verificareImobil, dealType, clientName, clientPhone, clientContractRef,
+      clientConsentGiven: consent,
     };
     try {
       if (tx) {
@@ -137,7 +151,8 @@ export function Step1Date({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!r.ok) throw new Error();
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d?.error);
         onNext(tx.id);
       } else {
         const r = await fetch("/api/transactions", {
@@ -405,10 +420,36 @@ export function Step1Date({
               </div>
             )}
           </div>
+
+          {/* Consimțământ GDPR (Legea 195/2024) — obligatoriu la introducerea datelor clientului. */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              marginTop: 14,
+              fontSize: 12.5,
+              color: "var(--ink2)",
+              lineHeight: 1.55,
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              style={{ marginTop: 2, flexShrink: 0 }}
+            />
+            <span>
+              Confirm consimțământul persoanei vizate pentru prelucrarea datelor introduse,
+              conform Legii nr. 195/2024 privind protecția datelor cu caracter personal. Datele
+              sunt folosite exclusiv în acest scop și nu sunt divulgate terților fără temei legal.
+            </span>
+          </label>
         </div>
       </div>
 
-      <button className="btn solid" onClick={save} disabled={busy}>
+      <button className="btn solid" onClick={save} disabled={busy || consentMissing}>
         {busy ? "Se salvează…" : "Continuați → încărcați documentele"}
       </button>
     </div>
