@@ -48,6 +48,17 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  // Consimțământ DPA obligatoriu (Legea 195/2024). Defense in depth: verificăm pe server,
+  // nu doar în UI. Fără acceptare → 400, contul nu se creează.
+  if (body.dpaConsent !== true) {
+    return NextResponse.json(
+      {
+        error:
+          "Trebuie să acceptați Declarația și consimțământul privind prelucrarea datelor cu caracter personal.",
+      },
+      { status: 400 },
+    );
+  }
 
   // Уникальность email
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -86,6 +97,7 @@ export async function POST(request: Request) {
         phone: phone || null,
         passwordHash,
         agencyName,
+        dpaConsentGivenAt: new Date(),
         utmSource,
         utmCampaign,
         utmMedium,

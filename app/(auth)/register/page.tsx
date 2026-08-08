@@ -31,6 +31,9 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Consimțământ DPA (Legea 195/2024) — obligatoriu pentru înregistrare.
+  const [dpaConsent, setDpaConsent] = useState(false);
+  const [showDpa, setShowDpa] = useState(false);
 
   function update(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -67,6 +70,13 @@ export default function RegisterPage() {
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
+    if (!dpaConsent) {
+      setError(
+        "Trebuie să acceptați Declarația și consimțământul privind prelucrarea datelor cu caracter personal.",
+      );
+      return;
+    }
+
     setLoading(true);
 
     const res = await fetch("/api/auth/register", {
@@ -77,6 +87,7 @@ export default function RegisterPage() {
         email: form.email,
         phone: form.phone,
         password: form.password,
+        dpaConsent,
       }),
     });
 
@@ -216,7 +227,105 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <button className="btn-primary" type="submit" disabled={loading}>
+            {/* Declarație și consimțământ DPA (Legea 195/2024) — obligatoriu. Textul integral
+                e vizibil pe pagină (la clic „Arată textul integral"), nu ascuns pe altă pagină. */}
+            <div
+              style={{
+                border: "1px solid var(--line, #e5e7eb)",
+                borderRadius: 10,
+                padding: 14,
+                margin: "4px 0 16px",
+                background: "#fafafa",
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink, #111827)", marginBottom: 6 }}>
+                Declarație și consimțământ privind prelucrarea datelor cu caracter personal
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDpa((v) => !v)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  color: "var(--blue, #1d4ed8)",
+                  fontSize: 12.5,
+                }}
+              >
+                {showDpa ? "Ascunde textul ▲" : "Arată textul integral ▼"}
+              </button>
+
+              {showDpa && (
+                <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.6, color: "var(--ink2, #374151)" }}>
+                  <p style={{ margin: "0 0 6px" }}>
+                    Prin crearea contului și utilizarea platformei ImoGhid, confirm că:
+                  </p>
+                  <ul style={{ margin: "0 0 10px", paddingLeft: 18 }}>
+                    <li>
+                      am luat cunoștință că datele cu caracter personal sunt prelucrate în conformitate
+                      cu Legea nr. 195/2024 privind protecția datelor cu caracter personal;
+                    </li>
+                    <li>
+                      datele proprii pe care le introduc sunt corecte și consimt la prelucrarea lor în
+                      scopul furnizării serviciilor platformei;
+                    </li>
+                    <li>
+                      atunci când introduc date cu caracter personal ale altor persoane (clienți, părți
+                      la tranzacție etc.), dețin temeiul legal pentru a le furniza și prelucra, și îmi
+                      asum răspunderea pentru aceasta;
+                    </li>
+                    <li>
+                      voi utiliza datele exclusiv în scopul pregătirii și derulării tranzacțiilor
+                      imobiliare, respectând drepturile persoanelor vizate;
+                    </li>
+                    <li>
+                      am luat cunoștință de{" "}
+                      <a href="/confidentialitate" target="_blank" rel="noopener noreferrer">
+                        Politica de confidențialitate
+                      </a>
+                      .
+                    </li>
+                  </ul>
+                  <div
+                    style={{
+                      background: "#fef3c7",
+                      border: "1px solid #fcd34d",
+                      color: "#92400e",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    ⚠️ Atenție: introducerea datelor altor persoane fără temei legal sau consimțământ
+                    este interzisă și atrage răspunderea utilizatorului.
+                  </div>
+                </div>
+              )}
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 9,
+                  marginTop: 12,
+                  fontSize: 13,
+                  color: "var(--ink2, #374151)",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={dpaConsent}
+                  onChange={(e) => setDpaConsent(e.target.checked)}
+                  style={{ marginTop: 2, flexShrink: 0 }}
+                />
+                <span>Am citit și accept.</span>
+              </label>
+            </div>
+
+            <button className="btn-primary" type="submit" disabled={loading || !dpaConsent}>
               {loading ? "Se creează contul…" : "Creați cont"}
             </button>
           </form>

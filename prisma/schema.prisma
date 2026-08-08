@@ -159,6 +159,11 @@ model User {
   // Настройки уведомлений
   notifLegislatie      Boolean         @default(false)
 
+  // Согласие DPA при регистрации (Declarație și consimțământ — Legea 195/2024). Timestamp
+  // отметки чекбокса = дозволь при проверке. Обязательно для регистрации (enforce в POST
+  // /api/auth/register). Отдельно от clientConsentGivenAt (согласие при вводе данных клиента).
+  dpaConsentGivenAt    DateTime?
+
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
