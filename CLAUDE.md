@@ -16,7 +16,7 @@
 Три главных модуля:
 - **Ghidul tranzacției** — пошаговый маршрут сделки (8 шагов), анализ документов через Claude API
 - **Anunțuri 999** — лента объявлений от собственников с 999.md
-- **Instrumente** — генератор объявлений (AI), CMA, PDF-отчёты
+- **Instrumente** (как отдельная страница `/app/instrumente` больше НЕ существует — 308-редирект на `/app/acte`) — функции разнесены: **Creator Hub** (`/app/creator`, генератор контента/анонсов через Claude) и **Actele mele** (`/app/acte`, шаблоны .docx). CMA и PDF-отчёт — заглушки, к UI не подключены.
 
 Референс дизайна и функционала: `docs/imoghid-v4.html` (открыть в браузере)
 
@@ -185,7 +185,7 @@ npm run prisma:studio    # GUI для БД
 
 ## Модуль «Verificare imobil» (`/app/cadastru`)
 
-Отдельная вкладка (первая в меню, перед «Ghidul tranzacției»), по дизайну `docs/imoghid-v4.html` (#viewCadastru). Название модуля — «Verificare imobil» (URL остался `/app/cadastru`). Порядок меню: Verificare imobil · Ghidul tranzacției · Obiectele mele · Instrumente · Anunțuri 999.
+Отдельная вкладка (первая в меню, перед «Ghidul tranzacției»), по дизайну `docs/imoghid-v4.html` (#viewCadastru). Название модуля — «Verificare imobil» (URL остался `/app/cadastru`). Порядок меню (актуальный навбар, `Topbar.tsx`): Verificare imobil · Crează Dosar · Obiectele mele · Actele mele · Creator Hub · Anunțuri 999.
 
 - **Данные моковые** (как 999): `lib/cadastru-service.ts` (`CAD_RECORDS`, `CAD_BUILDINGS`, `CAD_ADDR_INDEX`). Реальный API ASP/Acces-Web подключается заменой **только** `lookupCadastru()`/`getRecordByCad()`.
 - `POST /api/cadastru/lookup { query }` → `record`/`picker` (200) или `fallback` (404). Логика: точный кадастровый номер → запись; адрес с/без квартиры → запись или picker; квартира не в здании → picker; адрес не найден → 404 fallback (ручной портал e-Cadastru).
@@ -238,23 +238,26 @@ npm run prisma:studio    # GUI для БД
 
 ---
 
-## Модуль «Instrumente» (`/app/instrumente`)
+## Инструменты (Creator Hub + Actele mele)
 
-Четыре карточки (дизайн `docs/imoghid-v4.html` #viewAI):
-1. **Generare anunț** — `POST /api/tools/generate-anunt` (Claude, кешированный промпт `docs/templates/anunt-generator-prompt.md`; в запрос только промпт + тезисы) → текст объявления + хэштеги (ro/ru), кнопка Copiați.
-2. **Acte / Contracte** — 2 шаблона `.docx` с тегами `{tag}` (`docs/templates/`): «Completați →» открывает модалку с формой (`modal-garantie`/`modal-contract`, поля 1:1 с дизайном). Вверху — «Selectați tranzacția»: при выборе сделки поля предзаполняются из `ExtractedField`+`Transaction` (только подтверждённые). «Generați documentul →» → `POST /api/tools/generate-doc { templateName, data }` → **docxtemplater** (`pizzip`+`docxtemplater`, `lib/templates.ts`) подставляет теги, **незаполненные → `____________`** (nullGetter, §4 — не выдумываем) → скачивание `.docx` с сохранением форматирования шаблона. Серверные конверсии (`lib/ro-words.ts`): `{suma_garantie_litere}`←cifre, `{durata_litere}`←cifre (числа прописью с диакритиками), дата контракта → `{contract_zi}`/`{contract_luna}` (месяц словами)/`{contract_an}` (2 цифры, в шаблоне жёстко «20» перед тегом). Заполнение шаблонов **БЕЗ Claude** (детерминированно); Claude остаётся только для генерации анонса (card 1).
-3. **Analiză de piață (CMA)** — демо-статистика из `lib/listings-mock.ts` через `getCmaStats()` (единая точка замены на B2B-данные 999.md). `GET /api/tools/cma`.
-4. **Raport pentru client (PDF)** — Premium, заглушка (alert «în MVP»).
+⚠️ Единой страницы «Instrumente» (`/app/instrumente`) **больше нет** — в `next.config.ts` стоит 308-редирект `/app/instrumente → /app/acte`. Бывшие 4 карточки разнесены/сняты:
+
+1. **Generare anunț** — теперь через **Creator Hub** (`/app/creator`, пункт навбара). Выбор платформы «999.md» → `POST /api/tools/creator` → вызывает `generateAnunt(input, "ro"|"ru")` из `lib/tools-claude.ts` (тот же кешированный промпт `docs/templates/anunt-generator-prompt.md`, в запрос только промпт+тезисы). Роут гейтится `requirePaidAccess()`. Отдельный старый роут `/api/tools/generate-anunt` **удалён** (был orphaned, не подключён к UI).
+2. **Acte / Contracte** — теперь это модуль **«Actele mele»** (`/app/acte`). Шаблоны `.docx` с тегами `{tag}` (`docs/templates/`); заполнение → `POST /api/tools/generate-doc { templateName, data }` → **docxtemplater** (`pizzip`+`docxtemplater`, `lib/templates.ts`), незаполненные → `____________` (nullGetter), серверные конверсии чисел/дат (`lib/ro-words.ts`). **БЕЗ Claude** (детерминированно), гейт `requireSession()`.
+3. **Analiză de piață (CMA)** — **к UI не подключена.** Demo-роут `GET /api/tools/cma` **удалён** (orphaned). Функция `getCmaStats()` осталась в `lib/listings-service.ts` как swap-point на B2B-данные 999.md, но сейчас нигде не вызывается (dead до появления CMA-страницы).
+4. **Raport pentru client (PDF)** — заглушка, к UI не подключена.
+
+Реальные Claude-вызовы в этой зоне — только генерация анонса через Creator Hub (`/api/tools/creator`). Заполнение шаблонов — без Claude.
 
 ---
 
 ## Claude API (AI-функции)
 
 > Единый источник правды по правовой логике и промптам — `docs/imoghid-reference.md` (заменил `инструкция_по_анализу_документов.txt` и `georgii-step3-prompt.md`). Системный промпт Step 3 = **Секция 3** этого файла (читается `lib/claude.ts` → `loadSystemPrompt()` по маркерам `## 3.`…`## 4.`). Логика автозаполнения шаблонов — Секция 4.
-> **Claude-вызовы:** (1) Step 3 — анализ документов (`lib/claude.ts`); (2) Instrumente — **генерация анонса** (`lib/tools-claude.ts`, `anunt-generator-prompt.md`). Заполнение шаблонов Acte/Contracte — БЕЗ Claude (docxtemplater, детерминированно). Промпт `document-fill-prompt.md` оставлен как референс §4, но больше не вызывается. У Claude-вызовов свой системный промпт и stub-fallback без ключа.
+> **Claude-вызовы:** (1) Step 3 — анализ документов (`lib/claude.ts`); (2) Creator Hub — **генерация контента/анонса** (`lib/tools-claude.ts` → `/api/tools/creator`, `anunt-generator-prompt.md`). Заполнение шаблонов Actele mele — БЕЗ Claude (docxtemplater, детерминированно). Промпт `document-fill-prompt.md` оставлен как референс §4, но больше не вызывается. У Claude-вызовов свой системный промпт и stub-fallback без ключа.
 
 
-- Используется для: OCR и анализ документов (шаг 3), генератор объявлений (Instrumente)
+- Используется для: OCR и анализ документов (шаг 3), генератор объявлений (Creator Hub)
 - Модель: `claude-sonnet-4-6`
 - Клиент в: `lib/claude.ts`
 - Мониторинг токенов: сохранять `inputTokens` и `outputTokens` в `AnuntGeneration`
@@ -279,3 +282,4 @@ npm run prisma:studio    # GUI для БД
 - 2026-06-19: Flow «Completați →» переведён на **docxtemplater** (`pizzip`+`docxtemplater`, убраны `mammoth`/`docx`): две модалки с формами (поля 1:1 с дизайном), теги `{tag}` в шаблонах, серверные конверсии чисел прописью и даты (`lib/ro-words.ts`), незаполненные → `____________`, предзаполнение из сделки. Заполнение шаблонов теперь без Claude.
 - 2026-06-19: Реализован модуль «Instrumente» (`/app/instrumente`, 4 карточки). Второй тип Claude-вызова (заполнение .docx-шаблонов, `lib/tools-claude.ts` + `mammoth`/`docx`). Источник промптов/правовой базы консолидирован в `docs/imoghid-reference.md` (Step 3 = §3); старые `georgii-step3-prompt.md` и `инструкция_…txt` удалены. Проверено e2e (anunț, fill с подстановкой данных и сохранением `____`, .docx-генерация, CMA).
 - 2026-06-18: Пакет из 12 правок по `docs/imoghid-v4.html`: модуль переименован «Verificare cadastru»→«Verificare imobil»; 999 перемещён в конец меню; заголовки карточек 13.5px/ink; убран «Alt tip» (шаг 1); загрузка файла контракта (шаг 1); Schimb на шаге 1 = 2 карточки Obiect 1/2 + «Verifică obiect →»; шаг 5 «Partea 1/2», убрана кнопка acord de avans; шаг 6 Schimb — метки Obiect 1/2 + чекбокс sultă; «Obiectele mele» — статусы ACTIVE/WAITING/DONE/ARCHIVE (миграция `add_transaction_status`), кнопки смены статуса, убраны «Vizionări» и таб «Selectate».
+- 2026-08-11: Чистка orphaned-кода после снятия модуля «Instrumente». Удалены неиспользуемые роуты `app/api/tools/generate-anunt/route.ts` (был защищён `requirePaidAccess`, но ни одна страница на него не ссылалась — генерация анонса идёт через Creator Hub → `/api/tools/creator`) и `app/api/tools/cma/route.ts` (`getCmaStats` не вызывался нигде в UI; сама функция оставлена в `lib/listings-service.ts` как swap-point, сейчас dead). В `next.config.ts` tracing-include для `anunt-generator-prompt.md` **перенесён** с удалённого `/api/tools/generate-anunt` на реальный `/api/tools/creator` (файл читается по `process.cwd()`-пути в `lib/tools-claude.ts`, nft не трассирует автоматически — раньше include висел на мёртвом роуте, т.е. live-путь мог использовать fallback-промпт). Актуализированы описания модуля «Instrumente» в этом файле. `lib/tools-claude.ts` (`generateAnunt`) НЕ тронут.

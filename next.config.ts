@@ -27,8 +27,9 @@ const nextConfig: NextConfig = {
       "./docs/imoghid-reference.md",
       "./docs/baza_cunostinte.md",
     ],
-    // Генератор анонса — кешируемый промпт.
-    "/api/tools/generate-anunt": ["./docs/templates/anunt-generator-prompt.md"],
+    // Creator Hub (платформа «999») — генератор анонса читает кешируемый промпт
+    // (lib/tools-claude.ts → process.cwd()-путь, nft не трассирует автоматически).
+    "/api/tools/creator": ["./docs/templates/anunt-generator-prompt.md"],
     // Заполнение .docx-шаблонов (docxtemplater читает файлы из docs/templates/).
     "/api/tools/generate-doc": ["./docs/templates/**/*"],
     // «Actele mele» — оригиналы шаблонов читаются с сервера (mammoth/SheetJS).

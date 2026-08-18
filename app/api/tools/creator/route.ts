@@ -11,7 +11,7 @@ import { generateAnunt } from "@/lib/tools-claude";
 const SOCIAL_PLATFORMS: Platform[] = ["instagram", "tiktok", "facebook"];
 
 // POST /api/tools/creator
-// platform "999" → анонс для 999.md (RO + RU, тот же генератор, что /generate-anunt).
+// platform "999" → анонс для 999.md (RO + RU) через generateAnunt (lib/tools-claude.ts).
 // иначе → контент для соцсетей (slides/reels/post).
 export async function POST(request: Request) {
   // Платный роут (Claude API): требует активный план/админа независимо от гейта страниц.
