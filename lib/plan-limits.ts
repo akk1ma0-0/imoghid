@@ -47,6 +47,18 @@ export const OVER_LIMIT_FEE_MDL: Record<
   PRO: { DOSAR_ANALYSIS: 10, CADASTRU_CHECK: null }, // Pro cadastru — безлимит
 };
 
+// Сумма доплаты sobre-limit (MDL) для фичи на плане, либо null если доплата не
+// предусмотрена (Creator Hub/999, Pro cadastru-безлимит, нет плана). Только положительное
+// число означает «доплата доступна».
+export function overageFeeMdl(
+  plan: SubscriptionPlan | null,
+  feature: LimitedFeature,
+): number | null {
+  if (!plan) return null;
+  const fee = OVER_LIMIT_FEE_MDL[plan][feature];
+  return typeof fee === "number" && fee > 0 ? fee : null;
+}
+
 // Метки фич для сообщений об ошибке (ro).
 export const FEATURE_LABEL_RO: Record<LimitedFeature, string> = {
   CADASTRU_CHECK: "verificări cadastrale",

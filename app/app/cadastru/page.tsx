@@ -186,6 +186,9 @@ export default function CadastruPage() {
   const [record, setRecord] = useState<{ cadastralNo: string; record: CadRecord } | null>(null);
   const [picker, setPicker] = useState<{ building: Building; note: string } | null>(null);
   const [fallback, setFallback] = useState<{ title: string; text: string } | null>(null);
+  // Доплата sobre-limit (Этап B): при 402 предлагаем доплатить за верификацию.
+  const [overage, setOverage] = useState<{ feeMdl: number; feature: string } | null>(null);
+  const [overageConsent, setOverageConsent] = useState(false);
   const [confirmed, setConfirmed] = useState<{ addr: string; cad: string } | null>(null);
 
   // ── Ввод вручную (текст / скриншот OCR) ──
@@ -332,6 +335,7 @@ export default function CadastruPage() {
     setRecord(null);
     setPicker(null);
     setFallback(null);
+    setOverage(null);
     setManualMode(false);
     setOcrRawText(null);
     setParseWarn(null);
@@ -339,6 +343,7 @@ export default function CadastruPage() {
 
     let data: Record<string, unknown> | null = null;
     let ok = false;
+    let status = 0;
     try {
       const r = await fetch("/api/cadastru/lookup", {
         method: "POST",
@@ -346,6 +351,7 @@ export default function CadastruPage() {
         body: JSON.stringify({ query: raw }),
       });
       ok = r.ok;
+      status = r.status;
       data = await r.json();
     } catch {
       data = null;
@@ -356,6 +362,12 @@ export default function CadastruPage() {
     if (!data) {
       setTrace(null);
       setFallback({ title: "Eroare de rețea", text: "Încercați din nou sau deschideți portalul manual." });
+      return;
+    }
+    // 402 = лимит исчерпан, доступна доплата sobre-limit. Поиск НЕ выполнен — предлагаем оплату.
+    if (status === 402 && data.overage) {
+      setTrace(null);
+      setOverage(data.overage as { feeMdl: number; feature: string });
       return;
     }
     if (!ok || data.status === "fallback") {
@@ -522,6 +534,44 @@ export default function CadastruPage() {
                   <a className="btn" href="https://www.cadastru.md/ecadastru" target="_blank" rel="noopener noreferrer">
                     Deschideți e-Cadastru manual →
                   </a>
+                </div>
+              </div>
+            )}
+
+            {overage && (
+              <div className="card" style={{ marginTop: 16, borderColor: "var(--blue, #2563eb)" }}>
+                <div className="card-bd">
+                  <p style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 10 }}>
+                    Ați atins limita planului pentru verificări cadastrale. Doriți să continuați
+                    contra cost — <b>{overage.feeMdl} MDL</b> pentru acest obiect?
+                  </p>
+                  <label
+                    style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10, cursor: "pointer" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={overageConsent}
+                      onChange={(e) => setOverageConsent(e.target.checked)}
+                      style={{ marginTop: 2, flexShrink: 0 }}
+                    />
+                    <span>
+                      Sunt de acord cu{" "}
+                      <a href="/termeni" target="_blank" rel="noopener noreferrer">
+                        Termenii de plată și Politica de returnare
+                      </a>
+                      .
+                    </span>
+                  </label>
+                  <form method="POST" action="/api/payments/vb-overage-initiate">
+                    <input type="hidden" name="feature" value={overage.feature} />
+                    <input type="hidden" name="agreedToTerms" value={overageConsent ? "true" : "false"} />
+                    <button type="submit" className="btn solid" disabled={!overageConsent}>
+                      Plătește {overage.feeMdl} MDL și continuă →
+                    </button>
+                  </form>
+                  <p style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 8, lineHeight: 1.5 }}>
+                    După confirmarea plății, reveniți și repetați căutarea.
+                  </p>
                 </div>
               </div>
             )}

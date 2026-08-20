@@ -204,6 +204,12 @@ model Payment {
   // в TRTYPE=21 CARD/BIN уже пустые — сохраняем на шаге TRTYPE=0.
   approval  String?         // APPROVAL — код авторизации банка
   cardLast4 String?         // последние 4 цифры маскированного PAN (CARD)
+  // Тип платежа (Этап B). SUBSCRIPTION — подписка (активирует план в callback).
+  // OVERAGE — разовая доплата sobre-limit: НЕ активирует план, а создаёт одноразовый
+  // «грант» на одно превышение по фиче. Грант активен при status=PAID И overageConsumedAt=null.
+  purpose            PaymentPurpose @default(SUBSCRIPTION)
+  overageFeature     UsageFeature?  // для OVERAGE: DOSAR_ANALYSIS | CADASTRU_CHECK
+  overageConsumedAt  DateTime?      // null = оплачено, но грант ещё не потрачен
   // Пропуск авто-TRTYPE=21 для КОНКРЕТНОГО тестового платежа (сертификация, Testul 2 = чистый
   // 0→24). Проставляется при инициации из admin-панели; детерминирован, не зависит от env/раскатки.
   skipAutoCompletion Boolean  @default(false)
@@ -222,6 +228,11 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+}
+
+enum PaymentPurpose {
+  SUBSCRIPTION // оплата подписки (активирует план)
+  OVERAGE      // разовая доплата sobre-limit (грант на одно превышение по фиче)
 }
 
 // Счётчики использования функций по тарифу (Этап A тарифной сетки TARIFE.pdf).

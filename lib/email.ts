@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
-import type { SubscriptionPlan } from "@prisma/client";
+import type { SubscriptionPlan, UsageFeature } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -91,11 +91,20 @@ type ReceiptData = {
   amount: string; // "300.00"
   currency: string; // "MDL"
   plan: SubscriptionPlan;
+  // Этап B — тип платежа. OVERAGE → строка «Serviciu» описывает разовую доплату sobre-limit,
+  // а не абонемент. По умолчанию (не передано) — подписка.
+  purpose?: "SUBSCRIPTION" | "OVERAGE";
+  overageFeature?: UsageFeature | null;
   rrn: string | null;
   approval: string | null;
   cardLast4: string | null;
   cardNetwork: string | null; // "Visa" | "Mastercard" | null
   paidAt: Date;
+};
+
+const OVERAGE_SERVICE_RO: Record<string, string> = {
+  DOSAR_ANALYSIS: "Supra-limit — examinarea dosarului",
+  CADASTRU_CHECK: "Supra-limit — verificarea cadastrală",
 };
 
 // Дата/время в формате DD/MM/YYYY HH:MM:SS по времени Молдовы (как просил банк).
@@ -119,7 +128,10 @@ function formatReceiptDate(d: Date): string {
 // в try/catch на стороне callback — сбой почты НЕ ломает обработку платежа.
 export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<void> {
   const planLabel = r.plan === "PRO" ? "Plan Pro" : "Plan Basic";
-  const service = `Abonament ImoGhid — ${planLabel}`;
+  const service =
+    r.purpose === "OVERAGE" && r.overageFeature
+      ? `${OVERAGE_SERVICE_RO[r.overageFeature] ?? "Supra-limit ImoGhid"} (${planLabel})`
+      : `Abonament ImoGhid — ${planLabel}`;
   const dateStr = formatReceiptDate(r.paidAt);
   const opType = `Plată cu cardul ${r.cardNetwork ?? "Visa/Mastercard"}`;
   const amountStr = `${r.amount} ${r.currency}`;

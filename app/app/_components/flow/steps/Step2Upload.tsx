@@ -201,14 +201,24 @@ export function Step2Upload({
   const isSchimb = tx.dealType === "SCHIMB";
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Доплата sobre-limit (Этап B): при 402 показываем предложение доплатить.
+  const [overage, setOverage] = useState<{ feeMdl: number; feature: string } | null>(null);
+  const [overageConsent, setOverageConsent] = useState(false);
   const hasDocs = tx.documents.length > 0;
 
   async function analyze() {
     setError(null);
+    setOverage(null);
     setAnalyzing(true);
     try {
       const r = await fetch(`/api/transactions/${tx.id}/analyze`, { method: "POST" });
       const d = await r.json();
+      // 402 = лимит исчерпан, но доступна доплата sobre-limit. Действие НЕ выполнено —
+      // предлагаем оплатить; анализ пройдёт только после подтверждения оплаты (повторный клик).
+      if (r.status === 402 && d?.overage) {
+        setOverage(d.overage);
+        return;
+      }
       if (!r.ok) throw new Error(d?.error);
       await reload();
       onAnalyzed();
@@ -265,6 +275,46 @@ export function Step2Upload({
           <div className="notice-dot" />
           <div>
             <b>{error}</b>
+          </div>
+        </div>
+      )}
+
+      {overage && (
+        <div className="card" style={{ marginTop: 12, borderColor: "var(--blue, #2563eb)" }}>
+          <div className="card-bd">
+            <p style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 10 }}>
+              Ați atins limita planului pentru examinarea dosarului. Doriți să continuați contra
+              cost — <b>{overage.feeMdl} MDL</b> pentru această verificare?
+            </p>
+            <label
+              style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10, cursor: "pointer" }}
+            >
+              <input
+                type="checkbox"
+                checked={overageConsent}
+                onChange={(e) => setOverageConsent(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                Sunt de acord cu{" "}
+                <a href="/termeni" target="_blank" rel="noopener noreferrer">
+                  Termenii de plată și Politica de returnare
+                </a>
+                .
+              </span>
+            </label>
+            {/* Форма POST навигирует браузер на страницу VictoriaBank (авто-сабмит HTML). */}
+            <form method="POST" action="/api/payments/vb-overage-initiate">
+              <input type="hidden" name="feature" value={overage.feature} />
+              <input type="hidden" name="agreedToTerms" value={overageConsent ? "true" : "false"} />
+              <button type="submit" className="btn solid" disabled={!overageConsent}>
+                Plătește {overage.feeMdl} MDL și continuă →
+              </button>
+            </form>
+            <p style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 8, lineHeight: 1.5 }}>
+              După confirmarea plății, reveniți la acest pas și apăsați din nou „verificarea
+              actelor”.
+            </p>
           </div>
         </div>
       )}

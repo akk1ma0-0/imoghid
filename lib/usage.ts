@@ -5,13 +5,49 @@ import { prisma } from "@/lib/prisma";
 import {
   planFeatureLimit,
   currentPeriod,
+  overageFeeMdl,
   FEATURE_LABEL_RO,
   type LimitedFeature,
 } from "@/lib/plan-limits";
 
 export type UsageResult =
-  | { ok: true }
-  | { ok: false; reason: "unavailable" | "limit"; used: number; limit: number };
+  | { ok: true; viaOverage?: boolean }
+  | {
+      ok: false;
+      reason: "unavailable" | "limit";
+      used: number;
+      limit: number;
+      // Доплата sobre-limit (MDL) за это превышение, либо null — если для фичи/плана
+      // доплата не предусмотрена (тогда роут отдаёт жёсткий блок). Только при reason:"limit".
+      overageFeeMdl: number | null;
+    };
+
+// Есть ли у пользователя оплаченный НЕпотраченный грант sobre-limit по фиче? Если да —
+// «тратит» его (overageConsumedAt=now) и возвращает true. Грант существует ТОЛЬКО при
+// status=PAID (ставится callback'ом после реального захвата средств) — поэтому брошенная
+// оплата (PENDING) действие НЕ пропускает (защита от money leak).
+async function consumeOverageGrant(
+  userId: string,
+  feature: UsageFeature,
+): Promise<boolean> {
+  const grant = await prisma.payment.findFirst({
+    where: {
+      userId,
+      purpose: "OVERAGE",
+      overageFeature: feature,
+      status: "PAID",
+      overageConsumedAt: null,
+    },
+    orderBy: { createdAt: "asc" }, // тратим самый старый грант первым
+    select: { id: true },
+  });
+  if (!grant) return false;
+  await prisma.payment.update({
+    where: { id: grant.id },
+    data: { overageConsumedAt: new Date() },
+  });
+  return true;
+}
 
 // Списывает 1 единицу накопительной фичи (UsageCounter). ADMIN и безлимит — без записи.
 // План отсутствует / фича недоступна (limit 0) → { ok:false, reason:"unavailable" }.
@@ -25,11 +61,13 @@ export async function consumeUsage(
     where: { id: userId },
     select: { plan: true, planActivatedAt: true, role: true, createdAt: true },
   });
-  if (!user) return { ok: false, reason: "unavailable", used: 0, limit: 0 };
+  if (!user) return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
   if (user.role === "ADMIN") return { ok: true };
 
   const limit = planFeatureLimit(user.plan, feature as LimitedFeature);
-  if (limit === 0) return { ok: false, reason: "unavailable", used: 0, limit: 0 };
+  if (limit === 0) {
+    return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
+  }
   if (!Number.isFinite(limit)) return { ok: true }; // безлимит — не считаем
 
   const now = new Date();
@@ -41,7 +79,21 @@ export async function consumeUsage(
   });
   const samePeriod = !!existing && existing.periodStart.getTime() === start.getTime();
   const used = samePeriod ? existing!.count : 0;
-  if (used >= limit) return { ok: false, reason: "limit", used, limit };
+  if (used >= limit) {
+    // Лимит исчерпан. Сначала — оплаченный одноразовый грант sobre-limit (если есть):
+    // тратим его и пропускаем действие (счётчик НЕ инкрементируем — он уже на лимите).
+    if (await consumeOverageGrant(userId, feature)) {
+      return { ok: true, viaOverage: true };
+    }
+    // Гранта нет → блок. overageFeeMdl != null → роут предложит доплату (402); иначе — 429.
+    return {
+      ok: false,
+      reason: "limit",
+      used,
+      limit,
+      overageFeeMdl: overageFeeMdl(user.plan, feature as LimitedFeature),
+    };
+  }
 
   await prisma.usageCounter.upsert({
     where: { userId_feature: { userId, feature } },
@@ -83,15 +135,20 @@ export async function checkActiveObjects(userId: string): Promise<UsageResult> {
     where: { id: userId },
     select: { plan: true, role: true },
   });
-  if (!user) return { ok: false, reason: "unavailable", used: 0, limit: 0 };
+  // OBIECTE_ACTIVE доплаты sobre-limit НЕ имеет (только dosar/cadastru) → overageFeeMdl:null.
+  if (!user) return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
   if (user.role === "ADMIN") return { ok: true };
   const limit = planFeatureLimit(user.plan, "OBIECTE_ACTIVE");
-  if (limit === 0) return { ok: false, reason: "unavailable", used: 0, limit: 0 };
+  if (limit === 0) {
+    return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
+  }
   if (!Number.isFinite(limit)) return { ok: true }; // безлимит (Pro)
   const count = await prisma.transaction.count({
     where: { userId, status: { not: "ARCHIVE" } },
   });
-  if (count >= limit) return { ok: false, reason: "limit", used: count, limit };
+  if (count >= limit) {
+    return { ok: false, reason: "limit", used: count, limit, overageFeeMdl: null };
+  }
   return { ok: true };
 }
 
@@ -108,8 +165,17 @@ export function featureUnavailableMessage(feature: LimitedFeature): string {
   return `Funcția „${FEATURE_LABEL_RO[feature]}” nu este disponibilă pe planul curent. Faceți upgrade la Pro.`;
 }
 
-// UsageResult(ok:false) → HTTP-ответ. 403 если фича недоступна на плане, иначе 429 (лимит).
-// Точка расширения для доплаты sobre-limit (Этап B) — пока просто блокируем.
+// Сообщение о лимите без доплаты (жёсткий блок — Creator Hub/999, OBIECTE_ACTIVE).
+export function limitReachedNoOverageMessage(feature: LimitedFeature, limit: number): string {
+  return `Ați atins limita de ${limit} ${FEATURE_LABEL_RO[feature]} pentru perioada curentă. Doplata pentru această funcție nu este disponibilă — așteptați perioada următoare sau treceți la Pro.`;
+}
+
+// UsageResult(ok:false) → HTTP-ответ:
+//   • reason "unavailable" (фича не на плане) → 403;
+//   • reason "limit" + overageFeeMdl != null (доступна доплата sobre-limit) → 402 Payment
+//     Required с { overage: { feeMdl, feature } } — UI предложит доплатить (действие НЕ
+//     выполнено, пока оплата не подтверждена callback'ом);
+//   • reason "limit" без доплаты → 429 (жёсткий блок).
 export function usageBlockResponse(
   result: Extract<UsageResult, { ok: false }>,
   feature: LimitedFeature,
@@ -120,9 +186,19 @@ export function usageBlockResponse(
       { status: 403 },
     );
   }
+  if (result.overageFeeMdl != null) {
+    return NextResponse.json(
+      {
+        error: limitReachedMessage(feature, result.used, result.limit),
+        usage: { used: result.used, limit: result.limit },
+        overage: { feeMdl: result.overageFeeMdl, feature },
+      },
+      { status: 402 },
+    );
+  }
   return NextResponse.json(
     {
-      error: limitReachedMessage(feature, result.used, result.limit),
+      error: limitReachedNoOverageMessage(feature, result.limit),
       usage: { used: result.used, limit: result.limit },
     },
     { status: 429 },

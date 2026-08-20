@@ -118,30 +118,53 @@ export async function POST(request: Request) {
     }
 
     if (captureRc === "00") {
-      // Завершение успешно → активируем план пользователя на 30 дней.
-      // Автопродление/повторное списание НЕ реализуем (ждём ответа банка по recurring);
-      // по истечении planExpiresAt cron обнулит план (см. /api/cron/check-expired-plans).
       const now = new Date();
-      const planExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const [, paidUser] = await prisma.$transaction([
-        prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
-        prisma.user.update({
+      let receiptTo: string | null = null;
+
+      if (payment.purpose === "OVERAGE") {
+        // Разовая доплата sobre-limit — план НЕ активируем. Payment → PAID делает «грант»
+        // активным (overageConsumedAt=null); он потратится при следующем over-limit
+        // действии по фиче (lib/usage.ts). Это и закрывает money leak: до PAID гранта нет.
+        const paidUser = await prisma.user.findUnique({
           where: { id: payment.userId },
-          data: { plan: payment.plan, planActivatedAt: now, planExpiresAt },
-        }),
-      ]);
-      console.log(`[VB callback] PAID ORDER=${ORDER} plan=${payment.plan} user=${payment.userId}`);
+          select: { email: true },
+        });
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: "PAID", rc: "00" },
+        });
+        receiptTo = paidUser?.email ?? null;
+        console.log(
+          `[VB callback] PAID OVERAGE ORDER=${ORDER} feature=${payment.overageFeature} user=${payment.userId}`,
+        );
+      } else {
+        // Подписка → активируем план на 30 дней.
+        // Автопродление/повторное списание НЕ реализуем (ждём ответа банка по recurring);
+        // по истечении planExpiresAt cron обнулит план (см. /api/cron/check-expired-plans).
+        const planExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const [, paidUser] = await prisma.$transaction([
+          prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
+          prisma.user.update({
+            where: { id: payment.userId },
+            data: { plan: payment.plan, planActivatedAt: now, planExpiresAt },
+          }),
+        ]);
+        receiptTo = paidUser?.email ?? null;
+        console.log(`[VB callback] PAID ORDER=${ORDER} plan=${payment.plan} user=${payment.userId}`);
+      }
 
       // Bon electronic — чек на e-mail пользователя. Non-blocking: сбой почты НЕ должен
       // ломать обработку платежа (callback обязан вернуть 200). Поля carte/approval —
       // из локальных переменных этого же TRTYPE=0 (в БД они тоже сохранены клеймом).
-      if (paidUser?.email) {
+      if (receiptTo) {
         try {
-          await sendReceiptEmail(paidUser.email, {
+          await sendReceiptEmail(receiptTo, {
             order: ORDER,
             amount: payment.amount,
             currency: CURRENCY || payment.currency,
             plan: payment.plan,
+            purpose: payment.purpose,
+            overageFeature: payment.overageFeature,
             rrn: RRN || null,
             approval,
             cardLast4,
