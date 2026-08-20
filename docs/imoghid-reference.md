@@ -52,9 +52,9 @@ Pasului 3, sau (Pasul 1) interogări către serviciul de cadastru (`lib/cadastru
   https://www.legis.md/cautare/getResults?doc_id=154155&lang=ro
 - **Legea nr. 40/2026 privind activitatea agenților imobiliari** — contract scris obligatoriu
   cu clientul, certificare. https://www.legis.md/cautare/getResults?doc_id=154015&lang=ro
-- **Legea nr. 133/2011 privind protecția datelor cu caracter personal** — date personale
+- **Legea nr. 195/2024 privind protecția datelor cu caracter personal** — date personale
   procesate doar din pachetul încărcat de utilizator, niciodată inventate/extrapolate.
-  https://www.legis.md/cautare/getResults?doc_id=144823&lang=ro
+  https://www.legis.md/cautare/getResults?doc_id=155899&lang=ro
 - **Legea privatizării fondului de locuințe nr. 1324/1993** — bază pentru regula certificatului
   de privatizare (Pasul 3).
 - **Codul civil, Capitolul XXI „Intermedierea" (art. 1667–1672)** — contractul de intermediere
@@ -410,7 +410,7 @@ pe care agentul îl verifică înainte de generarea fișierului final.
   vânzător/reprezentant, date cumpărător, sumă, nr. cadastral, adresă, termen rezervare,
   condiții de restituire/reținere.
 - **Contract de intermediere exclusiv** — contract de prestări servicii cu clauză de
-  exclusivitate, conform Codul civil art. 1667–1672, Legea 105/2003, Legea 133/2011. Conține
+  exclusivitate, conform Codul civil art. 1667–1672, Legea 105/2003, Legea 195/2024. Conține
   3 anexe (descrierea bunului, registrul cumpărătorilor prezentați, servicii suplimentare și
   tarife). Câmpuri: date prestator/beneficiar, descrierea bunului, preț ofertă, durată,
   remunerație (%), termene.
@@ -424,7 +424,7 @@ pe care agentul îl verifică înainte de generarea fișierului final.
   semnalează riscuri.
 - Nu calculează el însuși impozitul/tariful notarial final — extrage bază și recunoaște
   scutiri; calculul exact e al modulului/notarului/contabilului.
-- Nu procesează date personale dincolo de pachetul încărcat de utilizator (Legea 133/2011).
+- Nu procesează date personale dincolo de pachetul încărcat de utilizator (Legea 195/2024).
 - Nu completează date absente prin presupuneri — ce nu există rămâne marcat, nu „probabil".
 - Nu alege un obiect/apartament la input ambiguu — oferă alegere explicită.
 - Nu modifică registrul sau cadastrul.

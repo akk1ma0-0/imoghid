@@ -642,7 +642,7 @@ export default function CadastruPage() {
 
                 <div className="note note-warn" style={{ marginTop: 10 }}>
                   Date orientative din Registrul bunurilor imobile. Persoanele cu date personale nu
-                  sunt afișate la acest pas (Legea 133/2011).
+                  sunt afișate la acest pas (Legea 195/2024).
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                   <a className="btn" href="https://www.cadastru.md/ecadastru" target="_blank" rel="noopener noreferrer">

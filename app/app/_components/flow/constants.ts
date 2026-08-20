@@ -57,7 +57,7 @@ export const LAW_TAGS: { label: string; url: string }[] = [
   { label: "Codul familiei", url: "https://www.legis.md/cautare/getResults?doc_id=150708&lang=ro" },
   { label: "Activitatea agenților imobiliari", url: "https://www.legis.md/cautare/getResults?doc_id=154015&lang=ro" },
   { label: "Legea 271/2003", url: "https://www.legis.md/cautare/getResults?doc_id=148476&lang=ro" },
-  { label: "Legea 133/2011", url: "https://www.legis.md/cautare/getResults?doc_id=144823&lang=ro" },
+  { label: "Legea 195/2024", url: "https://www.legis.md/cautare/getResults?doc_id=155899&lang=ro" },
   { label: "Procedura notarială", url: "https://www.legis.md/cautare/getResults?doc_id=137680&lang=ro" },
   { label: "Legea freelancerilor", url: "https://www.legis.md/cautare/getResults?doc_id=150415&lang=ro" },
 ];
