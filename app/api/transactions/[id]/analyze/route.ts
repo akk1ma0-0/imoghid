@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, loadOwnedTransaction, notFound } from "@/lib/transaction-auth";
 import { isDemoRequest } from "@/lib/demo-guard";
-import { analysisLimit, isPastMonth } from "@/lib/analysis-limits";
+import { consumeUsage, getUsage, usageBlockResponse } from "@/lib/usage";
 import { analyzeDocuments, type VerificareImobilData } from "@/lib/claude";
 import { isInheritanceBasis, parseOwnerCota } from "@/lib/analyze/flags";
 
@@ -29,48 +29,11 @@ export async function POST(_req: Request, { params }: Params) {
     );
   }
 
-  // ── Лимит анализов по плану (месячный сброс) ──
-  const user = await prisma.user.findUnique({
-    where: { id: sess.userId },
-    select: { plan: true, role: true, analysisCount: true, analysisCountResetAt: true },
-  });
-  if (!user) return notFound();
-
-  // Платный роут (Claude API): без активного плана (не админ) — доступа нет.
-  // Defense in depth: не полагаемся на гейт страниц (кэш роутера/edge/iOS-cookie).
-  if (user.role !== "ADMIN" && !user.plan) {
-    return NextResponse.json(
-      { error: "Această funcție necesită un abonament activ." },
-      { status: 403 },
-    );
-  }
-
-  const limit = analysisLimit(user.plan);
-  const now = new Date();
-  let count = user.analysisCount;
-  let resetAt = user.analysisCountResetAt;
-  if (isPastMonth(resetAt, now)) {
-    count = 0;
-    resetAt = now;
-  }
-  if (count >= limit) {
-    return NextResponse.json(
-      {
-        error: `Ați atins limita de ${limit} analize pe lună (plan ${user.plan}).${
-          user.plan === "BASIC"
-            ? " Treceți la planul PRO pentru 100 de analize pe lună."
-            : " Limita se resetează la începutul lunii următoare."
-        }`,
-        usage: { used: count, limit, plan: user.plan },
-      },
-      { status: 429 },
-    );
-  }
-  // Инкрементируем счётчик (с учётом возможного сброса) до выполнения анализа.
-  await prisma.user.update({
-    where: { id: sess.userId },
-    data: { analysisCount: count + 1, analysisCountResetAt: resetAt },
-  });
+  // ── Лимит тарифа DOSAR_ANALYSIS (Basic 30 / Pro 60 в мес, откатной период) ──
+  // consumeUsage сам решает: нет активного плана (не админ) → 403 (unavailable);
+  // достигнут лимит → 429; ADMIN/безлимит → пропуск. Инкремент ДО анализа (как было).
+  const usageCheck = await consumeUsage(sess.userId, "DOSAR_ANALYSIS");
+  if (!usageCheck.ok) return usageBlockResponse(usageCheck, "DOSAR_ANALYSIS");
 
   const indices = tx.dealType === "SCHIMB" ? [1, 2] : [1];
   const docByIndex = (idx: number) => tx.documents.filter((d) => d.objectIndex === idx);
@@ -268,12 +231,13 @@ export async function POST(_req: Request, { params }: Params) {
     }),
   ]);
 
+  const usageNow = await getUsage(sess.userId, "DOSAR_ANALYSIS");
   return NextResponse.json({
     extractedFields,
     flags,
     owners,
     escalations: analysis.escalations,
     summary: analysis.summary,
-    usage: { used: count + 1, limit, plan: user.plan },
+    usage: { used: usageNow.used, limit: usageNow.limit },
   });
 }

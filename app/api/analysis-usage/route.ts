@@ -2,21 +2,18 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
-import { analysisLimit, effectiveUsed } from "@/lib/analysis-limits";
+import { getUsage } from "@/lib/usage";
 
-// GET /api/analysis-usage — текущее использование анализов (с месячным сбросом, без записи).
+// GET /api/analysis-usage — текущее использование анализов дела (DOSAR_ANALYSIS) за
+// расчётный период, без записи. Источник — UsageCounter (единая тарифная система).
 export async function GET() {
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
 
+  const { used, limit } = await getUsage(sess.userId, "DOSAR_ANALYSIS");
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
-    select: { plan: true, analysisCount: true, analysisCountResetAt: true },
+    select: { plan: true },
   });
-  if (!user) {
-    return NextResponse.json({ error: "Neautentificat." }, { status: 401 });
-  }
-
-  const used = effectiveUsed(user, new Date());
-  return NextResponse.json({ used, limit: analysisLimit(user.plan), plan: user.plan });
+  return NextResponse.json({ used, limit, plan: user?.plan ?? null });
 }

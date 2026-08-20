@@ -169,6 +169,7 @@ model User {
 
   // Relații
   transactions         Transaction[]
+  usageCounters        UsageCounter[]
   savedListingContacts SavedListingContact[]
   blacklistReports     BlacklistReport[]
   reports              Report[]
@@ -221,6 +222,33 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+}
+
+// Счётчики использования функций по тарифу (Этап A тарифной сетки TARIFE.pdf).
+// Накопительные фичи за расчётный период (period = откатной месяц от planActivatedAt).
+// OBIECTE_ACTIVE в этот enum НЕ входит — это «активных одновременно», считается вживую
+// (count транзакций со статусом != ARCHIVE), а не хранится счётчиком.
+enum UsageFeature {
+  CADASTRU_CHECK  // Verificarea cadastrală
+  DOSAR_ANALYSIS  // Examinarea dosarului (анализ Georgii) — заменил User.analysisCount
+  CREATOR_HUB     // Creator Hub (соцсети)
+  ANUNT_999       // Anunțuri 999 (platform=999 в Creator Hub) — считается отдельно
+}
+
+model UsageCounter {
+  id          String       @id @default(cuid())
+  userId      String
+  feature     UsageFeature
+  count       Int          @default(0)
+  periodStart DateTime // начало текущего расчётного периода (откатной месяц от planActivatedAt)
+  periodEnd   DateTime // конец периода; cron/enforce сбрасывают count при periodEnd <= now
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, feature]) // одна запись-счётчик на пользователя+фичу
+  @@index([userId])
+  @@map("usage_counters")
 }
 
 // Простой серверный счётчик визитов воронки (лендинг/регистрация) — для конверсии

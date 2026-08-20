@@ -4,6 +4,7 @@ import type { DealType, PartyType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { isDemoRequest, DEMO_TX_ID } from "@/lib/demo-guard";
+import { checkActiveObjects, usageBlockResponse } from "@/lib/usage";
 import { stepToNumber, TOTAL_STEPS } from "@/lib/steps";
 
 const DEAL_TYPES: DealType[] = ["VANZARE_CUMPARARE", "DONATIE", "SCHIMB", "ALT_TIP"];
@@ -18,6 +19,11 @@ export async function POST(request: Request) {
 
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
+
+  // Лимит тарифа OBIECTE_ACTIVE: число неархивированных досье одновременно
+  // (Basic 20 / Pro безлимит). Живой подсчёт, без инкремента — архивация освобождает слот.
+  const active = await checkActiveObjects(sess.userId);
+  if (!active.ok) return usageBlockResponse(active, "OBIECTE_ACTIVE");
 
   let body: Record<string, unknown>;
   try {

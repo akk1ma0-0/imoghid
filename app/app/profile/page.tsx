@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { analysisLimit, effectiveUsed } from "@/lib/analysis-limits";
+import { getUsage } from "@/lib/usage";
 import { ProfilePanel } from "./ProfilePanel";
 
 // /app/profile — только для авторизованных (плюс middleware уже защищает /app/*).
@@ -19,14 +19,12 @@ export default async function ProfilePage() {
       phone: true,
       plan: true,
       notifLegislatie: true,
-      analysisCount: true,
-      analysisCountResetAt: true,
     },
   });
   if (!user) redirect("/login");
 
-  const used = effectiveUsed(user, new Date());
-  const limit = analysisLimit(user.plan);
+  // Использование анализов дела за расчётный период (DOSAR_ANALYSIS) — из UsageCounter.
+  const { used, limit } = await getUsage(session.user.id, "DOSAR_ANALYSIS");
 
   return (
     <ProfilePanel

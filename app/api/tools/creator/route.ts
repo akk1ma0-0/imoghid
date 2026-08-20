@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { requirePaidAccess } from "@/lib/transaction-auth";
+import { isDemoRequest } from "@/lib/demo-guard";
+import { consumeUsage, usageBlockResponse } from "@/lib/usage";
 import {
   generateSocial,
   type Language,
@@ -42,6 +44,11 @@ export async function POST(request: Request) {
     const input = [description, price ? `Preț: ${price}` : "", notes]
       .filter(Boolean)
       .join(". ");
+    // Лимит тарифа ANUNT_999 (Basic — недоступно / Pro 60 в мес). Demo не считается.
+    if (!(await isDemoRequest())) {
+      const usage = await consumeUsage(sess.userId, "ANUNT_999");
+      if (!usage.ok) return usageBlockResponse(usage, "ANUNT_999");
+    }
     const [ro, ru] = await Promise.all([
       generateAnunt(input, "ro"),
       generateAnunt(input, "ru"),
@@ -57,6 +64,12 @@ export async function POST(request: Request) {
   const topic = typeof body.topic === "string" ? body.topic.trim() : "";
   if (!topic) {
     return NextResponse.json({ error: "Alegeți o temă." }, { status: 400 });
+  }
+
+  // Лимит тарифа CREATOR_HUB (Basic 20 / Pro 60 в мес). Demo не считается.
+  if (!(await isDemoRequest())) {
+    const usage = await consumeUsage(sess.userId, "CREATOR_HUB");
+    if (!usage.ok) return usageBlockResponse(usage, "CREATOR_HUB");
   }
 
   const social = await generateSocial({

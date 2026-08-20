@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { stepToNumber } from "@/lib/steps";
-import { effectiveUsed } from "@/lib/analysis-limits";
 import {
   startOfMonth,
   tokensCostUsd,
@@ -22,7 +21,7 @@ export default async function AdminPage() {
   const now = new Date();
   const monthStart = startOfMonth(now);
 
-  const [users, activeDeals, anuntThisMonth, txRows] = await Promise.all([
+  const [users, activeDeals, anuntThisMonth, txRows, dosarCounters] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       select: {
@@ -33,8 +32,6 @@ export default async function AdminPage() {
         role: true,
         isBlocked: true,
         createdAt: true,
-        analysisCount: true,
-        analysisCountResetAt: true,
         _count: { select: { transactions: true } },
       },
     }),
@@ -55,7 +52,18 @@ export default async function AdminPage() {
         user: { select: { id: true, email: true, name: true } },
       },
     }),
+    // Использование анализов дела (DOSAR_ANALYSIS) — из единой тарифной системы UsageCounter.
+    prisma.usageCounter.findMany({
+      where: { feature: "DOSAR_ANALYSIS" },
+      select: { userId: true, count: true, periodEnd: true },
+    }),
   ]);
+
+  // Эффективное использование за текущий период: count, если период ещё не истёк (periodEnd
+  // в будущем), иначе 0 (период откатился, cron/enforce обнулит при следующем обращении).
+  const dosarUsedByUser = new Map<string, number>(
+    dosarCounters.map((c) => [c.userId, c.periodEnd > now ? c.count : 0]),
+  );
 
   // ── Статистика Claude API за текущий месяц ──
   const anuntCount = anuntThisMonth.length;
@@ -63,8 +71,8 @@ export default async function AdminPage() {
   const anuntOut = anuntThisMonth.reduce((s, a) => s + (a.outputTokens ?? 0), 0);
   const anuntCost = tokensCostUsd(anuntIn, anuntOut);
 
-  // Анализы документов (Step 3): счётчик с месячным сбросом, без потокенного лога.
-  const analysisCount = users.reduce((s, u) => s + effectiveUsed(u, now), 0);
+  // Анализы документов (Step 3) — сумма по всем пользователям за их текущий период.
+  const analysisCount = users.reduce((s, u) => s + (dosarUsedByUser.get(u.id) ?? 0), 0);
   const analysisCostEst = tokensCostUsd(
     analysisCount * EST_ANALYSIS_TOKENS.input,
     analysisCount * EST_ANALYSIS_TOKENS.output,
@@ -91,7 +99,7 @@ export default async function AdminPage() {
     isBlocked: u.isBlocked,
     createdAt: u.createdAt.toISOString(),
     transactionCount: u._count.transactions,
-    analysisUsed: effectiveUsed(u, now),
+    analysisUsed: dosarUsedByUser.get(u.id) ?? 0,
   }));
 
   const transactionsOut = txRows.map((t) => ({
