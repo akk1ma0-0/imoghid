@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { Providers } from "@/components/Providers";
+import { ContinueToApp } from "@/components/ContinueToApp";
 
 // BACKREF — страница, куда браузер возвращается после оплаты. ТОЛЬКО отображение.
 // Реальная активация плана — в server-to-server callback (/api/payments/vb-callback),
@@ -34,21 +35,9 @@ export default async function PaymentResultPage({
         <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6, marginBottom: 24 }}>
           Dacă planul nu apare imediat, reîmprospătați pagina contului peste câteva momente.
         </p>
-        <Link
-          href="/app"
-          style={{
-            display: "inline-block",
-            background: "#1d4ed8",
-            color: "#fff",
-            textDecoration: "none",
-            fontSize: 14,
-            fontWeight: 600,
-            padding: "11px 22px",
-            borderRadius: 8,
-          }}
-        >
-          Mergeți la cont →
-        </Link>
+        <Providers>
+          <ContinueToApp />
+        </Providers>
       </div>
     </div>
   );

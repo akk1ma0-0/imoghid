@@ -74,16 +74,22 @@ export const authConfig = {
       const isPending = nextUrl.pathname.startsWith("/app/pending");
       const isWaitlist = nextUrl.pathname.startsWith("/app/waitlist");
 
-      // Без плана (plan = null) → /app/pending. Там серверный компонент (Node runtime)
-      // читает WAITLIST_MODE на каждом запросе и решает: тарифы или редирект на /app/waitlist.
+      // Доступ в приложение даёт либо активный план, либо непотраченный «O accesare»-грант
+      // (Этап C, JWT-claim hasSingleAccess — освежается в auth.ts на каждом запросе).
+      const hasAccess = !!auth!.user.plan || !!auth!.user.hasSingleAccess;
+
+      // Без доступа (plan = null и нет single-access) → /app/pending. Там серверный компонент
+      // (Node runtime) читает WAITLIST_MODE на каждом запросе и решает: тарифы или /app/waitlist.
       // Флаг НЕ читается здесь (edge-middleware инлайнит env на билде) — только в Node-слое.
-      // /app/waitlist допускаем для plan-null (это цель редиректа со страницы pending).
-      if (!auth!.user.plan) {
+      // /app/waitlist допускаем (это цель редиректа со страницы pending).
+      if (!hasAccess) {
         return isPending || isWaitlist ? true : Response.redirect(new URL("/app/pending", nextUrl));
       }
 
-      // С планом на /app/pending или /app/waitlist делать нечего — ведём в приложение.
-      if (isPending || isWaitlist) {
+      // Подписчика на /app/pending или /app/waitlist делать нечего — ведём в приложение.
+      // Покупателя «O accesare» (plan=null, hasSingleAccess) на pending НЕ бросаем —
+      // он может докупить ещё один доступ или оформить подписку.
+      if (auth!.user.plan && (isPending || isWaitlist)) {
         return Response.redirect(new URL("/app", nextUrl));
       }
 
@@ -99,6 +105,7 @@ export const authConfig = {
         token.emailConfirmed = user.emailConfirmed;
         token.role = user.role;
         token.sessionVersion = user.sessionVersion;
+        token.hasSingleAccess = user.hasSingleAccess;
       }
       // Клиент вызывает useSession().update({ ... }) после /subscribe или подтверждения e-mail.
       if (trigger === "update" && session) {
@@ -125,6 +132,7 @@ export const authConfig = {
       session.user.planActive = token.planActive;
       session.user.emailConfirmed = token.emailConfirmed;
       session.user.role = token.role;
+      session.user.hasSingleAccess = token.hasSingleAccess ?? false;
       return session;
     },
   },

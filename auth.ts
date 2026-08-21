@@ -32,6 +32,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
+        // «O accesare» (Этап C): есть ли непотраченный single-access грант → пускать в
+        // приложение (WAITLIST-гейт), даже когда plan=null.
+        const singleAccessCount = await prisma.singleAccessGrant.count({
+          where: { userId: user.id, consumedAt: null },
+        });
+
         // Возвращаем поля, которые попадут в JWT (jwt callback в auth.config.ts).
         return {
           id: user.id,
@@ -42,6 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           emailConfirmed: !!user.emailVerified,
           role: user.role,
           sessionVersion: user.sessionVersion,
+          hasSingleAccess: singleAccessCount > 0,
         };
       },
     }),
@@ -57,7 +64,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && !params.user) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { sessionVersion: true, email: true },
+          select: {
+            sessionVersion: true,
+            email: true,
+            // «O accesare» (Этап C): освежаем hasSingleAccess из БД на каждом запросе, чтобы
+            // после покупки грант сразу пускал в приложение без повторного логина, а после
+            // траты последнего гранта claim гас сам собой.
+            _count: { select: { singleAccessGrants: { where: { consumedAt: null } } } },
+          },
         });
         // Токены, выпущенные до появления sessionVersion, не имеют claim → трактуем как 0
         // (значение по умолчанию), чтобы деплой не разлогинил всех разом. Инкремент
@@ -69,6 +83,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Держим e-mail в токене актуальным — после смены e-mail сессия остаётся рабочей
         // и подхватывает новый адрес без повторного входа.
         if (token.email !== dbUser.email) token.email = dbUser.email;
+        token.hasSingleAccess = dbUser._count.singleAccessGrants > 0;
       }
       return token;
     },

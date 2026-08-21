@@ -11,6 +11,9 @@ export type LimitedFeature =
   | "CREATOR_HUB"
   | "ANUNT_999";
 
+// «O accesare» (Этап C) — разовая покупка пакета из 3 одноразовых прав (TARIFE.pdf: 30 MDL).
+export const SINGLE_ACCESS_FEE_MDL = 30;
+
 export const PLAN_LIMITS: Record<SubscriptionPlan, Record<LimitedFeature, number>> = {
   BASIC: {
     CADASTRU_CHECK: 50,

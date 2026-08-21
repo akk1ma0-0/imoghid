@@ -137,6 +137,27 @@ export async function POST(request: Request) {
         console.log(
           `[VB callback] PAID OVERAGE ORDER=${ORDER} feature=${payment.overageFeature} user=${payment.userId}`,
         );
+      } else if (payment.purpose === "SINGLE_ACCESS") {
+        // «O accesare» — план НЕ активируем. Payment → PAID + создаём 3 одноразовых гранта
+        // (по 1 на CADASTRU_CHECK / DOSAR_ANALYSIS / OBIECTE_CREATE). До PAID грантов нет →
+        // брошенная оплата ничего не выдаёт (нет money leak). Клейм completionStartedAt
+        // гарантирует, что эта ветка отработает ровно один раз (без дублей грантов).
+        const paidUser = await prisma.user.findUnique({
+          where: { id: payment.userId },
+          select: { email: true },
+        });
+        await prisma.$transaction([
+          prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
+          prisma.singleAccessGrant.createMany({
+            data: (["CADASTRU_CHECK", "DOSAR_ANALYSIS", "OBIECTE_CREATE"] as const).map(
+              (feature) => ({ userId: payment.userId, feature, paymentId: payment.id }),
+            ),
+          }),
+        ]);
+        receiptTo = paidUser?.email ?? null;
+        console.log(
+          `[VB callback] PAID SINGLE_ACCESS ORDER=${ORDER} user=${payment.userId} (3 grants)`,
+        );
       } else {
         // Подписка → активируем план на 30 дней.
         // Автопродление/повторное списание НЕ реализуем (ждём ответа банка по recurring);

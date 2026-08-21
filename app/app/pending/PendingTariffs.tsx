@@ -124,6 +124,47 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
         ))}
       </div>
 
+      {/* «O accesare» — разовая покупка без подписки (Этап C): 1 verificare + 1 dosar + 1 obiect. */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div
+          className="card-bd"
+          style={{ padding: "20px 22px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, justifyContent: "space-between" }}
+        >
+          <div style={{ flex: "1 1 260px", minWidth: 240 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+              O accesare — 30 MDL <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink3)" }}>· acces unic, fără abonament</span>
+            </div>
+            <p style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.55, margin: 0 }}>
+              Un singur pachet: <b>1 verificare cadastrală</b> + <b>1 examinare dosar</b> + <b>1 obiect</b>.
+              Se consumă o singură dată, nu se reînnoiește.
+            </p>
+          </div>
+          <div style={{ flex: "0 0 auto", minWidth: 200 }}>
+            {isAuthenticated ? (
+              <form method="POST" action="/api/payments/vb-single-access-initiate">
+                <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+                <button
+                  type="submit"
+                  disabled={!agreed}
+                  className="btn"
+                  style={{ width: "100%", justifyContent: "center", height: 44 }}
+                >
+                  Cumpără o accesare — 30 MDL
+                </button>
+              </form>
+            ) : (
+              <Link
+                href="/register"
+                className="btn"
+                style={{ width: "100%", justifyContent: "center", height: 44 }}
+              >
+                Înregistrează-te
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-bd" style={{ padding: 24, textAlign: "center" }}>
           <p style={{ fontSize: 13.5, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 14 }}>

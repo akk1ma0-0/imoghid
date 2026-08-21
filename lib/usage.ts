@@ -11,7 +11,7 @@ import {
 } from "@/lib/plan-limits";
 
 export type UsageResult =
-  | { ok: true; viaOverage?: boolean }
+  | { ok: true; viaOverage?: boolean; viaSingleAccess?: boolean }
   | {
       ok: false;
       reason: "unavailable" | "limit";
@@ -49,6 +49,36 @@ async function consumeOverageGrant(
   return true;
 }
 
+// «O accesare» (Этап C): есть ли непотраченный SingleAccessGrant на фичу? Если да — «тратит»
+// его (consumedAt=now) one-shot и возвращает true. Гранты создаются callback'ом только при
+// PAID — брошенная оплата их не выдаёт. Позволяет plan=null пользователю сделать ровно одно
+// действие по фиче (CADASTRU_CHECK / DOSAR_ANALYSIS / OBIECTE_CREATE).
+async function consumeSingleAccessGrant(
+  userId: string,
+  feature: UsageFeature,
+): Promise<boolean> {
+  const grant = await prisma.singleAccessGrant.findFirst({
+    where: { userId, feature, consumedAt: null },
+    orderBy: { createdAt: "asc" }, // тратим самый старый грант первым
+    select: { id: true },
+  });
+  if (!grant) return false;
+  await prisma.singleAccessGrant.update({
+    where: { id: grant.id },
+    data: { consumedAt: new Date() },
+  });
+  return true;
+}
+
+// Есть ли у пользователя хоть один непотраченный грант «O accesare» (любой фичи).
+// Используется для JWT-claim hasSingleAccess (WAITLIST-гейт).
+export async function hasUnconsumedSingleAccess(userId: string): Promise<boolean> {
+  const n = await prisma.singleAccessGrant.count({
+    where: { userId, consumedAt: null },
+  });
+  return n > 0;
+}
+
 // Списывает 1 единицу накопительной фичи (UsageCounter). ADMIN и безлимит — без записи.
 // План отсутствует / фича недоступна (limit 0) → { ok:false, reason:"unavailable" }.
 // Достигнут лимит → { ok:false, reason:"limit", used, limit }. Само-сброс при истёкшем
@@ -66,6 +96,11 @@ export async function consumeUsage(
 
   const limit = planFeatureLimit(user.plan, feature as LimitedFeature);
   if (limit === 0) {
+    // plan=null покупатель «O accesare»: непотраченный грант на эту фичу пропускает одно
+    // действие (CADASTRU_CHECK / DOSAR_ANALYSIS). Для ANUNT_999 грантов нет → останется unavailable.
+    if (await consumeSingleAccessGrant(userId, feature)) {
+      return { ok: true, viaSingleAccess: true };
+    }
     return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
   }
   if (!Number.isFinite(limit)) return { ok: true }; // безлимит — не считаем
@@ -140,6 +175,12 @@ export async function checkActiveObjects(userId: string): Promise<UsageResult> {
   if (user.role === "ADMIN") return { ok: true };
   const limit = planFeatureLimit(user.plan, "OBIECTE_ACTIVE");
   if (limit === 0) {
+    // plan=null покупатель «O accesare»: грант OBIECTE_CREATE разрешает создать ровно 1 досье
+    // (one-shot). После траты повторное создание при plan=null без гранта — заблокировано
+    // (нет обхода archive→recreate, т.к. грант потребляемый, а не concurrency).
+    if (await consumeSingleAccessGrant(userId, "OBIECTE_CREATE")) {
+      return { ok: true, viaSingleAccess: true };
+    }
     return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
   }
   if (!Number.isFinite(limit)) return { ok: true }; // безлимит (Pro)

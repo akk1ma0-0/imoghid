@@ -170,6 +170,7 @@ model User {
   // Relații
   transactions         Transaction[]
   usageCounters        UsageCounter[]
+  singleAccessGrants   SingleAccessGrant[]
   savedListingContacts SavedListingContact[]
   blacklistReports     BlacklistReport[]
   reports              Report[]
@@ -219,6 +220,7 @@ model Payment {
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  singleAccessGrants SingleAccessGrant[]
 
   @@index([userId])
   @@map("payments")
@@ -231,8 +233,26 @@ enum PaymentStatus {
 }
 
 enum PaymentPurpose {
-  SUBSCRIPTION // оплата подписки (активирует план)
-  OVERAGE      // разовая доплата sobre-limit (грант на одно превышение по фиче)
+  SUBSCRIPTION  // оплата подписки (активирует план)
+  OVERAGE       // разовая доплата sobre-limit (грант на одно превышение по фиче)
+  SINGLE_ACCESS // «O accesare» (30 MDL) — пакет из 3 одноразовых грантов, без плана
+}
+
+// Этап C. Разовая покупка «O accesare» = 1 Payment(purpose=SINGLE_ACCESS) → в callback'е
+// при PAID создаются 3 строки (по 1 на CADASTRU_CHECK / DOSAR_ANALYSIS / OBIECTE_CREATE).
+// Грант одноразовый: активен, пока consumedAt = null. Без TTL — живёт вечно до использования.
+model SingleAccessGrant {
+  id         String       @id @default(cuid())
+  userId     String
+  feature    UsageFeature // CADASTRU_CHECK | DOSAR_ANALYSIS | OBIECTE_CREATE
+  paymentId  String?
+  consumedAt DateTime? // null = грант не потрачен
+  createdAt  DateTime     @default(now())
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment    Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("single_access_grants")
 }
 
 // Счётчики использования функций по тарифу (Этап A тарифной сетки TARIFE.pdf).
@@ -244,6 +264,7 @@ enum UsageFeature {
   DOSAR_ANALYSIS  // Examinarea dosarului (анализ Georgii) — заменил User.analysisCount
   CREATOR_HUB     // Creator Hub (соцсети)
   ANUNT_999       // Anunțuri 999 (platform=999 в Creator Hub) — считается отдельно
+  OBIECTE_CREATE  // Этап C: право создать 1 досье (грант «O accesare»); не UsageCounter-фича
 }
 
 model UsageCounter {

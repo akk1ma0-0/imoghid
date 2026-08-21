@@ -91,9 +91,8 @@ type ReceiptData = {
   amount: string; // "300.00"
   currency: string; // "MDL"
   plan: SubscriptionPlan;
-  // Этап B — тип платежа. OVERAGE → строка «Serviciu» описывает разовую доплату sobre-limit,
-  // а не абонемент. По умолчанию (не передано) — подписка.
-  purpose?: "SUBSCRIPTION" | "OVERAGE";
+  // Тип платежа. OVERAGE → доплата sobre-limit; SINGLE_ACCESS → «O accesare»; иначе абонемент.
+  purpose?: "SUBSCRIPTION" | "OVERAGE" | "SINGLE_ACCESS";
   overageFeature?: UsageFeature | null;
   rrn: string | null;
   approval: string | null;
@@ -129,9 +128,11 @@ function formatReceiptDate(d: Date): string {
 export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<void> {
   const planLabel = r.plan === "PRO" ? "Plan Pro" : "Plan Basic";
   const service =
-    r.purpose === "OVERAGE" && r.overageFeature
-      ? `${OVERAGE_SERVICE_RO[r.overageFeature] ?? "Supra-limit ImoGhid"} (${planLabel})`
-      : `Abonament ImoGhid — ${planLabel}`;
+    r.purpose === "SINGLE_ACCESS"
+      ? "O accesare — acces unic (1 verificare + 1 dosar + 1 obiect)"
+      : r.purpose === "OVERAGE" && r.overageFeature
+        ? `${OVERAGE_SERVICE_RO[r.overageFeature] ?? "Supra-limit ImoGhid"} (${planLabel})`
+        : `Abonament ImoGhid — ${planLabel}`;
   const dateStr = formatReceiptDate(r.paidAt);
   const opType = `Plată cu cardul ${r.cardNetwork ?? "Visa/Mastercard"}`;
   const amountStr = `${r.amount} ${r.currency}`;
