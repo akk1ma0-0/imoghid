@@ -86,10 +86,9 @@ export const authConfig = {
         return isPending || isWaitlist ? true : Response.redirect(new URL("/app/pending", nextUrl));
       }
 
-      // Подписчика на /app/pending или /app/waitlist делать нечего — ведём в приложение.
-      // Покупателя «O accesare» (plan=null, hasSingleAccess) на pending НЕ бросаем —
-      // он может докупить ещё один доступ или оформить подписку.
-      if (auth!.user.plan && (isPending || isWaitlist)) {
+      // /app/pending доступна и подписчикам (статус плана/лимитов, докупить «O accesare»,
+      // апгрейд) — не бросаем. А /app/waitlist для пользователя с доступом бессмысленна.
+      if (isWaitlist) {
         return Response.redirect(new URL("/app", nextUrl));
       }
 

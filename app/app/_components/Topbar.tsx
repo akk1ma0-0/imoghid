@@ -17,6 +17,7 @@ export function Topbar() {
   const onListings = pathname.startsWith("/app/listings");
   const onTools = pathname.startsWith("/app/acte");
   const onCreator = pathname.startsWith("/app/creator");
+  const onPlan = pathname.startsWith("/app/pending");
   const onAdmin = pathname.startsWith("/app/admin");
 
   const isAdmin = session?.user?.role === "ADMIN";
@@ -74,6 +75,11 @@ export function Topbar() {
           <span className="nav-lb">Anunțuri 999</span>
           <span className="nav-lb-short" aria-hidden>Anunțuri</span>
           <span className="soon-badge">în curând</span>
+        </Link>
+        <Link href="/app/pending" className={`nav-btn${onPlan ? " active" : ""}`}>
+          <span className="nav-ic" aria-hidden>💳</span>
+          <span className="nav-lb">Abonament</span>
+          <span className="nav-lb-short" aria-hidden>Plan</span>
         </Link>
       </nav>
       <div className="topbar-r">

@@ -162,6 +162,64 @@ export async function getUsage(
   return { used, limit };
 }
 
+// Сводка использования по всем лимитированным фичам — для страницы статуса плана
+// (/app/pending для пользователей с планом). Display-ready: limit сериализуется в число
+// или null (Infinity), поэтому отдаём готовые флаги/подпись, чтобы не потерять Infinity в JSON.
+export type UsageSummaryRow = {
+  key: LimitedFeature;
+  labelRo: string;
+  used: number;
+  limit: number; // конечное число; для безлимита см. unlimited
+  unlimited: boolean;
+  unavailable: boolean; // фича недоступна на плане (limit 0)
+};
+
+export async function getUsageSummary(userId: string): Promise<{
+  plan: "BASIC" | "PRO" | null;
+  planExpiresAt: string | null;
+  rows: UsageSummaryRow[];
+  singleAccessCount: number;
+}> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { plan: true, planExpiresAt: true },
+  });
+  const plan = user?.plan ?? null;
+
+  const [cadastru, dosar, creator, anunt, activeObjects, singleAccessCount] =
+    await Promise.all([
+      getUsage(userId, "CADASTRU_CHECK"),
+      getUsage(userId, "DOSAR_ANALYSIS"),
+      getUsage(userId, "CREATOR_HUB"),
+      getUsage(userId, "ANUNT_999"),
+      prisma.transaction.count({ where: { userId, status: { not: "ARCHIVE" } } }),
+      prisma.singleAccessGrant.count({ where: { userId, consumedAt: null } }),
+    ]);
+
+  const obiecteLimit = planFeatureLimit(plan, "OBIECTE_ACTIVE");
+  const row = (key: LimitedFeature, used: number, limit: number): UsageSummaryRow => ({
+    key,
+    labelRo: FEATURE_LABEL_RO[key],
+    used,
+    limit: Number.isFinite(limit) ? limit : 0,
+    unlimited: !Number.isFinite(limit),
+    unavailable: limit === 0,
+  });
+
+  return {
+    plan,
+    planExpiresAt: user?.planExpiresAt?.toISOString() ?? null,
+    rows: [
+      row("CADASTRU_CHECK", cadastru.used, cadastru.limit),
+      row("DOSAR_ANALYSIS", dosar.used, dosar.limit),
+      row("OBIECTE_ACTIVE", activeObjects, obiecteLimit),
+      row("CREATOR_HUB", creator.used, creator.limit),
+      row("ANUNT_999", anunt.used, anunt.limit),
+    ],
+    singleAccessCount,
+  };
+}
+
 // OBIECTE_ACTIVE — живой подсчёт активных (неархивированных) досье, а НЕ накопительный
 // счётчик. Лимит = сколько досье со статусом != ARCHIVE может существовать одновременно.
 // Проверяется при создании нового досье; архивация освобождает слот. Инкремента нет.

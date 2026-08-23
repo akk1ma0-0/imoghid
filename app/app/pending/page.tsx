@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { getUsageSummary } from "@/lib/usage";
 import { PendingTariffs } from "./PendingTariffs";
+import { PlanStatus } from "./PlanStatus";
 
 // Точка решения «тарифы vs waitlist» — серверный компонент (Node runtime).
 // Страница ПУБЛИЧНАЯ (SIP — банк требует доступную без логина страницу цен):
@@ -19,9 +21,17 @@ export default async function PendingPage() {
     if (!session!.user.emailConfirmed) {
       redirect("/app/verify-email-pending");
     }
-    // Уже есть план → в приложение.
+    // Уже есть план → показываем статус плана и использование лимитов (а не выбор тарифа).
     if (session!.user.plan) {
-      redirect("/app");
+      const summary = await getUsageSummary(session!.user.id);
+      return (
+        <PlanStatus
+          plan={session!.user.plan}
+          planExpiresAt={summary.planExpiresAt}
+          rows={summary.rows}
+          singleAccessCount={summary.singleAccessCount}
+        />
+      );
     }
 
     // Точечный обход waitlist для тестовых аккаунтов (напр. тест платежей при активной
