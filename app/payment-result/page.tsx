@@ -1,5 +1,5 @@
 import { Providers } from "@/components/Providers";
-import { ContinueToApp } from "@/components/ContinueToApp";
+import { PostPaymentEntry } from "@/components/PostPaymentEntry";
 
 // BACKREF — страница, куда браузер возвращается после оплаты. ТОЛЬКО отображение.
 // Реальная активация плана — в server-to-server callback (/api/payments/vb-callback),
@@ -36,7 +36,7 @@ export default async function PaymentResultPage({
           Dacă planul nu apare imediat, reîmprospătați pagina contului peste câteva momente.
         </p>
         <Providers>
-          <ContinueToApp />
+          <PostPaymentEntry />
         </Providers>
       </div>
     </div>

@@ -67,9 +67,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           select: {
             sessionVersion: true,
             email: true,
-            // «O accesare» (Этап C): освежаем hasSingleAccess из БД на каждом запросе, чтобы
-            // после покупки грант сразу пускал в приложение без повторного логина, а после
-            // траты последнего гранта claim гас сам собой.
+            // Освежаем план из БД на каждом запросе: после подписочной оплаты (callback
+            // активирует план) сессия сразу отражает его — без релогина; истечение/смена
+            // плана тоже применяются немедленно.
+            plan: true,
+            planActivatedAt: true,
+            planExpiresAt: true,
+            // «O accesare» (Этап C): аналогично для hasSingleAccess — после покупки грант
+            // сразу пускает в приложение, а после траты последнего claim гаснет сам.
             _count: { select: { singleAccessGrants: { where: { consumedAt: null } } } },
           },
         });
@@ -83,6 +88,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Держим e-mail в токене актуальным — после смены e-mail сессия остаётся рабочей
         // и подхватывает новый адрес без повторного входа.
         if (token.email !== dbUser.email) token.email = dbUser.email;
+        token.plan = dbUser.plan;
+        token.planActive = isPlanActive(dbUser);
         token.hasSingleAccess = dbUser._count.singleAccessGrants > 0;
       }
       return token;
