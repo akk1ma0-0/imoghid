@@ -91,9 +91,11 @@ type ReceiptData = {
   amount: string; // "300.00"
   currency: string; // "MDL"
   plan: SubscriptionPlan;
-  // Тип платежа. OVERAGE → доплата sobre-limit; SINGLE_ACCESS → «O accesare»; иначе абонемент.
-  purpose?: "SUBSCRIPTION" | "OVERAGE" | "SINGLE_ACCESS";
+  // Тип платежа. OVERAGE → доплата sobre-limit; SINGLE_ACCESS → «O accesare»;
+  // AGENCY_SEATS → покупка N мест HUB/Agenție; иначе абонемент.
+  purpose?: "SUBSCRIPTION" | "OVERAGE" | "SINGLE_ACCESS" | "AGENCY_SEATS";
   overageFeature?: UsageFeature | null;
+  seats?: number | null; // для AGENCY_SEATS
   rrn: string | null;
   approval: string | null;
   cardLast4: string | null;
@@ -126,13 +128,15 @@ function formatReceiptDate(d: Date): string {
 // Без SMTP-кредов не падает — логирует чек в консоль (dev-режим). Все вызовы обёрнуты
 // в try/catch на стороне callback — сбой почты НЕ ломает обработку платежа.
 export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<void> {
-  const planLabel = r.plan === "PRO" ? "Plan Pro" : "Plan Basic";
+  const planLabel = r.plan === "PRO" ? "Plan Pro" : r.plan === "HUB" ? "HUB/Agenție" : "Plan Basic";
   const service =
-    r.purpose === "SINGLE_ACCESS"
-      ? "O accesare — acces unic (1 verificare + 1 dosar + 1 obiect)"
-      : r.purpose === "OVERAGE" && r.overageFeature
-        ? `${OVERAGE_SERVICE_RO[r.overageFeature] ?? "Supra-limit ImoGhid"} (${planLabel})`
-        : `Abonament ImoGhid — ${planLabel}`;
+    r.purpose === "AGENCY_SEATS"
+      ? `HUB/Agenție — ${r.seats ?? 0} locuri`
+      : r.purpose === "SINGLE_ACCESS"
+        ? "O accesare — acces unic (1 verificare + 1 dosar + 1 obiect)"
+        : r.purpose === "OVERAGE" && r.overageFeature
+          ? `${OVERAGE_SERVICE_RO[r.overageFeature] ?? "Supra-limit ImoGhid"} (${planLabel})`
+          : `Abonament ImoGhid — ${planLabel}`;
   const dateStr = formatReceiptDate(r.paidAt);
   const opType = `Plată cu cardul ${r.cardNetwork ?? "Visa/Mastercard"}`;
   const amountStr = `${r.amount} ${r.currency}`;

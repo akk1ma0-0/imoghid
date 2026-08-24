@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
+import { revokeExpiredAgencies } from "@/lib/agency";
 
 // GET /api/cron/check-expired-plans — ежедневный отзыв истёкших планов (Vercel Cron).
 // Находит plan != null И planExpiresAt < now() → сбрасывает план и инкрементирует
@@ -37,6 +38,18 @@ export async function GET(request: Request) {
     },
   });
 
-  console.log(`[cron] check-expired-plans: revoked ${result.count} expired plan(s)`);
-  return NextResponse.json({ ok: true, revoked: result.count, at: now.toISOString() });
+  // HUB/Agenție: участники с материализованным планом HUB имеют planExpiresAt=null (их
+  // выше не задело), поэтому истечение агентств отзываем отдельно — по Agency.planExpiresAt.
+  // Вынесено сюда (а не в отдельный cron), т.к. Vercel Hobby лимит = 2 cron-джобы.
+  const agencyMembers = await revokeExpiredAgencies(now);
+
+  console.log(
+    `[cron] check-expired-plans: revoked ${result.count} expired plan(s), ${agencyMembers} agency member(s)`,
+  );
+  return NextResponse.json({
+    ok: true,
+    revoked: result.count,
+    agencyMembers,
+    at: now.toISOString(),
+  });
 }

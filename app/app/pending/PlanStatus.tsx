@@ -9,7 +9,7 @@ import type { UsageSummaryRow } from "@/lib/usage";
 // или (для Basic) перейти на Pro. Плата — через уже существующие VB-роуты.
 
 type Props = {
-  plan: "BASIC" | "PRO";
+  plan: "BASIC" | "PRO" | "HUB";
   planExpiresAt: string | null;
   rows: UsageSummaryRow[];
   singleAccessCount: number;
@@ -25,6 +25,7 @@ function fmtDate(iso: string | null): string {
 export function PlanStatus({ plan, planExpiresAt, rows, singleAccessCount }: Props) {
   const [agreed, setAgreed] = useState(false);
   const isBasic = plan === "BASIC";
+  const isAgencyMember = plan === "HUB"; // тариф выдан агентством — личных покупок не показываем
 
   return (
     <div className="ig-page" style={{ maxWidth: 720, margin: "0 auto" }}>
@@ -53,7 +54,7 @@ export function PlanStatus({ plan, planExpiresAt, rows, singleAccessCount }: Pro
               borderRadius: 999,
             }}
           >
-            {plan === "PRO" ? "Pro" : "Basic"}
+            {plan === "PRO" ? "Pro" : plan === "HUB" ? "HUB/Agenție" : "Basic"}
           </div>
           <div style={{ fontSize: 13, color: "var(--ink3)" }}>{fmtDate(planExpiresAt)}</div>
           {singleAccessCount > 0 && (
@@ -104,6 +105,19 @@ export function PlanStatus({ plan, planExpiresAt, rows, singleAccessCount }: Pro
         </div>
       </div>
 
+      {/* Участник агентства (HUB) — тариф выдан агентством, личных покупок/апгрейда нет. */}
+      {isAgencyMember && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="card-bd" style={{ padding: "16px 22px", fontSize: 13, color: "var(--ink2)", lineHeight: 1.6 }}>
+            Cont în cadrul unui abonament <b>HUB/Agenție</b>. Locurile și plata sunt gestionate de
+            administratorul agenției.
+          </div>
+        </div>
+      )}
+
+      {/* Согласие + личные покупки — только для персональных планов (Basic/Pro), не для HUB. */}
+      {!isAgencyMember && (
+      <>
       {/* Согласие с условиями — общий чекбокс для платёжных форм ниже */}
       <label
         style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "18px auto 0", maxWidth: 560, fontSize: 13, color: "var(--ink2)", lineHeight: 1.55, cursor: "pointer" }}
@@ -161,6 +175,8 @@ export function PlanStatus({ plan, planExpiresAt, rows, singleAccessCount }: Pro
             </form>
           </div>
         </div>
+      )}
+      </>
       )}
 
       <div style={{ textAlign: "center", marginTop: 20 }}>

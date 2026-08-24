@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { UsageFeature } from "@prisma/client";
+import type { UsageFeature, SubscriptionPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -175,7 +175,7 @@ export type UsageSummaryRow = {
 };
 
 export async function getUsageSummary(userId: string): Promise<{
-  plan: "BASIC" | "PRO" | null;
+  plan: SubscriptionPlan | null;
   planExpiresAt: string | null;
   rows: UsageSummaryRow[];
   singleAccessCount: number;

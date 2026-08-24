@@ -9,7 +9,7 @@ type Initial = {
   email: string;
   agentie: string;
   telefon: string;
-  plan: "BASIC" | "PRO" | null;
+  plan: "BASIC" | "PRO" | "HUB" | null;
   notifLegislatie: boolean;
   usageUsed: number;
   usageLimit: number;

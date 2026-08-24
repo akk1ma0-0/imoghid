@@ -29,7 +29,19 @@ export const PLAN_LIMITS: Record<SubscriptionPlan, Record<LimitedFeature, number
     CREATOR_HUB: 60,
     ANUNT_999: 60,
   },
+  // HUB/Agenție (Этап D) — тариф участника агентства, per-seat (TARIFE.pdf, колонка HUB).
+  HUB: {
+    CADASTRU_CHECK: Infinity,
+    DOSAR_ANALYSIS: 70,
+    OBIECTE_ACTIVE: Infinity,
+    CREATOR_HUB: Infinity,
+    ANUNT_999: Infinity,
+  },
 };
+
+// HUB/Agenție (Этап D) — цена за место (дефолт, overridable вручную) и минимум мест.
+export const AGENCY_SEAT_FEE_MDL = 450;
+export const AGENCY_MIN_SEATS = 3;
 
 // Нет плана → доступа к лимитированным функциям нет (0 по всем фичам).
 export function planFeatureLimit(
@@ -48,6 +60,7 @@ export const OVER_LIMIT_FEE_MDL: Record<
 > = {
   BASIC: { DOSAR_ANALYSIS: 15, CADASTRU_CHECK: 5 },
   PRO: { DOSAR_ANALYSIS: 10, CADASTRU_CHECK: null }, // Pro cadastru — безлимит
+  HUB: { DOSAR_ANALYSIS: 5, CADASTRU_CHECK: null }, // HUB dosar +5 (TARIFE), cadastru безлимит
 };
 
 // Сумма доплаты sobre-limit (MDL) для фичи на плане, либо null если доплата не

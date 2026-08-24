@@ -31,7 +31,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const target = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, planActivatedAt: true },
+    select: { id: true, planActivatedAt: true, plan: true },
   });
   if (!target) {
     return NextResponse.json({ error: "Utilizator negăsit." }, { status: 404 });
@@ -40,6 +40,15 @@ export async function PATCH(request: Request, { params }: Params) {
   const data: Record<string, unknown> = {};
 
   if (body.plan !== undefined) {
+    // HUB выдаётся только через агентство (materializeAgencyPlan). Менять план HUB-участнику
+    // из общего переключателя нельзя — рассинхрон с AgencyMembership. Отозвать доступ =
+    // удалить membership (управление агентством), а не сбросить план здесь.
+    if (target.plan === "HUB") {
+      return NextResponse.json(
+        { error: "Planul HUB este gestionat prin agenție — nu poate fi schimbat din acest selector." },
+        { status: 400 },
+      );
+    }
     if (body.plan === null) {
       // Снятие плана — возврат в «în așteptare» (plan=null). Чистый сброс активации/срока.
       // sessionVersion++ → мгновенный разлогин (не ждём, пока пользователь сам перезайдёт).

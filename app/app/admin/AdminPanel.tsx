@@ -7,7 +7,7 @@ type AdminUser = {
   id: string;
   email: string;
   name: string;
-  plan: "BASIC" | "PRO" | null;
+  plan: "BASIC" | "PRO" | "HUB" | null;
   role: "AGENT" | "ADMIN";
   isBlocked: boolean;
   createdAt: string;
@@ -251,8 +251,8 @@ export function AdminPanel({
                     </td>
                     <td>{u.name}</td>
                     <td>
-                      <span className={`badge ${u.plan === "PRO" ? "b-blue" : u.plan === "BASIC" ? "b-gray" : "b-amber"}`}>
-                        {u.plan ?? "În așteptare"}
+                      <span className={`badge ${u.plan === "PRO" ? "b-blue" : u.plan === "BASIC" ? "b-gray" : u.plan === "HUB" ? "b-purple" : "b-amber"}`}>
+                        {u.plan === "HUB" ? "HUB/Agenție" : u.plan ?? "În așteptare"}
                       </span>
                     </td>
                     <td className="nowrap">{fmtDate(u.createdAt)}</td>
@@ -266,21 +266,33 @@ export function AdminPanel({
                     </td>
                     <td className="act">
                       <div className="adm-acts">
-                        <select
-                          className="adm-plan-select"
-                          value={u.plan ?? ""}
-                          disabled={busy}
-                          title="Schimbă planul"
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v === "BASIC" || v === "PRO") patchUser(u.id, { plan: v });
-                            else if (v === "") patchUser(u.id, { plan: null }); // снять план → în așteptare
-                          }}
-                        >
-                          <option value="">În așteptare</option>
-                          <option value="BASIC">BASIC</option>
-                          <option value="PRO">PRO</option>
-                        </select>
+                        {u.plan === "HUB" ? (
+                          // HUB выдаётся ТОЛЬКО через агентство (materializeAgencyPlan), не через
+                          // общий переключатель — иначе рассинхрон с AgencyMembership. Только чтение.
+                          <span
+                            className="adm-plan-locked"
+                            title="Plan HUB — gestionat prin agenție, nu se schimbă din acest selector"
+                            style={{ fontSize: 12, color: "var(--ink3)", whiteSpace: "nowrap" }}
+                          >
+                            🔒 prin agenție
+                          </span>
+                        ) : (
+                          <select
+                            className="adm-plan-select"
+                            value={u.plan ?? ""}
+                            disabled={busy}
+                            title="Schimbă planul"
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === "BASIC" || v === "PRO") patchUser(u.id, { plan: v });
+                              else if (v === "") patchUser(u.id, { plan: null }); // снять план → în așteptare
+                            }}
+                          >
+                            <option value="">În așteptare</option>
+                            <option value="BASIC">BASIC</option>
+                            <option value="PRO">PRO</option>
+                          </select>
+                        )}
                         <button
                           className={`btn${u.isBlocked ? " solid" : ""}`}
                           disabled={busy || (isSelf && !u.isBlocked)}

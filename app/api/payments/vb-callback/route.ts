@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { psignVerifyCallback, vbCompletion } from "@/lib/vb-egateway";
 import { sendReceiptEmail } from "@/lib/email";
+import { creditAgencySeats } from "@/lib/agency";
 
 // POST /api/payments/vb-callback — авторитетный server-to-server callback банка.
 // Всегда отвечаем HTTP 200 (иначе банк ретраит), даже при невалидной подписи.
@@ -158,6 +159,22 @@ export async function POST(request: Request) {
         console.log(
           `[VB callback] PAID SINGLE_ACCESS ORDER=${ORDER} user=${payment.userId} (3 grants)`,
         );
+      } else if (payment.purpose === "AGENCY_SEATS") {
+        // HUB/Agenție — покупка мест. Создаём/продлеваем агентство владельца (seatsPaid += N,
+        // planExpiresAt = now+30д). Личные планы участников НЕ трогаем — раздача мест в
+        // Чекпоинте 2. Клейм completionStartedAt гарантирует однократность (без двойного зачёта).
+        const paidUser = await prisma.user.findUnique({
+          where: { id: payment.userId },
+          select: { email: true },
+        });
+        await prisma.$transaction([
+          prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
+        ]);
+        const agency = await creditAgencySeats(payment.userId, payment.seats ?? 0);
+        receiptTo = paidUser?.email ?? null;
+        console.log(
+          `[VB callback] PAID AGENCY_SEATS ORDER=${ORDER} owner=${payment.userId} +${payment.seats} → seatsPaid=${agency.seatsPaid}`,
+        );
       } else {
         // Подписка → активируем план на 30 дней.
         // Автопродление/повторное списание НЕ реализуем (ждём ответа банка по recurring);
@@ -186,6 +203,7 @@ export async function POST(request: Request) {
             plan: payment.plan,
             purpose: payment.purpose,
             overageFeature: payment.overageFeature,
+            seats: payment.seats,
             rrn: RRN || null,
             approval,
             cardLast4,

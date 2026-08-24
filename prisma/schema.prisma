@@ -27,6 +27,8 @@ datasource db {
 enum SubscriptionPlan {
   BASIC  // $10/lună — acces complet la aplicație
   PRO    // $30/lună — + PDF, CMA, generator anunțuri, istoric extins
+  HUB    // Этап D — тариф участника агентства (HUB/Agenție). Не покупается напрямую:
+         // материализуется на User.plan при вступлении в агентство (AgencyMembership).
 }
 
 enum UserRole {
@@ -171,6 +173,8 @@ model User {
   transactions         Transaction[]
   usageCounters        UsageCounter[]
   singleAccessGrants   SingleAccessGrant[]
+  ownedAgency          Agency?               @relation("AgencyOwner")
+  agencyMembership     AgencyMembership?
   savedListingContacts SavedListingContact[]
   blacklistReports     BlacklistReport[]
   reports              Report[]
@@ -211,6 +215,7 @@ model Payment {
   purpose            PaymentPurpose @default(SUBSCRIPTION)
   overageFeature     UsageFeature?  // для OVERAGE: DOSAR_ANALYSIS | CADASTRU_CHECK
   overageConsumedAt  DateTime?      // null = оплачено, но грант ещё не потрачен
+  seats              Int?           // для AGENCY_SEATS: сколько мест куплено этим платежом
   // Пропуск авто-TRTYPE=21 для КОНКРЕТНОГО тестового платежа (сертификация, Testul 2 = чистый
   // 0→24). Проставляется при инициации из admin-панели; детерминирован, не зависит от env/раскатки.
   skipAutoCompletion Boolean  @default(false)
@@ -236,6 +241,46 @@ enum PaymentPurpose {
   SUBSCRIPTION  // оплата подписки (активирует план)
   OVERAGE       // разовая доплата sobre-limit (грант на одно превышение по фиче)
   SINGLE_ACCESS // «O accesare» (30 MDL) — пакет из 3 одноразовых грантов, без плана
+  AGENCY_SEATS  // HUB/Agenție — покупка N мест (450 MDL/место, мин. 3), Этап D
+}
+
+enum AgencyRole {
+  OWNER  // владелец агентства (купил места, распределяет)
+  MEMBER // участник, которому выделено место (User.plan материализуется в HUB)
+}
+
+// Агентство (HUB/Agenție), Этап D. Владелец покупает N мест (seatsPaid), затем в Чекпоинте 2
+// распределяет их (AgencyMembership). При вступлении план участника материализуется в HUB.
+// Цена за место overridable вручную (переговорная скидка для крупных агентств).
+model Agency {
+  id             String    @id @default(cuid())
+  ownerId        String    @unique // одно агентство на владельца
+  seatsPaid      Int       @default(0) // сколько лицензий куплено (не сколько роздано)
+  pricePerSeatMdl Int      @default(450) // переопределяется вручную при договорной цене
+  planExpiresAt  DateTime? // окончание оплаченного периода (аналог подписки); null = не оплачено
+  negotiated     Boolean   @default(false) // цена согласована вручную (не дефолтные 450)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  owner       User                @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberships AgencyMembership[]
+
+  @@map("agencies")
+}
+
+model AgencyMembership {
+  id        String     @id @default(cuid())
+  agencyId  String
+  userId    String     @unique // участник состоит максимум в одном агентстве (план = HUB оттуда)
+  role      AgencyRole @default(MEMBER)
+  joinedAt  DateTime   @default(now())
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, userId])
+  @@index([agencyId])
+  @@map("agency_memberships")
 }
 
 // Этап C. Разовая покупка «O accesare» = 1 Payment(purpose=SINGLE_ACCESS) → в callback'е
