@@ -74,9 +74,11 @@ export const authConfig = {
       const isPending = nextUrl.pathname.startsWith("/app/pending");
       const isWaitlist = nextUrl.pathname.startsWith("/app/waitlist");
 
-      // Доступ в приложение даёт либо активный план, либо непотраченный «O accesare»-грант
-      // (Этап C, JWT-claim hasSingleAccess — освежается в auth.ts на каждом запросе).
-      const hasAccess = !!auth!.user.plan || !!auth!.user.hasSingleAccess;
+      // Доступ в приложение даёт: активный план, непотраченный «O accesare»-грант (Этап C),
+      // либо владение агентством (Этап D — владелец без своего места всё равно заходит в
+      // /app/agency управлять). JWT-claims освежаются в auth.ts на каждом запросе.
+      const hasAccess =
+        !!auth!.user.plan || !!auth!.user.hasSingleAccess || !!auth!.user.isAgencyOwner;
 
       // Без доступа (plan = null и нет single-access) → /app/pending. Там серверный компонент
       // (Node runtime) читает WAITLIST_MODE на каждом запросе и решает: тарифы или /app/waitlist.
@@ -105,6 +107,7 @@ export const authConfig = {
         token.role = user.role;
         token.sessionVersion = user.sessionVersion;
         token.hasSingleAccess = user.hasSingleAccess;
+        token.isAgencyOwner = user.isAgencyOwner;
       }
       // Клиент вызывает useSession().update({ ... }) после /subscribe или подтверждения e-mail.
       if (trigger === "update" && session) {
@@ -132,6 +135,7 @@ export const authConfig = {
       session.user.emailConfirmed = token.emailConfirmed;
       session.user.role = token.role;
       session.user.hasSingleAccess = token.hasSingleAccess ?? false;
+      session.user.isAgencyOwner = token.isAgencyOwner ?? false;
       return session;
     },
   },

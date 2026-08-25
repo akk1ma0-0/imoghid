@@ -118,6 +118,36 @@ export function AdminPanel({
   const [vbBusy, setVbBusy] = useState(false);
   const [vbResult, setVbResult] = useState<string | null>(null);
   const [vbErr, setVbErr] = useState<string | null>(null);
+
+  // Ручное создание агентства с договорной ценой (Этап D).
+  const [agEmail, setAgEmail] = useState("");
+  const [agSeats, setAgSeats] = useState("3");
+  const [agPrice, setAgPrice] = useState("450");
+  const [agBusy, setAgBusy] = useState(false);
+  const [agMsg, setAgMsg] = useState<string | null>(null);
+  async function createAgency() {
+    setAgBusy(true);
+    setAgMsg(null);
+    try {
+      const r = await fetch("/api/admin/agency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: agEmail.trim(),
+          seatsPaid: Number(agSeats),
+          pricePerSeatMdl: Number(agPrice),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.error);
+      setAgMsg(`✓ Agenție: ${d.agency.seatsPaid} locuri × ${d.agency.pricePerSeatMdl} MDL (negociat).`);
+      router.refresh();
+    } catch (e) {
+      setAgMsg(e instanceof Error && e.message ? e.message : "Eroare.");
+    } finally {
+      setAgBusy(false);
+    }
+  }
   async function runVbTest(action: "refund" | "complete") {
     if (!vbOrder.trim()) return;
     setVbErr(null);
@@ -513,6 +543,39 @@ export function AdminPanel({
                 >
                   {vbResult}
                 </pre>
+              )}
+            </div>
+          </div>
+
+          {/* Ручное создание агентства HUB с договорной ценой (минуя чекаут). */}
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="card-hd"><b>HUB / Agenție — creare manuală (tarif negociat)</b></div>
+            <div className="card-bd">
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div className="field-group" style={{ flex: "1 1 240px", margin: 0 }}>
+                  <label style={{ fontSize: 12 }}>Email proprietar</label>
+                  <input value={agEmail} onChange={(e) => setAgEmail(e.target.value)} placeholder="owner@exemplu.md" />
+                </div>
+                <div className="field-group" style={{ flex: "0 1 100px", margin: 0 }}>
+                  <label style={{ fontSize: 12 }}>Locuri</label>
+                  <input type="number" min={3} value={agSeats} onChange={(e) => setAgSeats(e.target.value)} />
+                </div>
+                <div className="field-group" style={{ flex: "0 1 130px", margin: 0 }}>
+                  <label style={{ fontSize: 12 }}>Preț/loc (MDL)</label>
+                  <input type="number" min={0} value={agPrice} onChange={(e) => setAgPrice(e.target.value)} />
+                </div>
+                <button className="btn solid" disabled={agBusy || !agEmail.trim()} onClick={createAgency}>
+                  {agBusy ? "…" : "Creează / actualizează"}
+                </button>
+              </div>
+              <p style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.6, marginTop: 10 }}>
+                Создаёт/обновляет `Agency` (negociat=true), 30 дней. Мест не раздаёт — владелец
+                распределяет через инвайты на /app/agency.
+              </p>
+              {agMsg && (
+                <div style={{ marginTop: 10, fontSize: 12.5, color: agMsg.startsWith("✓") ? "var(--green, #16a34a)" : "var(--red, #dc2626)" }}>
+                  {agMsg}
+                </div>
               )}
             </div>
           </div>

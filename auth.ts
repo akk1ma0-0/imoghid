@@ -32,11 +32,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        // «O accesare» (Этап C): есть ли непотраченный single-access грант → пускать в
-        // приложение (WAITLIST-гейт), даже когда plan=null.
-        const singleAccessCount = await prisma.singleAccessGrant.count({
-          where: { userId: user.id, consumedAt: null },
-        });
+        // Доступ в приложение (WAITLIST-гейт) при plan=null: непотраченный single-access
+        // грант (Этап C) ИЛИ владение агентством (Этап D — чтобы владелец мог зайти в
+        // /app/agency управлять местами/продлить, даже не выделив место себе).
+        const [singleAccessCount, ownedAgency] = await Promise.all([
+          prisma.singleAccessGrant.count({ where: { userId: user.id, consumedAt: null } }),
+          prisma.agency.findUnique({ where: { ownerId: user.id }, select: { id: true } }),
+        ]);
 
         // Возвращаем поля, которые попадут в JWT (jwt callback в auth.config.ts).
         return {
@@ -49,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: user.role,
           sessionVersion: user.sessionVersion,
           hasSingleAccess: singleAccessCount > 0,
+          isAgencyOwner: !!ownedAgency,
         };
       },
     }),
@@ -76,6 +79,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // «O accesare» (Этап C): аналогично для hasSingleAccess — после покупки грант
             // сразу пускает в приложение, а после траты последнего claim гаснет сам.
             _count: { select: { singleAccessGrants: { where: { consumedAt: null } } } },
+            // Этап D: владение агентством (доступ в /app/agency при plan=null).
+            ownedAgency: { select: { id: true } },
           },
         });
         // Токены, выпущенные до появления sessionVersion, не имеют claim → трактуем как 0
@@ -91,6 +96,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.plan = dbUser.plan;
         token.planActive = isPlanActive(dbUser);
         token.hasSingleAccess = dbUser._count.singleAccessGrants > 0;
+        token.isAgencyOwner = !!dbUser.ownedAgency;
       }
       return token;
     },

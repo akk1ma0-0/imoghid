@@ -165,6 +165,37 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
         </div>
       </div>
 
+      {/* HUB / Agenție (Этап D) — покупка мест для команды. */}
+      <div className="card" style={{ marginTop: 12, borderColor: "var(--blue, #2563eb)" }}>
+        <div
+          className="card-bd"
+          style={{ padding: "20px 22px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, justifyContent: "space-between" }}
+        >
+          <div style={{ flex: "1 1 300px", minWidth: 240 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+              HUB / Agenție — 450 MDL/loc <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink3)" }}>· minim 3 locuri</span>
+            </div>
+            <p style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.55, margin: "0 0 6px" }}>
+              Pentru echipe: locuri cu limite generoase (verificări/obiecte/Creator Hub nelimitate),
+              gestionate de administratorul agenției.
+            </p>
+            <p style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5, margin: 0 }}>
+              Pentru agenții imobiliare cu mai mulți utilizatori, tariful poate fi negociat —
+              contactați-ne.
+            </p>
+          </div>
+          <div style={{ flex: "0 0 auto", minWidth: 180 }}>
+            <Link
+              href={isAuthenticated ? "/app/agency" : "/register"}
+              className="btn solid"
+              style={{ width: "100%", justifyContent: "center", height: 44 }}
+            >
+              {isAuthenticated ? "Cumpără locuri" : "Înregistrează-te"}
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-bd" style={{ padding: 24, textAlign: "center" }}>
           <p style={{ fontSize: 13.5, color: "var(--ink3)", lineHeight: 1.6, marginBottom: 14 }}>

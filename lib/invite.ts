@@ -13,12 +13,13 @@ export class InviteError extends Error {
  * Вызывать внутри транзакции (tx), чтобы создание пользователя / активация плана
  * и инкремент счётчика были атомарными.
  *
- * Возвращает план, который даёт код (обычно PRO).
+ * Возвращает план кода и agencyId (null для обычных кодов; задан для кодов агентства —
+ * тогда вызывающий создаёт AgencyMembership вместо прямой активации плана).
  */
 export async function redeemInvite(
   tx: Prisma.TransactionClient,
   code: string,
-): Promise<SubscriptionPlan> {
+): Promise<{ plan: SubscriptionPlan; agencyId: string | null }> {
   const invite = await tx.inviteCode.findUnique({
     where: { code: code.trim() },
   });
@@ -38,5 +39,5 @@ export async function redeemInvite(
     data: { usedCount: { increment: 1 } },
   });
 
-  return invite.plan;
+  return { plan: invite.plan, agencyId: invite.agencyId };
 }

@@ -11,6 +11,7 @@ declare module "next-auth" {
       emailConfirmed: boolean;
       role: UserRole;
       hasSingleAccess: boolean;
+      isAgencyOwner: boolean;
     } & DefaultSession["user"];
   }
 
@@ -21,6 +22,7 @@ declare module "next-auth" {
     role: UserRole;
     sessionVersion: number;
     hasSingleAccess: boolean;
+    isAgencyOwner: boolean;
   }
 }
 
@@ -35,5 +37,6 @@ declare module "@auth/core/jwt" {
     role: UserRole;
     sessionVersion: number;
     hasSingleAccess: boolean;
+    isAgencyOwner: boolean;
   }
 }

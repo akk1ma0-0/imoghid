@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redeemInvite, InviteError } from "@/lib/invite";
+import { joinAgencyByInvite, AgencyError } from "@/lib/agency";
 import { isValidPlan } from "@/lib/plan";
 
 // POST /api/subscribe — активирует план для текущего пользователя.
@@ -33,7 +34,12 @@ export async function POST(request: Request) {
   try {
     const updated = await prisma.$transaction(async (tx) => {
       if (inviteCode) {
-        const invitePlan = await redeemInvite(tx, inviteCode);
+        const { plan: invitePlan, agencyId } = await redeemInvite(tx, inviteCode);
+        // Код агентства → место в агентстве (membership + материализация HUB), а не прямой план.
+        if (agencyId) {
+          await joinAgencyByInvite(tx, userId, agencyId);
+          return { plan: "HUB" as const };
+        }
         return tx.user.update({
           where: { id: userId },
           data: {
@@ -62,7 +68,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ plan: updated.plan, planActive: true });
   } catch (error) {
-    if (error instanceof InviteError) {
+    if (error instanceof InviteError || error instanceof AgencyError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("subscribe error:", error);

@@ -264,6 +264,7 @@ model Agency {
 
   owner       User                @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   memberships AgencyMembership[]
+  inviteCodes InviteCode[]
 
   @@map("agencies")
 }
@@ -426,6 +427,11 @@ model InviteCode {
   createdById String
   createdBy   User      @relation(fields: [createdById], references: [id])
 
+  // Этап D. null = обычный код (даёт plan напрямую, как раньше). Задан = код агентства:
+  // при погашении создаётся AgencyMembership и материализуется HUB (если есть свободное место).
+  agencyId    String?
+  agency      Agency?   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
   maxUses     Int       @default(1)
   usedCount   Int       @default(0)
   expiresAt   DateTime?
@@ -433,6 +439,7 @@ model InviteCode {
 
   createdAt   DateTime  @default(now())
 
+  @@index([agencyId])
   @@map("invite_codes")
 }
 

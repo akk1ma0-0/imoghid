@@ -18,9 +18,11 @@ export function Topbar() {
   const onTools = pathname.startsWith("/app/acte");
   const onCreator = pathname.startsWith("/app/creator");
   const onPlan = pathname.startsWith("/app/pending");
+  const onAgency = pathname.startsWith("/app/agency");
   const onAdmin = pathname.startsWith("/app/admin");
 
   const isAdmin = session?.user?.role === "ADMIN";
+  const isAgencyOwner = session?.user?.isAgencyOwner;
 
   const displayName = session?.user?.name || session?.user?.email || "";
   const initials =
@@ -81,6 +83,13 @@ export function Topbar() {
           <span className="nav-lb">Abonament</span>
           <span className="nav-lb-short" aria-hidden>Plan</span>
         </Link>
+        {isAgencyOwner && (
+          <Link href="/app/agency" className={`nav-btn${onAgency ? " active" : ""}`}>
+            <span className="nav-ic" aria-hidden>🏢</span>
+            <span className="nav-lb">Agenția mea</span>
+            <span className="nav-lb-short" aria-hidden>Agenție</span>
+          </Link>
+        )}
       </nav>
       <div className="topbar-r">
         {/* Служебная кнопка админ-панели — рендерится ТОЛЬКО для ADMIN (не скрыта через CSS). */}
