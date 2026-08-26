@@ -81,7 +81,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "ImoGhid oferă mai multe opțiuni: O accesare (30 MDL/obiect, pentru utilizare punctuală), Basic (300 MDL/lună) și Pro (500 MDL/lună), fiecare cu limite proprii pentru verificări cadastrale, examinarea dosarelor și Creator Hub. Pentru agenții și echipe există planul HUB/Agenție (450 MDL/loc, minimum 3 locuri, cu acces nelimitat la toate funcțiile). Detalii complete și prețuri actualizate găsiți pe pagina de planuri. Abonamentul ImoGhid este separat de eventualele taxe ale 999.md."
+        "text": "ImoGhid oferă mai multe opțiuni: O accesare (30 MDL/obiect, pentru utilizare punctuală), Basic (300 MDL/lună) și Pro (500 MDL/lună), fiecare cu limite proprii pentru verificări cadastrale, examinarea dosarelor și Creator Hub. Pentru agenții și echipe există planul HUB/Agenție (450 MDL/loc, minimum 3 locuri), cu verificare cadastrală și Obiectele mele nelimitate, plus limite lunare generoase pentru examinarea dosarului, Creator Hub și Anunțuri 999. Detalii complete și prețuri actualizate găsiți pe pagina de planuri. Abonamentul ImoGhid este separat de eventualele taxe ale 999.md."
       }
     ]
   },
