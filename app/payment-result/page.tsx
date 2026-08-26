@@ -1,9 +1,16 @@
+import { auth } from "@/auth";
 import { Providers } from "@/components/Providers";
 import { PostPaymentEntry } from "@/components/PostPaymentEntry";
 
-// BACKREF — страница, куда браузер возвращается после оплаты. ТОЛЬКО отображение.
-// Реальная активация плана — в server-to-server callback (/api/payments/vb-callback),
-// как явно требует документация банка. Здесь НИЧЕГО не меняем в БД.
+// BACKREF — страница, куда браузер возвращается после оплаты. Активацию плана НЕ делаем
+// (это server-to-server callback /api/payments/vb-callback, как требует банк). Но при КАЖДОЙ
+// загрузке (включая перезагрузку) делаем свежую серверную проверку доступа через auth() —
+// jwt-wrapper перечитывает plan/hasSingleAccess из БД. Если доступ уже есть (callback успел
+// отработать), передаём initialActive=true — клиент освежает cookie одним update() и уходит в /app,
+// не начиная слепой поллинг заново. Прямой redirect('/app') здесь НЕ годится: RSC не может
+// перевыпустить JWT-cookie, и edge-middleware увидит устаревший plan=null → отбросит на /app/pending.
+export const dynamic = "force-dynamic";
+
 export default async function PaymentResultPage({
   searchParams,
 }: {
@@ -11,6 +18,13 @@ export default async function PaymentResultPage({
 }) {
   const sp = await searchParams;
   const order = typeof sp.ORDER === "string" ? sp.ORDER : undefined;
+
+  const session = await auth();
+  const alreadyActive = !!(
+    session?.user?.plan ||
+    session?.user?.hasSingleAccess ||
+    session?.user?.isAgencyOwner
+  );
 
   return (
     <div
@@ -36,7 +50,7 @@ export default async function PaymentResultPage({
           Dacă planul nu apare imediat, reîmprospătați pagina contului peste câteva momente.
         </p>
         <Providers>
-          <PostPaymentEntry />
+          <PostPaymentEntry initialActive={alreadyActive} />
         </Providers>
       </div>
     </div>

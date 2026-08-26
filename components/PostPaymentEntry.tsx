@@ -1,18 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
-// Экран на /payment-result после оплаты. Проблема, которую решает: браузер возвращается сюда
-// НЕЗАВИСИМО от server-to-server callback банка (который создаёт грант «O accesare» / активирует
-// план). Если сразу дёрнуть useSession().update(), он может отработать ДО callback'а и записать
-// в cookie hasSingleAccess=false → edge-middleware не пустит в приложение (застревание на тарифах).
+// Экран на /payment-result после оплаты. Браузер возвращается сюда НЕЗАВИСИМО от server-to-server
+// callback банка (который активирует план / создаёт грант «O accesare»). Задача компонента —
+// дождаться, пока доступ реально появится, и уйти в /app.
 //
-// Решение: опрашиваем сессию через update() (он же освежает cookie-токен из БД), пока доступ
-// реально не появится (грант создан / план активирован), затем делаем ПОЛНУЮ навигацию в /app,
-// чтобы edge-middleware увидел уже освежённую cookie. Реальная выдача грантов — в callback.
-export function PostPaymentEntry() {
+// ВАЖНО про cookie: полная навигация в /app пройдёт edge-middleware только с ОСВЕЖЁННОЙ JWT-cookie.
+// Единственное место, где cookie перевыпускается из свежих данных БД, — запрос к /api/auth/session
+// (его и делает useSession().update()). Поэтому window.location.assign('/app') зовём ТОЛЬКО после
+// успешного update() (он вернул сессию → значит Set-Cookie применён). Иначе middleware увидит
+// устаревший plan=null и вернёт на /app/pending.
+//
+// Почему через ref и пустые зависимости эффекта: в next-auth v5 функция update() пересоздаётся при
+// каждом изменении session/loading (useMemo по [session, loading]). Если завязать poll-эффект на
+// [update], он перезапускается на каждый вызов update() → окно таймаута (45s) вечно сбрасывается
+// (fallback-кнопка не появляется), а конкурирующие перезапуски дёргают update() при loading=true,
+// где он короткозамыкается (`if (loading) return`) и возвращает undefined. Держим update() в ref и
+// запускаем ЕДИНСТВЕННЫЙ цикл с фиксированным окном таймаута.
+export function PostPaymentEntry({ initialActive = false }: { initialActive?: boolean }) {
   const { update } = useSession();
+  const updateRef = useRef(update);
+  updateRef.current = update;
+
   const [phase, setPhase] = useState<"waiting" | "timeout">("waiting");
 
   useEffect(() => {
@@ -23,19 +34,26 @@ export function PostPaymentEntry() {
 
     (async () => {
       while (!cancelled && Date.now() - startedAt < MAX_MS) {
-        let ready = false;
+        // update() перевыпускает JWT-cookie из БД и возвращает свежую сессию. undefined → он
+        // короткозамкнулся на loading или сеть-ошибка: cookie не тронут, просто пробуем ещё.
+        let refreshed: Awaited<ReturnType<typeof update>> | undefined;
         try {
-          // update() перевыпускает JWT-cookie из свежих данных БД и возвращает сессию.
-          const s = await update();
-          ready = !!(s?.user?.hasSingleAccess || s?.user?.plan);
+          refreshed = await updateRef.current();
         } catch {
-          /* сеть/временная ошибка — пробуем ещё */
+          /* сеть — пробуем ещё */
         }
         if (cancelled) return;
-        if (ready) {
-          // Полная навигация (не soft router.push): edge-middleware получит освежённую cookie.
-          window.location.assign("/app");
-          return;
+
+        if (refreshed) {
+          // Сюда дошли только с реальным ответом /api/auth/session → cookie уже освежён.
+          // initialActive: сервер уже подтвердил доступ (перезагрузка после активации) — уходим
+          // сразу. Иначе — ждём, пока в сессии появится план/разовый доступ.
+          const u = refreshed.user;
+          const ready = initialActive || !!(u?.plan || u?.hasSingleAccess);
+          if (ready) {
+            window.location.assign("/app");
+            return;
+          }
         }
         await new Promise((r) => setTimeout(r, STEP_MS));
       }
@@ -45,7 +63,8 @@ export function PostPaymentEntry() {
     return () => {
       cancelled = true;
     };
-  }, [update]);
+    // initialActive — стабильный серверный проп; эффект стартует один раз.
+  }, [initialActive]);
 
   const btnStyle: React.CSSProperties = {
     display: "inline-block",
@@ -75,7 +94,9 @@ export function PostPaymentEntry() {
 
   return (
     <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.65 }}>
-      Se activează accesul… vă rugăm așteptați câteva secunde.
+      {initialActive
+        ? "Contul este activ — vă redirecționăm…"
+        : "Se activează accesul… vă rugăm așteptați câteva secunde."}
     </p>
   );
 }
