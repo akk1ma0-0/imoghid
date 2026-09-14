@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { useDemo } from "@/app/contexts/DemoContext";
@@ -75,6 +75,96 @@ const TARIFFS: Tariff[] = [
     ],
   },
 ];
+
+// Описания фич для popover-подсказок. Ключ — имя фичи до тире (совпадает с левой частью строки
+// features). Один справочник на все планы: описание фичи одинаково независимо от плана/лимита.
+const FEATURE_DESCRIPTIONS: Record<string, string> = {
+  "Verificare cadastrală":
+    "Verifică rapid un obiect după adresă sau numărul cadastral, pe baza informațiilor oficiale din Cadastru — semnalează eventuale riscuri înainte de a lua obiectul în lucru.",
+  "Examinarea dosarului":
+    "Verificare automată a actelor de proprietate — platforma compară documentele încărcate cu datele din registru și semnalează riscuri înainte de a lua obiectul în lucru.",
+  "Obiectele mele":
+    "Tabloul de bord cu toate obiectele aflate în lucru — status, etapă și istoric, într-un singur loc.",
+  "Check-list acte":
+    "Listă completă a documentelor necesare pentru fiecare tip de tranzacție, gata de folosit cu clientul.",
+  "Tipuri de acte ale imobilului":
+    "Ghid de referință rapidă — ce tip de act dovedește dreptul de proprietate și ce presupune fiecare.",
+  "Actele Mele":
+    "Șabloane editabile de contracte și documente (garanție de cumpărare, contract de intermediere etc.), personalizabile și descărcabile în Word sau PDF.",
+  "Creator Hub":
+    "Generare automată de postări pentru Instagram, TikTok și Facebook — text și carusel gata de publicat, pornind de la fotografiile obiectului.",
+  "Anunțuri 999":
+    "Acces la anunțurile de la proprietari de pe 999.md, pentru a găsi rapid obiecte noi de preluat în lucru.",
+};
+
+// Иконка ⓘ с popover по КЛИКУ (не hover — на мобильных hover нет). Закрытие по повторному клику
+// или клику снаружи. Без зависимостей: useState + absolute-div. Стиль — переменные проекта.
+function FeatureInfo({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <span ref={ref} style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+      <button
+        type="button"
+        aria-label="Detalii despre funcție"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 16,
+          height: 16,
+          padding: 0,
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          color: open ? "var(--blue, #2563eb)" : "var(--ink4, #9ca3af)",
+          fontSize: 13,
+          lineHeight: 1,
+        }}
+      >
+        ⓘ
+      </button>
+      {open && (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 50,
+            width: 230,
+            maxWidth: "70vw",
+            padding: "9px 11px",
+            background: "var(--sur, #fff)",
+            border: "1px solid var(--line, #e5e7eb)",
+            borderRadius: 8,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            fontSize: 11.5,
+            fontWeight: 400,
+            lineHeight: 1.5,
+            color: "var(--ink2, #374151)",
+            textAlign: "left",
+            whiteSpace: "normal",
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: boolean }) {
   const { startDemo } = useDemo();
@@ -151,6 +241,8 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
             style={{
               display: "flex",
               flexDirection: "column",
+              // .card задаёт overflow:hidden — переопределяем, иначе popover-подсказки обрежутся.
+              overflow: "visible",
               ...(t.highlight ? { borderColor: "var(--blue, #2563eb)" } : {}),
             }}
           >
@@ -171,13 +263,14 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
                   const i = f.indexOf(" — ");
                   const name = i >= 0 ? f.slice(0, i) : f;
                   const limit = i >= 0 ? f.slice(i + 3) : null;
+                  const desc = FEATURE_DESCRIPTIONS[name];
                   return (
                     <li
                       key={f}
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "baseline",
+                        alignItems: "center",
                         gap: 10,
                         fontSize: 12.5,
                         lineHeight: 1.5,
@@ -185,10 +278,16 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
                         borderTop: "1px solid var(--line, #eef0f2)",
                       }}
                     >
-                      <span style={{ color: "var(--ink2)" }}>{name}</span>
-                      {limit && (
-                        <span style={{ color: "var(--ink3)", fontWeight: 600, whiteSpace: "nowrap" }}>{limit}</span>
-                      )}
+                      <span style={{ color: "var(--ink2)", display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        {name}
+                        {name === "Anunțuri 999" && <span className="soon-badge">în curând</span>}
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        {limit && (
+                          <span style={{ color: "var(--ink3)", fontWeight: 600, whiteSpace: "nowrap" }}>{limit}</span>
+                        )}
+                        {desc && <FeatureInfo text={desc} />}
+                      </span>
                     </li>
                   );
                 })}
