@@ -121,6 +121,7 @@ export async function POST(request: Request) {
     if (captureRc === "00") {
       const now = new Date();
       let receiptTo: string | null = null;
+      let receiptName: string | null = null;
 
       if (payment.purpose === "OVERAGE") {
         // Разовая доплата sobre-limit — план НЕ активируем. Payment → PAID делает «грант»
@@ -128,13 +129,14 @@ export async function POST(request: Request) {
         // действии по фиче (lib/usage.ts). Это и закрывает money leak: до PAID гранта нет.
         const paidUser = await prisma.user.findUnique({
           where: { id: payment.userId },
-          select: { email: true },
+          select: { email: true, name: true },
         });
         await prisma.payment.update({
           where: { id: payment.id },
           data: { status: "PAID", rc: "00" },
         });
         receiptTo = paidUser?.email ?? null;
+        receiptName = paidUser?.name ?? null;
         console.log(
           `[VB callback] PAID OVERAGE ORDER=${ORDER} feature=${payment.overageFeature} user=${payment.userId}`,
         );
@@ -145,7 +147,7 @@ export async function POST(request: Request) {
         // гарантирует, что эта ветка отработает ровно один раз (без дублей грантов).
         const paidUser = await prisma.user.findUnique({
           where: { id: payment.userId },
-          select: { email: true },
+          select: { email: true, name: true },
         });
         await prisma.$transaction([
           prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
@@ -156,6 +158,7 @@ export async function POST(request: Request) {
           }),
         ]);
         receiptTo = paidUser?.email ?? null;
+        receiptName = paidUser?.name ?? null;
         console.log(
           `[VB callback] PAID SINGLE_ACCESS ORDER=${ORDER} user=${payment.userId} (3 grants)`,
         );
@@ -169,7 +172,7 @@ export async function POST(request: Request) {
         // после успеха выходит по status===PAID (idempotent).
         const paidUser = await prisma.user.findUnique({
           where: { id: payment.userId },
-          select: { email: true },
+          select: { email: true, name: true },
         });
         try {
           const agency = await prisma.$transaction(async (tx) => {
@@ -196,6 +199,7 @@ export async function POST(request: Request) {
             return ag;
           });
           receiptTo = paidUser?.email ?? null;
+          receiptName = paidUser?.name ?? null;
           console.log(
             `[VB callback] PAID AGENCY_SEATS ORDER=${ORDER} owner=${payment.userId} +${payment.seats} → seatsPaid=${agency.seatsPaid}`,
           );
@@ -225,6 +229,7 @@ export async function POST(request: Request) {
           }),
         ]);
         receiptTo = paidUser?.email ?? null;
+        receiptName = paidUser?.name ?? null;
         console.log(`[VB callback] PAID ORDER=${ORDER} plan=${payment.plan} user=${payment.userId}`);
       }
 
@@ -237,6 +242,7 @@ export async function POST(request: Request) {
             order: ORDER,
             amount: payment.amount,
             currency: CURRENCY || payment.currency,
+            customerName: receiptName ?? "",
             plan: payment.plan,
             purpose: payment.purpose,
             overageFeature: payment.overageFeature,

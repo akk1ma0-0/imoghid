@@ -90,6 +90,7 @@ type ReceiptData = {
   order: string;
   amount: string; // "300.00"
   currency: string; // "MDL"
+  customerName: string; // Nume client / Cumpărător (din User.name)
   plan: SubscriptionPlan;
   // Тип платежа. OVERAGE → доплата sobre-limit; SINGLE_ACCESS → «O accesare»;
   // AGENCY_SEATS → покупка N мест HUB/Agenție; иначе абонемент.
@@ -142,11 +143,13 @@ export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<v
   const amountStr = `${r.amount} ${r.currency}`;
   const cardStr = r.cardLast4 ? `•••• ${r.cardLast4}` : null;
 
-  // Строки чека (имя держателя карты банк НЕ передаёт — строку не включаем).
+  // Строки чека (имя держателя карты банк НЕ передаёт — строку не включаем; это имя
+  // покупателя из профиля ImoGhid, User.name, не имя с карты).
   const rows: [string, string | null][] = [
     ["Comerciant", MERCHANT_NAME],
     ["Țara comerciantului", MERCHANT_COUNTRY],
     ["Site", MERCHANT_URL],
+    ["Nume client / Cumpărător", r.customerName],
     ["Data și ora", dateStr],
     ["Tip operațiune", opType],
     ["Serviciu", service],
