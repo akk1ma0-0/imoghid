@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { psignVerifyCallback, vbCompletion } from "@/lib/vb-egateway";
 import { sendReceiptEmail } from "@/lib/email";
-import { creditAgencySeats } from "@/lib/agency";
+import { creditAgencySeats, materializeAgencyPlan } from "@/lib/agency";
 
 // POST /api/payments/vb-callback — авторитетный server-to-server callback банка.
 // Всегда отвечаем HTTP 200 (иначе банк ретраит), даже при невалидной подписи.
@@ -160,21 +160,58 @@ export async function POST(request: Request) {
           `[VB callback] PAID SINGLE_ACCESS ORDER=${ORDER} user=${payment.userId} (3 grants)`,
         );
       } else if (payment.purpose === "AGENCY_SEATS") {
-        // HUB/Agenție — покупка мест. Создаём/продлеваем агентство владельца (seatsPaid += N,
-        // planExpiresAt = now+30д). Личные планы участников НЕ трогаем — раздача мест в
-        // Чекпоинте 2. Клейм completionStartedAt гарантирует однократность (без двойного зачёта).
+        // HUB/Agenție — покупка мест. АТОМАРНО (как SINGLE_ACCESS): payment→PAID и создание/
+        // продление агентства владельца (seatsPaid += N, planExpiresAt = now+30д) в ОДНОЙ
+        // транзакции. Иначе при сбое между ними платёж оставался PAID без агентства, а ретрай
+        // банка выходил рано (status===PAID) — деньги списаны, места не начислены. Личные планы
+        // участников НЕ трогаем (раздача мест — Чекпоинт 2). Дублей мест нет: клейм
+        // completionStartedAt пропускает до этой ветки лишь ОДИН callback, а обычный повтор
+        // после успеха выходит по status===PAID (idempotent).
         const paidUser = await prisma.user.findUnique({
           where: { id: payment.userId },
           select: { email: true },
         });
-        await prisma.$transaction([
-          prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
-        ]);
-        const agency = await creditAgencySeats(payment.userId, payment.seats ?? 0);
-        receiptTo = paidUser?.email ?? null;
-        console.log(
-          `[VB callback] PAID AGENCY_SEATS ORDER=${ORDER} owner=${payment.userId} +${payment.seats} → seatsPaid=${agency.seatsPaid}`,
-        );
+        try {
+          const agency = await prisma.$transaction(async (tx) => {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: { status: "PAID", rc: "00" },
+            });
+            const ag = await creditAgencySeats(payment.userId, payment.seats ?? 0, tx);
+            // Владелец отметил «беру место себе»: создаём self-membership (role=OWNER) и
+            // материализуем plan=HUB — в ТОЙ ЖЕ транзакции. Идемпотентно: если membership уже
+            // есть (напр. докупка), пропускаем (userId в AgencyMembership @unique). Занятое место
+            // считается автоматически (occupied = members.length на /app/agency).
+            if (payment.ownerTakesSeat) {
+              const existingMembership = await tx.agencyMembership.findUnique({
+                where: { userId: payment.userId },
+              });
+              if (!existingMembership) {
+                await tx.agencyMembership.create({
+                  data: { agencyId: ag.id, userId: payment.userId, role: "OWNER" },
+                });
+                await materializeAgencyPlan(payment.userId, tx);
+              }
+            }
+            return ag;
+          });
+          receiptTo = paidUser?.email ?? null;
+          console.log(
+            `[VB callback] PAID AGENCY_SEATS ORDER=${ORDER} owner=${payment.userId} +${payment.seats} → seatsPaid=${agency.seatsPaid}`,
+          );
+        } catch (e) {
+          // Сбой активации (напр. БД): транзакция откатилась целиком → status остался PENDING,
+          // агентство НЕ создано (без рассинхрона). Сбрасываем клейм (completionStartedAt=null),
+          // чтобы ретрай банка ЗАНОВО прошёл клейм и повторил активацию, а не завис. Средства
+          // уже захвачены (TRTYPE=21); при ретрае повторный capture может вернуть «уже завершено»
+          // (у TRTYPE=21 нет идемпотентного RC) — тогда останется ручной разбор.
+          console.error("[VB callback] AGENCY_SEATS activation failed ORDER=" + ORDER, e);
+          await prisma.payment.updateMany({
+            where: { id: payment.id, status: "PENDING" },
+            data: { completionStartedAt: null },
+          });
+          return new NextResponse("OK", { status: 200 });
+        }
       } else {
         // Подписка → активируем план на 30 дней.
         // Автопродление/повторное списание НЕ реализуем (ждём ответа банка по recurring);

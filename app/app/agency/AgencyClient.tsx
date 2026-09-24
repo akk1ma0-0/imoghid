@@ -38,6 +38,7 @@ export function AgencyClient({
 }) {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
+  const [takeSeat, setTakeSeat] = useState(false);
   const [buySeats, setBuySeats] = useState(agency ? 1 : minSeats);
   const [code, setCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,6 +70,16 @@ export function AgencyClient({
             <div style={{ fontSize: 13, color: "var(--ink2)", margin: "10px 0 16px" }}>
               Total: <b>{buySeats * feePerSeat} MDL</b> / lună
             </div>
+            {/* Владелец может сразу занять одно из купленных мест (self-membership + plan=HUB). */}
+            <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12.5, marginBottom: 12, cursor: "pointer" }}>
+              <input type="checkbox" checked={takeSeat} onChange={(e) => setTakeSeat(e.target.checked)} style={{ marginTop: 2 }} />
+              <span>
+                Vreau și eu un loc din acest pachet.
+                <span style={{ display: "block", color: "var(--ink3)", marginTop: 2 }}>
+                  Un loc va fi ocupat de dvs.; restul rămân pentru invitații.
+                </span>
+              </span>
+            </label>
             <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12.5, marginBottom: 14, cursor: "pointer" }}>
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 2 }} />
               <span>
@@ -79,6 +90,7 @@ export function AgencyClient({
             <form method="POST" action="/api/payments/vb-agency-initiate">
               <input type="hidden" name="seats" value={buySeats} />
               <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+              <input type="hidden" name="takeOwnerSeat" value={takeSeat ? "true" : "false"} />
               <button type="submit" disabled={!agreed} className="btn solid" style={{ height: 44 }}>
                 Cumpără {buySeats} locuri — {buySeats * feePerSeat} MDL
               </button>

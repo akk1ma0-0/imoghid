@@ -43,6 +43,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // Владелец отметил «беру место себе» → callback создаст self-membership + plan=HUB.
+  const ownerTakesSeat = form ? String(form.get("takeOwnerSeat") ?? "") === "true" : false;
+
   // Согласие с условиями оплаты/возврата — обязательно (SIP), как и у остальных платежей.
   const agreedToTerms = form ? String(form.get("agreedToTerms") ?? "") === "true" : false;
   if (!agreedToTerms) {
@@ -75,6 +78,7 @@ export async function POST(request: Request) {
           currency: c.currency,
           purpose: "AGENCY_SEATS",
           seats,
+          ownerTakesSeat,
         },
       });
       break;

@@ -47,17 +47,17 @@ export async function dematerializeAgencyPlan(userId: string, client: Db = prism
 // → создать с seatsPaid=N (дефолтная цена); есть → seatsPaid += N. В обоих случаях продлеваем
 // planExpiresAt = now + 30 дней (тот же цикл, что у обычной подписки). Возвращает агентство.
 // Раздача мест участникам — отдельно (Чекпоинт 2), здесь только лицензии владельцу.
-export async function creditAgencySeats(ownerId: string, seats: number) {
+export async function creditAgencySeats(ownerId: string, seats: number, client: Db = prisma) {
   const now = new Date();
   const planExpiresAt = new Date(now.getTime() + AGENCY_PERIOD_DAYS * 24 * 60 * 60 * 1000);
-  const existing = await prisma.agency.findUnique({ where: { ownerId } });
+  const existing = await client.agency.findUnique({ where: { ownerId } });
   if (existing) {
-    return prisma.agency.update({
+    return client.agency.update({
       where: { id: existing.id },
       data: { seatsPaid: existing.seatsPaid + seats, planExpiresAt },
     });
   }
-  return prisma.agency.create({
+  return client.agency.create({
     data: { ownerId, seatsPaid: seats, planExpiresAt },
   });
 }

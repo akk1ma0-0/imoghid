@@ -216,6 +216,10 @@ model Payment {
   overageFeature     UsageFeature?  // для OVERAGE: DOSAR_ANALYSIS | CADASTRU_CHECK
   overageConsumedAt  DateTime?      // null = оплачено, но грант ещё не потрачен
   seats              Int?           // для AGENCY_SEATS: сколько мест куплено этим платежом
+  // Для AGENCY_SEATS: владелец при покупке отметил «беру место себе» → в callback создаётся
+  // self-membership (role=OWNER) и материализуется plan=HUB. Флаг живёт между инициацией и
+  // callback именно на Payment (привязан к конкретной покупке; у юзера бывает неск. PENDING).
+  ownerTakesSeat     Boolean  @default(false)
   // Пропуск авто-TRTYPE=21 для КОНКРЕТНОГО тестового платежа (сертификация, Testul 2 = чистый
   // 0→24). Проставляется при инициации из admin-панели; детерминирован, не зависит от env/раскатки.
   skipAutoCompletion Boolean  @default(false)
