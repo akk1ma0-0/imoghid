@@ -35,8 +35,11 @@ export async function POST(request: Request) {
   if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ error: "Email invalid." }, { status: 400 });
   }
-  // Telefon — opțional; dacă e indicat, verificăm formatul.
-  if (phone && !PHONE_RE.test(phone.replace(/[\s\-()]/g, ""))) {
+  // Telefon — obligatoriu (defense in depth: validat și pe client).
+  if (!phone) {
+    return NextResponse.json({ error: "Telefonul este obligatoriu." }, { status: 400 });
+  }
+  if (!PHONE_RE.test(phone.replace(/[\s\-()]/g, ""))) {
     return NextResponse.json(
       { error: "Telefon invalid. Format: +373 XX XXX XXX sau 0XX XXX XXX." },
       { status: 400 },
@@ -94,7 +97,9 @@ export async function POST(request: Request) {
       data: {
         name,
         email,
-        phone: phone || null,
+        // Обязателен (проверено выше) — здесь всегда непустая строка. Колонка User.phone
+        // остаётся nullable в схеме (нужна для пользователей, зарегистрированных раньше).
+        phone,
         passwordHash,
         agencyName,
         dpaConsentGivenAt: new Date(),

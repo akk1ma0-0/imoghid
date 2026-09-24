@@ -48,9 +48,11 @@ export default function RegisterPage() {
     if (!EMAIL_RE.test(form.email.trim())) {
       errs.email = "Introduceți o adresă de email validă.";
     }
-    // Telefon — opțional; validăm doar dacă e completat.
+    // Telefon — obligatoriu.
     const phoneClean = form.phone.replace(/[\s\-()]/g, "");
-    if (phoneClean && !PHONE_RE.test(phoneClean)) {
+    if (!phoneClean) {
+      errs.phone = "Telefonul este obligatoriu.";
+    } else if (!PHONE_RE.test(phoneClean)) {
       errs.phone = "Telefon invalid. Format: +373 XX XXX XXX sau 0XX XXX XXX.";
     }
     if (form.password.length < 8) {
@@ -178,9 +180,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="phone">
-                Telefon <span className="field-optional">opțional</span>
-              </label>
+              <label htmlFor="phone">Telefon</label>
               <input
                 id="phone"
                 type="tel"
