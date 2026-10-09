@@ -140,6 +140,146 @@ export async function consumeUsage(
   return { ok: true };
 }
 
+// ── Резерв/возврат единицы лимита (для действий, которые могут не удаться) ──────
+// consumeUsage списывает необратимо — годится, когда действие гарантированно выполняется.
+// Для внешних вызовов (кадастр) используем резерв: reserveUsage до вызова, releaseUsage
+// при любой неудаче (в finally). Резерв берётся ровно из одного источника:
+//   • none     — ADMIN / безлимит (Pro, HUB): ничего не списано, возвращать нечего;
+//   • counter  — единица UsageCounter текущего периода;
+//   • single   — оплаченный грант «O accesare» (SingleAccessGrant.consumedAt);
+//   • overage  — оплаченный грант sobre-limit (Payment.overageConsumedAt).
+// Каждая операция — один условный UPDATE: в Postgres параллельный UPDATE той же строки
+// ждёт коммита и заново проверяет WHERE, поэтому при исчерпанном лимите параллельные
+// запросы не проскакивают (count < limit перепроверяется), а один грант не тратится дважды.
+export type UsageReservation =
+  | { kind: "none" }
+  | { kind: "counter"; userId: string; feature: UsageFeature; periodStart: Date }
+  | { kind: "single"; grantId: string }
+  | { kind: "overage"; paymentId: string };
+
+export type ReserveResult =
+  | { ok: true; reservation: UsageReservation }
+  | Extract<UsageResult, { ok: false }>;
+
+// Сколько раз пробуем забрать грант, если параллельный запрос забрал выбранный первым.
+const GRANT_TAKE_ATTEMPTS = 5;
+
+async function takeSingleAccessGrant(userId: string, feature: UsageFeature): Promise<string | null> {
+  for (let i = 0; i < GRANT_TAKE_ATTEMPTS; i++) {
+    const g = await prisma.singleAccessGrant.findFirst({
+      where: { userId, feature, consumedAt: null },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!g) return null;
+    const taken = await prisma.singleAccessGrant.updateMany({
+      where: { id: g.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    if (taken.count === 1) return g.id;
+  }
+  return null;
+}
+
+async function takeOverageGrant(userId: string, feature: UsageFeature): Promise<string | null> {
+  for (let i = 0; i < GRANT_TAKE_ATTEMPTS; i++) {
+    const g = await prisma.payment.findFirst({
+      where: { userId, purpose: "OVERAGE", overageFeature: feature, status: "PAID", overageConsumedAt: null },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!g) return null;
+    const taken = await prisma.payment.updateMany({
+      where: { id: g.id, status: "PAID", overageConsumedAt: null },
+      data: { overageConsumedAt: new Date() },
+    });
+    if (taken.count === 1) return g.id;
+  }
+  return null;
+}
+
+export async function reserveUsage(userId: string, feature: UsageFeature): Promise<ReserveResult> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { plan: true, planActivatedAt: true, role: true, createdAt: true },
+  });
+  if (!user) return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
+  if (user.role === "ADMIN") return { ok: true, reservation: { kind: "none" } };
+
+  const limit = planFeatureLimit(user.plan, feature as LimitedFeature);
+  if (limit === 0) {
+    const grantId = await takeSingleAccessGrant(userId, feature);
+    if (grantId) return { ok: true, reservation: { kind: "single", grantId } };
+    return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
+  }
+  if (!Number.isFinite(limit)) return { ok: true, reservation: { kind: "none" } };
+
+  const { start, end } = currentPeriod(user.planActivatedAt ?? user.createdAt, new Date());
+
+  // 1) Строка-счётчик существует (INSERT … ON CONFLICT DO NOTHING — без гонки на создании).
+  await prisma.usageCounter.createMany({
+    data: [{ userId, feature, count: 0, periodStart: start, periodEnd: end }],
+    skipDuplicates: true,
+  });
+  // 2) Новый период → обнуляем (идемпотентно: после первого обнуления условие ложно).
+  await prisma.usageCounter.updateMany({
+    where: { userId, feature, periodStart: { not: start } },
+    data: { count: 0, periodStart: start, periodEnd: end },
+  });
+  // 3) Атомарный инкремент только если остался лимит.
+  const inc = await prisma.usageCounter.updateMany({
+    where: { userId, feature, periodStart: start, count: { lt: limit } },
+    data: { count: { increment: 1 } },
+  });
+  if (inc.count === 1) {
+    return { ok: true, reservation: { kind: "counter", userId, feature, periodStart: start } };
+  }
+
+  // Лимит исчерпан → оплаченный грант sobre-limit, если есть.
+  const paymentId = await takeOverageGrant(userId, feature);
+  if (paymentId) return { ok: true, reservation: { kind: "overage", paymentId } };
+
+  const row = await prisma.usageCounter.findUnique({
+    where: { userId_feature: { userId, feature } },
+    select: { count: true },
+  });
+  return {
+    ok: false,
+    reason: "limit",
+    used: row?.count ?? limit,
+    limit,
+    overageFeeMdl: overageFeeMdl(user.plan, feature as LimitedFeature),
+  };
+}
+
+// Возврат резерва. Один условный UPDATE на источник (атомарно). Счётчик возвращается только
+// в тот же период, в котором был взят (если период сменился во время вызова — не трогаем
+// новый). Вызывать из finally при неудаче действия.
+export async function releaseUsage(r: UsageReservation): Promise<void> {
+  switch (r.kind) {
+    case "none":
+      return;
+    case "counter":
+      await prisma.usageCounter.updateMany({
+        where: { userId: r.userId, feature: r.feature, periodStart: r.periodStart, count: { gt: 0 } },
+        data: { count: { decrement: 1 } },
+      });
+      return;
+    case "single":
+      await prisma.singleAccessGrant.updateMany({
+        where: { id: r.grantId, consumedAt: { not: null } },
+        data: { consumedAt: null },
+      });
+      return;
+    case "overage":
+      await prisma.payment.updateMany({
+        where: { id: r.paymentId, overageConsumedAt: { not: null } },
+        data: { overageConsumedAt: null },
+      });
+      return;
+  }
+}
+
 // Текущее использование накопительной фичи (для UI/админки), без записи.
 export async function getUsage(
   userId: string,

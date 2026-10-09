@@ -70,10 +70,12 @@ export type AnalysisObject = {
   flags: AnalysisFlag[];
 };
 // Данные из модуля «Verificare imobil» — substitut выписки RBI (по objectIndex).
+// Флаги: true = există, false = nu există, null = nu s-a putut verifica (неизвестно — НЕ «нет»).
+// Старые транзакции хранят только true/false — они читаются как раньше.
 export type VerificareImobilData = {
-  alteDrepturiReale?: boolean;
-  notari?: boolean;
-  interdictii?: boolean;
+  alteDrepturiReale?: boolean | null;
+  notari?: boolean | null;
+  interdictii?: boolean | null;
   suprafata?: string;
   destinatie?: string;
   valoare?: string;
@@ -360,7 +362,9 @@ export async function analyzeDocuments(
           type: "text",
           text:
             `Date din Verificare imobil (substitut extras RBI) pentru Obiect ${obj.objectIndex}: ` +
-            JSON.stringify(ver),
+            JSON.stringify(ver) +
+            ` (true = există, false = nu există, null = nu s-a putut verifica — necunoscut, ` +
+            `NU înseamnă „nu există”).`,
         });
       }
       for (const doc of obj.docs) {

@@ -80,7 +80,7 @@ const TARIFFS: Tariff[] = [
 // features). Один справочник на все планы: описание фичи одинаково независимо от плана/лимита.
 const FEATURE_DESCRIPTIONS: Record<string, string> = {
   "Verificare cadastrală":
-    "Verifică rapid un obiect după adresă sau numărul cadastral, pe baza informațiilor oficiale din Cadastru — semnalează eventuale riscuri înainte de a lua obiectul în lucru.",
+    "Verifică un obiect după numărul cadastral, pe baza informațiilor oficiale din Cadastru, și indică dacă există interdicții, notări sau alte drepturi înregistrate.",
   "Examinarea dosarului":
     "Verificare automată a actelor de proprietate — platforma compară documentele încărcate cu datele din registru și semnalează riscuri înainte de a lua obiectul în lucru.",
   "Obiectele mele":

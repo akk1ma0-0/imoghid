@@ -47,7 +47,8 @@ export function buildInitialReport(tx: FlowTx, agentName: string): ReportData {
   const greens = flags.filter((f) => f.severity === "GREEN");
   const owners = tx.owners.filter((o) => o.objectIndex === 1);
 
-  let verI: { alteDrepturiReale?: boolean; notari?: boolean; interdictii?: boolean; suprafata?: string; destinatie?: string; valoare?: string } | null = null;
+  // Флаги Verificare imobil: true | false | null (null = nu s-a putut verifica).
+  let verI: { alteDrepturiReale?: boolean | null; notari?: boolean | null; interdictii?: boolean | null; suprafata?: string; destinatie?: string; valoare?: string } | null = null;
   if (tx.verificareImobil) {
     try {
       verI = JSON.parse(tx.verificareImobil);
@@ -64,8 +65,14 @@ export function buildInitialReport(tx: FlowTx, agentName: string): ReportData {
       ? "Conform verificării, tranzacția necesită clarificări înainte de a continua."
       : "Conform verificării, tranzacția poate continua.";
 
-  const signal = (verExists: boolean | undefined, code: string): string =>
-    hasCode(code) || verExists ? "Există" : "";
+  // «Există» > «Necesită verificare» (null / флаг *_NEVERIFICAT) > пусто. null ≠ «нет».
+  const NEEDS_CHECK = "Necesită verificare";
+  const signal = (ver: boolean | null | undefined, code: string): string =>
+    hasCode(code) || ver === true
+      ? "Există"
+      : ver === null || hasCode(`${code}_NEVERIFICAT`)
+        ? NEEDS_CHECK
+        : "";
 
   const parti: Row2[] = [];
   if (owners.length) {
@@ -114,11 +121,14 @@ export function buildInitialReport(tx: FlowTx, agentName: string): ReportData {
       valoare: tx.valoare || verI?.valoare || "",
       alteDrepturi: signal(verI?.alteDrepturiReale, "VER_ALTE_DREPTURI"),
       notari: signal(verI?.notari, "VER_NOTARI"),
-      interdictii: hasCode("VER_INTERDICTII") || verI?.interdictii
+      // Документальный NO_ENCUMBRANCE (из выписки RBI) перекрывает «не проверено» верификации.
+      interdictii: hasCode("VER_INTERDICTII") || verI?.interdictii === true
         ? "Există"
         : hasCode("NO_ENCUMBRANCE")
           ? "Nu există"
-          : "",
+          : verI?.interdictii === null || hasCode("VER_INTERDICTII_NEVERIFICAT")
+            ? NEEDS_CHECK
+            : "",
     },
     parti,
     verificare,

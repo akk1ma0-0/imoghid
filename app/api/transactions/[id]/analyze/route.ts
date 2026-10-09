@@ -87,13 +87,18 @@ export async function POST(_req: Request, { params }: Params) {
       if (efRows.length) await db.extractedField.createMany({ data: efRows });
 
       // ── Flag-uri din Verificare imobil (substitut extras RBI) ──
-      // Dacă există drepturi/notări/interdicții → semnal concret, nu «necunoscut».
+      // Три состояния: true → «există» (конкретный сигнал); null → «nu s-a putut verifica»
+      // (AMBER «necesită verificare», а НЕ «нет»); false/undefined → сигнала нет (как раньше —
+      // старые транзакции хранят только true/false и не мигрируются).
       const ver = verificareByIndex?.[idx];
       if (ver) {
         const verFlags: { on: boolean; code: string; severity: "AMBER" | "RED"; titleRo: string; descriptionRo: string }[] = [
-          { on: !!ver.alteDrepturiReale, code: "VER_ALTE_DREPTURI", severity: "AMBER", titleRo: "Alte drepturi reale — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat alte drepturi reale. Clarificați natura lor înainte de notar." },
-          { on: !!ver.notari, code: "VER_NOTARI", severity: "AMBER", titleRo: "Notări — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat notări în registru. Verificați conținutul lor." },
-          { on: !!ver.interdictii, code: "VER_INTERDICTII", severity: "RED", titleRo: "Interdicții — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat interdicții. Acestea pot bloca tranzacția — clarificați obligatoriu." },
+          { on: ver.alteDrepturiReale === true, code: "VER_ALTE_DREPTURI", severity: "AMBER", titleRo: "Alte drepturi reale — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat alte drepturi reale. Clarificați natura lor înainte de notar." },
+          { on: ver.notari === true, code: "VER_NOTARI", severity: "AMBER", titleRo: "Notări — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat notări în registru. Verificați conținutul lor." },
+          { on: ver.interdictii === true, code: "VER_INTERDICTII", severity: "RED", titleRo: "Interdicții — există (Verificare imobil)", descriptionRo: "Verificarea imobilului a semnalat interdicții. Acestea pot bloca tranzacția — clarificați obligatoriu." },
+          { on: ver.alteDrepturiReale === null, code: "VER_ALTE_DREPTURI_NEVERIFICAT", severity: "AMBER", titleRo: "Alte drepturi reale — necesită verificare (Verificare imobil)", descriptionRo: "Verificarea imobilului nu a putut confirma dacă există alte drepturi reale. Verificați în extrasul RBI." },
+          { on: ver.notari === null, code: "VER_NOTARI_NEVERIFICAT", severity: "AMBER", titleRo: "Notări — necesită verificare (Verificare imobil)", descriptionRo: "Verificarea imobilului nu a putut confirma dacă există notări. Verificați în extrasul RBI." },
+          { on: ver.interdictii === null, code: "VER_INTERDICTII_NEVERIFICAT", severity: "AMBER", titleRo: "Interdicții — necesită verificare (Verificare imobil)", descriptionRo: "Verificarea imobilului nu a putut confirma dacă există interdicții. Verificați obligatoriu în extrasul RBI înainte de notar." },
         ];
         for (const vf of verFlags) {
           if (!vf.on) continue;

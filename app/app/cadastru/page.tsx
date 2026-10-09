@@ -4,6 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDemo } from "@/app/contexts/DemoContext";
 import { DEMO_CADASTRU_RESULT } from "@/lib/demo-data";
+import {
+  CAD_ERROR_TEXT,
+  CAD_FORMAT_EXAMPLE,
+  ENABLE_ADDRESS_SEARCH,
+  isValidCadastralNumber,
+} from "@/lib/cadastru-config";
+
+// Флаг в досье: три состояния. "Nu s-a putut verifica" (и всё прочее) → null = неизвестно,
+// НЕ false: иначе анализ/Claude/отчёт читают «не проверено» как «нет обременений».
+function flagToTri(v: string): boolean | null {
+  if (v === "Există") return true;
+  if (v === "Nu există") return false;
+  return null;
+}
+// Плейсхолдер «—» (поля нет в источнике) в досье не переносим.
+const noDash = (v: string | undefined) => (!v || v === "—" ? "" : v);
 
 // Предобработка скриншота для OCR (Canvas): 2x при ширине < 1500px, grayscale, бинаризация.
 function preprocessImage(file: File): Promise<Blob> {
@@ -339,6 +355,13 @@ export default function CadastruPage() {
     setManualMode(false);
     setOcrRawText(null);
     setParseWarn(null);
+    // Без адресного поиска принимается только кадастровый номер: невалидный формат ловим
+    // ещё на клиенте — без запроса (сервер проверяет повторно и тоже ничего не списывает).
+    if (!ENABLE_ADDRESS_SEARCH && !isValidCadastralNumber(raw)) {
+      setTrace(null);
+      setFallback(CAD_ERROR_TEXT.INVALID_FORMAT);
+      return;
+    }
     setTrace([{ s: "run", title: "Recunosc datele introduse…" }]);
 
     let data: Record<string, unknown> | null = null;
@@ -370,9 +393,13 @@ export default function CadastruPage() {
       setOverage(data.overage as { feeMdl: number; feature: string });
       return;
     }
-    if (!ok || data.status === "fallback") {
+    // Ошибка кадастра ({ status:"error", code, title, text }) или лимита (403/429: { error }).
+    if (!ok || data.status === "error") {
       setTrace(null);
-      setFallback({ title: String(data.title ?? "Adresa nu a fost găsită."), text: String(data.text ?? "") });
+      setFallback({
+        title: String(data.title ?? "Verificarea nu a putut fi efectuată"),
+        text: String(data.text ?? data.error ?? ""),
+      });
       return;
     }
     if (data.status === "record") {
@@ -404,18 +431,19 @@ export default function CadastruPage() {
     const obj = {
       address: addr,
       cadastralNo: record.cadastralNo,
-      suprafata: record.record.supr ?? "",
-      destinatie: record.record.dest ?? "",
-      valoare: record.record.val ?? "",
+      suprafata: noDash(record.record.supr),
+      destinatie: noDash(record.record.dest),
+      valoare: noDash(record.record.val),
     };
     // Данные верификации (флаги + поля) как substitut выписки RBI для шага 3.
+    // Флаги: true | false | null (null = «Nu s-a putut verifica» → necesită verificare).
     const verImobil = JSON.stringify({
-      alteDrepturiReale: record.record.dr === "Există",
-      notari: record.record.not === "Există",
-      interdictii: record.record.int === "Există",
-      suprafata: record.record.supr ?? "",
-      destinatie: record.record.dest ?? "",
-      valoare: record.record.val ?? "",
+      alteDrepturiReale: flagToTri(record.record.dr),
+      notari: flagToTri(record.record.not),
+      interdictii: flagToTri(record.record.int),
+      suprafata: obj.suprafata,
+      destinatie: obj.destinatie,
+      valoare: obj.valoare,
     });
 
     // Мержим в существующий черновик Шага 1, сохраняя данные другого объекта.
@@ -456,8 +484,10 @@ export default function CadastruPage() {
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <h1 style={{ fontSize: 34, margin: "0 0 14px" }}>Verificați un obiect în cadastru</h1>
           <p className="sub" style={{ fontSize: 16, maxWidth: 560, margin: "0 auto" }}>
-            Căutați obiectul după adresă sau numărul cadastral înainte de a-l lua în lucru. Datele
-            confirmate aici se transferă direct în Ghidul tranzacției.
+            {ENABLE_ADDRESS_SEARCH
+              ? "Căutați obiectul după adresă sau numărul cadastral înainte de a-l lua în lucru."
+              : "Căutați obiectul după numărul cadastral înainte de a-l lua în lucru."}{" "}
+            Datele confirmate aici se transferă direct în Ghidul tranzacției.
           </p>
         </div>
 
@@ -465,12 +495,18 @@ export default function CadastruPage() {
         <div className="card">
           <div className="card-bd" style={{ padding: "28px 26px 30px" }}>
             <div className="field-group">
-              <label style={{ fontSize: 14 }}>Adresă sau număr cadastral</label>
+              <label style={{ fontSize: 14 }}>
+                {ENABLE_ADDRESS_SEARCH ? "Adresă sau număr cadastral" : "Număr cadastral"}
+              </label>
               <div style={{ display: "flex", gap: 10 }}>
                 <input
                   id="search-input"
                   type="text"
-                  placeholder="Adresă sau număr cadastral"
+                  placeholder={
+                    ENABLE_ADDRESS_SEARCH
+                      ? "Adresă sau număr cadastral"
+                      : `ex. ${CAD_FORMAT_EXAMPLE}`
+                  }
                   style={{
                     flex: 1,
                     height: 54,
@@ -598,6 +634,8 @@ export default function CadastruPage() {
                   <label>Adresă</label>
                   <input type="text" value={record.record.addr} onChange={(e) => updateRec("addr", e.target.value)} />
                 </div>
+                {/* «Tip proprietate» и «Valoare (evaluare)» есть только в ручном вводе / OCR —
+                    в ответе MConnect (GetRealEstate) этих полей нет, поэтому для него скрыты. */}
                 <div className="field-row">
                   <div className="field-group">
                     <label>Număr cadastral</label>
@@ -607,21 +645,30 @@ export default function CadastruPage() {
                       onChange={(e) => setRecord((r) => (r ? recomputeFlags({ ...r, cadastralNo: e.target.value }) : r))}
                     />
                   </div>
-                  <div className="field-group">
-                    <label>Tip proprietate</label>
-                    <input type="text" value={record.record.prop} onChange={(e) => updateRec("prop", e.target.value)} />
-                  </div>
+                  {manualMode ? (
+                    <div className="field-group">
+                      <label>Tip proprietate</label>
+                      <input type="text" value={record.record.prop} onChange={(e) => updateRec("prop", e.target.value)} />
+                    </div>
+                  ) : (
+                    <div className="field-group">
+                      <label>Suprafață</label>
+                      <input type="text" value={record.record.supr} onChange={(e) => updateRec("supr", e.target.value)} />
+                    </div>
+                  )}
                 </div>
-                <div className="field-row">
-                  <div className="field-group">
-                    <label>Suprafață</label>
-                    <input type="text" value={record.record.supr} onChange={(e) => updateRec("supr", e.target.value)} />
+                {manualMode && (
+                  <div className="field-row">
+                    <div className="field-group">
+                      <label>Suprafață</label>
+                      <input type="text" value={record.record.supr} onChange={(e) => updateRec("supr", e.target.value)} />
+                    </div>
+                    <div className="field-group">
+                      <label>Valoare (evaluare)</label>
+                      <input type="text" value={record.record.val} onChange={(e) => updateRec("val", e.target.value)} />
+                    </div>
                   </div>
-                  <div className="field-group">
-                    <label>Valoare (evaluare)</label>
-                    <input type="text" value={record.record.val} onChange={(e) => updateRec("val", e.target.value)} />
-                  </div>
-                </div>
+                )}
                 <div className="field-group">
                   <label>Destinație</label>
                   <input type="text" value={record.record.dest} onChange={(e) => updateRec("dest", e.target.value)} />
@@ -689,7 +736,7 @@ export default function CadastruPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink2)" }}>
             <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--amber)", flexShrink: 0 }} />
-            Alte drepturi / Notări — necesită verificare
+            Alte drepturi / Notări — există; verificați detaliile în extrasul RBI.
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink2)" }}>
             <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--red)", flexShrink: 0 }} />

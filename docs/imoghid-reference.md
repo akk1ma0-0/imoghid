@@ -205,6 +205,11 @@ Reguli de semnalizare pe baza acestor date:
 - `alteDrepturiReale = true` → flag AMBER (alte drepturi reale de clarificat).
 - `notari = true` → flag AMBER (notări în registru).
 - `interdictii = true` → flag RED (interdicții — pot bloca tranzacția).
+- Valoarea `null` (pentru oricare dintre cele trei) = **nu s-a putut verifica** — starea este
+  necunoscută, NU „nu există”. Nu concluziona absența grevărilor/notărilor/interdicțiilor;
+  marchează „necesită verificare” în extrasul RBI (flag AMBER), cu excepția cazului în care
+  extrasul RBI încărcat confirmă explicit starea.
+- Doar `false` înseamnă „nu există” conform verificării.
 
 Dacă tranzacția a fost creată direct din „Crează Dosar” (fără Verificare imobil) **și** lipsesc
 documentele RBI → pune liniuță (`–`), nu „necunoscut”.
