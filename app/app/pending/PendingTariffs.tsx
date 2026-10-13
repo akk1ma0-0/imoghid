@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import { useDemo } from "@/app/contexts/DemoContext";
 
 // Плашки тарифов (plan = null). Две плашки → оплата VictoriaBank. Ручное назначение
@@ -170,6 +171,41 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
   const { startDemo } = useDemo();
   const [agreed, setAgreed] = useState(false);
 
+  // Cod de invitație de la agenție (AG-XXXXXX) — același apel ca în app/(auth)/subscribe/page.tsx.
+  // Server-ul (POST /api/subscribe) distinge singur codurile de agenție de cele PRO obișnuite.
+  const router = useRouter();
+  const { update: updateSession } = useSession();
+  const [inviteCode, setInviteCode] = useState("");
+  const [invitePending, setInvitePending] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
+  async function activateInvite() {
+    const code = inviteCode.trim();
+    if (!code) return;
+    setInviteError(null);
+    setInvitePending(true);
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteCode: code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setInviteError(data?.error || "Nu s-a putut activa codul.");
+        setInvitePending(false);
+        return;
+      }
+      // Reface JWT-ul ca middleware-ul /app să vadă imediat planul activ.
+      await updateSession({ plan: data.plan, planActive: true });
+      router.push("/app");
+      router.refresh();
+    } catch {
+      setInviteError("Eroare de rețea. Încercați din nou.");
+      setInvitePending(false);
+    }
+  }
+
   // Оболочка расширена до 1200px, чтобы 3 карточки тарифов были заметно шире (контент ~1148px →
   // ~372px на карточку, список фич не сжат). Остальной контент (интро, «O accesare», demo) сам
   // сужен обратно до 720px через maxWidth + margin auto, чтобы не растягиваться на всю ширину.
@@ -335,6 +371,58 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Cod de invitație de la agenție (AG-XXXXXX) — vine de la un owner de pe /app/agency.
+          Compact, sub carduri. Vizibil doar la utilizator autentificat fără plan (cazul în care
+          se randează acest component); anonimilor le arătăm doar un îndemn de autentificare. */}
+      <div className="card" style={{ marginTop: 16, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
+        <div className="card-bd" style={{ padding: "16px 22px" }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>
+            Ai un cod de invitație de la agenție?
+          </div>
+          {isAuthenticated ? (
+            <>
+              <p style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.5, margin: "0 0 10px" }}>
+                Introduceți codul primit de la administratorul agenției (ex. AG-XXXXXX) pentru a
+                ocupa un loc și a activa planul HUB.
+              </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <input
+                  type="text"
+                  placeholder="AG-XXXXXX"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") activateInvite();
+                  }}
+                  style={{ flex: "1 1 180px", height: 44, padding: "0 14px", fontSize: 14 }}
+                />
+                <button
+                  type="button"
+                  className="btn solid"
+                  disabled={invitePending || !inviteCode.trim()}
+                  onClick={activateInvite}
+                  style={{ height: 44, padding: "0 22px" }}
+                >
+                  {invitePending ? "Se activează…" : "Activează"}
+                </button>
+              </div>
+              {inviteError && (
+                <p style={{ fontSize: 12.5, color: "var(--red, #dc2626)", margin: "8px 0 0" }}>
+                  {inviteError}
+                </p>
+              )}
+            </>
+          ) : (
+            <p style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.5, margin: 0 }}>
+              <Link href="/login" style={{ color: "var(--blue, #2563eb)" }}>
+                Autentifică-te
+              </Link>{" "}
+              pentru a introduce codul.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* «O accesare» — разовая покупка без подписки (Этап C): 1 verificare + 1 dosar + 1 obiect. */}

@@ -203,7 +203,7 @@ export function AgencyClient({
               <button className="btn" onClick={() => navigator.clipboard?.writeText(code)}>Copiază</button>
             </div>
             <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 8 }}>
-              Agentul îl introduce la „Activați abonamentul” (cont nou sau existent).
+              Agentul îl introduce pe pagina Planuri, la „Ai un cod de invitație?” (cont nou sau existent).
             </div>
           </div>
         </div>
