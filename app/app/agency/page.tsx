@@ -26,6 +26,11 @@ export default async function AgencyPage() {
           role: m.role,
           joinedAt: m.joinedAt.toISOString(),
         })),
+        activeCodes: agency.inviteCodes.map((c) => ({
+          id: c.id,
+          code: c.code,
+          createdAt: c.createdAt.toISOString(),
+        })),
       }
     : null;
 

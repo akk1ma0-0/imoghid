@@ -13,8 +13,10 @@ type Tariff = {
   plan: "BASIC" | "PRO" | "HUB";
   label: string;
   price: string;
-  priceUnit?: string; // единица под ценой; по умолчанию "/ lună", у HUB — "/ loc"
-  priceNote?: string; // доп. строка под единицей (у HUB — "minim 3 locuri")
+  priceUnit?: string; // единица цены; по умолчанию отдельной строкой под ценой — "/ lună"
+  // Цена + единица в ОДНУ строку, меньшим шрифтом (чтобы не переносилось на узких карточках).
+  // У HUB — "450 MDL" + "/ loc" рядом, одна строка.
+  priceInline?: boolean;
   // Список фич плана. Формат строки: "Denumire — limită"; часть после " — " рендерится
   // справа как лимит, строки без " — " — как фича без лимита.
   features: string[];
@@ -61,7 +63,7 @@ const TARIFFS: Tariff[] = [
     label: "HUB / Agenție",
     price: "450 MDL",
     priceUnit: "/ loc",
-    priceNote: "minim 3 locuri",
+    priceInline: true,
     agencyCta: true,
     footnote: "Pentru agenții cu mai mulți utilizatori, tariful poate fi negociat — contactați-ne.",
     features: [
@@ -73,6 +75,7 @@ const TARIFFS: Tariff[] = [
       "Actele Mele — set complet",
       "Creator Hub — 70/lună",
       "Anunțuri 999 — 70/lună",
+      "Minim 3 locuri",
     ],
   },
 ];
@@ -96,6 +99,8 @@ const FEATURE_DESCRIPTIONS: Record<string, string> = {
     "Generare automată de postări pentru Instagram, TikTok și Facebook — text și carusel gata de publicat, pornind de la fotografiile obiectului.",
   "Anunțuri 999":
     "Acces la anunțurile de la proprietari de pe 999.md, pentru a găsi rapid obiecte noi de preluat în lucru.",
+  "Minim 3 locuri":
+    "La cumpărare alegeți numărul de locuri, minim 3. Unul dintre ele îl puteți ocupa chiar dumneavoastră, imediat. Pentru ceilalți agenți generați din cont coduri de invitație (câte un cod pentru fiecare loc).",
 };
 
 // Иконка ⓘ с popover по КЛИКУ (не hover — на мобильных hover нет). Закрытие по повторному клику
@@ -167,7 +172,19 @@ function FeatureInfo({ text }: { text: string }) {
   );
 }
 
-export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: boolean }) {
+// changeMode — смена личного плана (Basic/Pro) пользователем с активным планом
+// (/app/pending?change=1): баннер о замене плана, без блока кода приглашения.
+// personalPlanBlockedMsg — личный Basic/Pro купить нельзя (владелец активного агентства без
+// места): в карточках Basic/Pro вместо формы оплаты — причина. HUB/«O accesare» не меняются.
+export function PendingTariffs({
+  isAuthenticated = true,
+  changeMode = false,
+  personalPlanBlockedMsg = null,
+}: {
+  isAuthenticated?: boolean;
+  changeMode?: boolean;
+  personalPlanBlockedMsg?: string | null;
+}) {
   const { startDemo } = useDemo();
   const [agreed, setAgreed] = useState(false);
 
@@ -213,14 +230,34 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
     <div className="ig-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ textAlign: "center", marginTop: 32, marginBottom: 8, maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
-          {isAuthenticated ? "Alegeți un plan" : "Planuri și prețuri"}
+          {changeMode ? "Schimbați planul" : isAuthenticated ? "Alegeți un plan" : "Planuri și prețuri"}
         </h1>
         <p style={{ fontSize: 14, color: "var(--ink3)", lineHeight: 1.6 }}>
-          {isAuthenticated
-            ? "Activați abonamentul pentru a începe. Plata este procesată securizat de VictoriaBank."
-            : "Creați un cont pentru a activa un abonament. Plata este procesată securizat de VictoriaBank."}
+          {changeMode
+            ? "Alegeți noul plan. Plata este procesată securizat de VictoriaBank."
+            : isAuthenticated
+              ? "Activați abonamentul pentru a începe. Plata este procesată securizat de VictoriaBank."
+              : "Creați un cont pentru a activa un abonament. Plata este procesată securizat de VictoriaBank."}
         </p>
       </div>
+
+      {/* Смена плана: предупреждение о замене текущего плана и пересчёте периода. */}
+      {changeMode && (
+        <div className="notice amber" style={{ maxWidth: 720, margin: "14px auto 0" }}>
+          <div className="notice-dot" />
+          <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+            <b>
+              Planul curent va fi înlocuit după plată. Perioada se calculează din nou, 30 de zile de la
+              data plății, fără recalculare pentru perioada rămasă.
+            </b>
+            <div style={{ marginTop: 6 }}>
+              <Link href="/app/pending" style={{ color: "var(--blue, #2563eb)" }}>
+                ← Înapoi la abonament
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Согласие с условиями оплаты/возврата — обязательно до перехода на страницу банка (SIP п.7).
           Только для залогиненных (у анонимного оплаты нет — он идёт на регистрацию). */}
@@ -289,10 +326,17 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {t.label}
               </div>
-              <div style={{ fontSize: 30, fontWeight: 700, margin: "8px 0 4px" }}>{t.price}</div>
-              <div style={{ fontSize: 12.5, color: "var(--ink3)" }}>{t.priceUnit ?? "/ lună"}</div>
-              {t.priceNote && (
-                <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 2 }}>{t.priceNote}</div>
+              {t.priceInline ? (
+                // Цена + единица в одну строку, меньшим шрифтом — не переносится на узких карточках.
+                <div style={{ fontSize: 22, fontWeight: 700, margin: "8px 0 4px", whiteSpace: "nowrap" }}>
+                  {t.price}{" "}
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink3)" }}>{t.priceUnit}</span>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 30, fontWeight: 700, margin: "8px 0 4px" }}>{t.price}</div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink3)" }}>{t.priceUnit ?? "/ lună"}</div>
+                </>
               )}
               <ul style={{ listStyle: "none", padding: 0, margin: "16px 0 18px", textAlign: "left" }}>
                 {t.features.map((f) => {
@@ -340,6 +384,10 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
                   >
                     {isAuthenticated ? "Cumpără locuri" : "Înregistrează-te"}
                   </Link>
+                ) : isAuthenticated && personalPlanBlockedMsg ? (
+                  <p style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5, margin: 0, textAlign: "left" }}>
+                    {personalPlanBlockedMsg}
+                  </p>
                 ) : isAuthenticated ? (
                   <form method="POST" action="/api/payments/vb-initiate">
                     <input type="hidden" name="plan" value={t.plan} />
@@ -375,7 +423,9 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
 
       {/* Cod de invitație de la agenție (AG-XXXXXX) — vine de la un owner de pe /app/agency.
           Compact, sub carduri. Vizibil doar la utilizator autentificat fără plan (cazul în care
-          se randează acest component); anonimilor le arătăm doar un îndemn de autentificare. */}
+          se randează acest component); anonimilor le arătăm doar un îndemn de autentificare.
+          În modul de schimbare a planului (changeMode) blocul nu se afișează. */}
+      {!changeMode && (
       <div className="card" style={{ marginTop: 16, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
         <div className="card-bd" style={{ padding: "16px 22px" }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>
@@ -413,6 +463,21 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
                   {inviteError}
                 </p>
               )}
+              {/* Instrucțiuni vizibile implicit (fără clic) — текст по задаче. */}
+              <div style={{ marginTop: 12, fontSize: 11.5, color: "var(--ink3)", lineHeight: 1.6, textAlign: "left" }}>
+                <b style={{ display: "block", marginBottom: 4 }}>Cum funcționează:</b>
+                <ol style={{ margin: 0, paddingLeft: 18 }}>
+                  <li>Proprietarul agenției cumpără abonamentul HUB și alege numărul de locuri.</li>
+                  <li>În contul lui, la secțiunea Agenție, generează un cod de invitație (AG-XXXXXX) pentru fiecare agent.</li>
+                  <li>
+                    Primiți codul de la proprietar, îl introduceți aici și apăsați „Activează”. Contul
+                    dumneavoastră primește automat planul HUB.
+                  </li>
+                </ol>
+                <p style={{ margin: "6px 0 0" }}>
+                  Fiecare cod este valabil o singură dată și ocupă un loc din agenție.
+                </p>
+              </div>
             </>
           ) : (
             <p style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.5, margin: 0 }}>
@@ -424,6 +489,7 @@ export function PendingTariffs({ isAuthenticated = true }: { isAuthenticated?: b
           )}
         </div>
       </div>
+      )}
 
       {/* «O accesare» — разовая покупка без подписки (Этап C): 1 verificare + 1 dosar + 1 obiect. */}
       <div className="card" style={{ marginTop: 16, maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>

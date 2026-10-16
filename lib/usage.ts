@@ -20,6 +20,9 @@ export type UsageResult =
       // Доплата sobre-limit (MDL) за это превышение, либо null — если для фичи/плана
       // доплата не предусмотрена (тогда роут отдаёт жёсткий блок). Только при reason:"limit".
       overageFeeMdl: number | null;
+      // План пользователя (при reason:"limit") — чтобы текст об исчерпании не предлагал
+      // «treceți la Pro» на HUB (у Pro лимит меньше).
+      plan?: SubscriptionPlan | null;
     };
 
 // Есть ли у пользователя оплаченный НЕпотраченный грант sobre-limit по фиче? Если да —
@@ -127,6 +130,7 @@ export async function consumeUsage(
       used,
       limit,
       overageFeeMdl: overageFeeMdl(user.plan, feature as LimitedFeature),
+      plan: user.plan,
     };
   }
 
@@ -249,6 +253,7 @@ export async function reserveUsage(userId: string, feature: UsageFeature): Promi
     used: row?.count ?? limit,
     limit,
     overageFeeMdl: overageFeeMdl(user.plan, feature as LimitedFeature),
+    plan: user.plan,
   };
 }
 
@@ -386,7 +391,7 @@ export async function checkActiveObjects(userId: string): Promise<UsageResult> {
     where: { userId, status: { not: "ARCHIVE" } },
   });
   if (count >= limit) {
-    return { ok: false, reason: "limit", used: count, limit, overageFeeMdl: null };
+    return { ok: false, reason: "limit", used: count, limit, overageFeeMdl: null, plan: user.plan };
   }
   return { ok: true };
 }
@@ -405,8 +410,14 @@ export function featureUnavailableMessage(feature: LimitedFeature): string {
 }
 
 // Сообщение о лимите без доплаты (жёсткий блок — Creator Hub/999, OBIECTE_ACTIVE).
-export function limitReachedNoOverageMessage(feature: LimitedFeature, limit: number): string {
-  return `Ați atins limita de ${limit} ${FEATURE_LABEL_RO[feature]} pentru perioada curentă. Doplata pentru această funcție nu este disponibilă — așteptați perioada următoare sau treceți la Pro.`;
+// На HUB (участник и владелец с местом) «treceți la Pro» не предлагаем: у Pro лимит меньше.
+export function limitReachedNoOverageMessage(
+  feature: LimitedFeature,
+  limit: number,
+  plan?: SubscriptionPlan | null,
+): string {
+  const next = plan === "HUB" ? "așteptați perioada următoare." : "așteptați perioada următoare sau treceți la Pro.";
+  return `Ați atins limita de ${limit} ${FEATURE_LABEL_RO[feature]} pentru perioada curentă. Doplata pentru această funcție nu este disponibilă — ${next}`;
 }
 
 // UsageResult(ok:false) → HTTP-ответ:
@@ -437,7 +448,7 @@ export function usageBlockResponse(
   }
   return NextResponse.json(
     {
-      error: limitReachedNoOverageMessage(feature, result.limit),
+      error: limitReachedNoOverageMessage(feature, result.limit, result.plan),
       usage: { used: result.used, limit: result.limit },
     },
     { status: 429 },

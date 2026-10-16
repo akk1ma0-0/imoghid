@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { PasswordInput } from "@/components/PasswordInput";
+import type { PlanKind } from "@/lib/plan-display";
+import { fmtDateChisinau, planExpiryLabel } from "@/lib/date-chisinau";
 
 type Initial = {
   name: string;
@@ -11,12 +14,11 @@ type Initial = {
   telefon: string;
   plan: "BASIC" | "PRO" | "HUB" | null;
   notifLegislatie: boolean;
-  usageUsed: number;
-  usageLimit: number;
+  // План/срок — общее правило lib/plan-display.ts (то же, что на странице подписки).
+  planKind: PlanKind;
+  planExpiresAt: string | null;
+  agencyExpiresAt: string | null;
 };
-
-// Заглушка даты продления (реальной оплаты Stripe пока нет).
-const RENEWAL_DATE = "01.07.2026";
 
 function Notice({ kind, text }: { kind: "red" | "green"; text: string }) {
   return (
@@ -167,7 +169,7 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
     }
   }
 
-  const pct = initial.usageLimit > 0 ? Math.min(100, Math.round((initial.usageUsed / initial.usageLimit) * 100)) : 0;
+  const planLabel = initial.plan === "PRO" ? "Pro" : initial.plan === "HUB" ? "HUB/Agenție" : "Basic";
 
   return (
     <div className="ig-page" style={{ maxWidth: 720 }}>
@@ -295,22 +297,27 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <span className={`badge ${initial.plan === "PRO" ? "b-blue" : "b-gray"}`} style={{ fontSize: 12, padding: "3px 12px" }}>
-                  {initial.plan}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                <span className={`badge ${initial.plan === "BASIC" ? "b-gray" : "b-blue"}`} style={{ fontSize: 12, padding: "3px 12px" }}>
+                  {planLabel}
                 </span>
                 <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
-                  Următoarea reînnoire: {RENEWAL_DATE}
+                  {planExpiryLabel(initial.planExpiresAt)}
                 </span>
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--ink2)", margin: "10px 0 5px" }}>
-                Analize documente (Pasul 3) luna curentă:{" "}
-                <b>{initial.usageUsed} / {initial.usageLimit}</b>
-              </div>
-              <div className="prog"><div className="prog-fill" style={{ width: `${pct}%` }} /></div>
-              <button className="btn" style={{ marginTop: 14 }} onClick={() => window.alert("Schimbarea planului — în curând.")}>
-                Schimbați planul
-              </button>
+              {initial.planKind === "agencyMember" && initial.agencyExpiresAt && (
+                <div style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.55 }}>
+                  Abonamentul agenției expiră la {fmtDateChisinau(initial.agencyExpiresAt)}. Prelungirea
+                  este gestionată de administratorul agenției.
+                </div>
+              )}
+              {/* Использование лимитов — на странице подписки (таблица «Utilizarea limitelor»),
+                  здесь не дублируем; ссылка ниже ведёт туда. */}
+              {/* Смена плана / выход из агентства / управление HUB — на странице подписки
+                  (/app/pending), где действия зависят от роли. Здесь только ссылка туда. */}
+              <Link className="btn" href="/app/pending" style={{ marginTop: 14, justifyContent: "center" }}>
+                Gestionați abonamentul
+              </Link>
             </>
           )}
         </div>

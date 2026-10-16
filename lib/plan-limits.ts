@@ -30,12 +30,14 @@ export const PLAN_LIMITS: Record<SubscriptionPlan, Record<LimitedFeature, number
     ANUNT_999: 60,
   },
   // HUB/Agenție (Этап D) — тариф участника агентства, per-seat (TARIFE.pdf, колонка HUB).
+  // Creator Hub и Anunțuri 999 — 70/lună, как обещано на странице тарифов (PendingTariffs).
+  // Счётчик — на пользователя (UsageCounter @@unique(userId, feature)): у каждого агента свои 70.
   HUB: {
     CADASTRU_CHECK: Infinity,
     DOSAR_ANALYSIS: 70,
     OBIECTE_ACTIVE: Infinity,
-    CREATOR_HUB: Infinity,
-    ANUNT_999: Infinity,
+    CREATOR_HUB: 70,
+    ANUNT_999: 70,
   },
 };
 

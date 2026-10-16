@@ -10,12 +10,16 @@ type Member = {
   role: "OWNER" | "MEMBER";
   joinedAt: string;
 };
+type InviteCodeItem = { id: string; code: string; createdAt: string };
 type Agency = {
   seatsPaid: number;
   pricePerSeatMdl: number;
   negotiated: boolean;
   planExpiresAt: string | null;
   members: Member[];
+  // Активные (неиспользованные, неистёкшие) коды — приходят с сервера при каждой загрузке
+  // страницы (page.tsx → getOwnedAgency), поэтому не теряются при обновлении.
+  activeCodes: InviteCodeItem[];
 };
 
 function fmtDate(iso: string | null): string {
@@ -107,7 +111,11 @@ export function AgencyClient({
 
   // ── Есть агентство: управление ──
   const occupied = agency.members.length;
-  const free = Math.max(0, agency.seatsPaid - occupied);
+  const reserved = agency.activeCodes.length; // активные коды резервируют место до погашения/отмены
+  const free = Math.max(0, agency.seatsPaid - occupied - reserved);
+  const FREE_SEATS_MSG =
+    "Nu mai sunt locuri libere. Toate locurile sunt ocupate sau rezervate prin coduri active. " +
+    "Cumpărați locuri suplimentare sau anulați un cod neutilizat.";
 
   async function generateCode() {
     setBusy(true);
@@ -118,6 +126,25 @@ export function AgencyClient({
       const d = await r.json();
       if (!r.ok) throw new Error(d?.error);
       setCode(d.code);
+      // Освежаем список активных кодов + счётчики мест с сервера (без полной перезагрузки
+      // страницы — router.refresh() заново прогоняет серверный компонент).
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : "Eroare.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelCode(id: string) {
+    if (!confirm("Anulați acest cod neutilizat? Locul rezervat va fi liberat.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/agency/invite/${id}`, { method: "DELETE" });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d?.error);
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Eroare.");
     } finally {
@@ -175,8 +202,15 @@ export function AgencyClient({
         </div>
       )}
 
+      {/* Счётчик мест с учётом резерва активными кодами. */}
+      <p style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 14, marginBottom: 0 }}>
+        Locuri: <b style={{ color: "var(--ink2)" }}>{occupied}</b> ocupate ·{" "}
+        <b style={{ color: "var(--ink2)" }}>{reserved}</b> rezervate prin coduri ·{" "}
+        <b style={{ color: "var(--ink2)" }}>{free}</b> libere
+      </p>
+
       {/* Действия */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
         <button className="btn solid" disabled={busy || free <= 0} onClick={generateCode}>
           Generează cod de invitație
         </button>
@@ -187,10 +221,25 @@ export function AgencyClient({
         </form>
       </div>
       {free <= 0 && (
-        <p style={{ fontSize: 12, color: "var(--ink3)", marginTop: 6 }}>
-          Toate locurile sunt ocupate — cumpărați locuri suplimentare pentru a invita mai mulți agenți.
-        </p>
+        <p style={{ fontSize: 12, color: "var(--ink3)", marginTop: 6 }}>{FREE_SEATS_MSG}</p>
       )}
+
+      {/* Instrucțiuni pentru proprietar — vizibile implicit, lângă acțiunile de mai sus. */}
+      <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink3)", lineHeight: 1.6, textAlign: "left" }}>
+        <b style={{ display: "block", marginBottom: 4 }}>Cum invitați un agent:</b>
+        <ol style={{ margin: 0, paddingLeft: 18 }}>
+          <li>Apăsați „Generează cod de invitație” – primiți un cod de forma AG-XXXXXX.</li>
+          <li>Trimiteți codul agentului (mesaj, e-mail).</li>
+          <li>
+            Agentul se înregistrează sau se autentifică pe imoghid.md, deschide pagina Planuri și
+            introduce codul în câmpul „Ai un cod de invitație?”.
+          </li>
+          <li>După activare, agentul apare în lista agenției și ocupă un loc. Fiecare cod se folosește o singură dată.</li>
+        </ol>
+        <p style={{ margin: "6px 0 0" }}>
+          Codurile active rezervă câte un loc până la utilizare sau anulare.
+        </p>
+      </div>
 
       {code && (
         <div className="card" style={{ marginTop: 12, borderColor: "var(--blue, #2563eb)" }}>
@@ -205,6 +254,47 @@ export function AgencyClient({
             <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 8 }}>
               Agentul îl introduce pe pagina Planuri, la „Ai un cod de invitație?” (cont nou sau existent).
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coduri active — persistă pe server; după reîncărcarea paginii rămân aici. */}
+      {agency.activeCodes.length > 0 && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="card-hd"><b>Coduri active ({agency.activeCodes.length})</b></div>
+          <div className="card-bd" style={{ padding: 0 }}>
+            <table className="tbl" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, color: "var(--ink3)" }}>Cod</th>
+                  <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, color: "var(--ink3)" }}>Generat</th>
+                  <th style={{ padding: "10px 16px" }} />
+                </tr>
+              </thead>
+              <tbody>
+                {agency.activeCodes.map((c) => (
+                  <tr key={c.id} style={{ borderTop: "1px solid var(--line, #eef0f2)" }}>
+                    <td style={{ padding: "10px 16px" }}>
+                      <code style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "0.05em" }}>{c.code}</code>
+                    </td>
+                    <td style={{ padding: "10px 16px", fontSize: 12.5, color: "var(--ink3)" }}>{fmtDate(c.createdAt)}</td>
+                    <td style={{ padding: "10px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button
+                        className="btn"
+                        disabled={busy}
+                        onClick={() => navigator.clipboard?.writeText(c.code)}
+                        style={{ marginRight: 6 }}
+                      >
+                        Copiază
+                      </button>
+                      <button className="btn" disabled={busy} onClick={() => cancelCode(c.id)}>
+                        Anulează
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

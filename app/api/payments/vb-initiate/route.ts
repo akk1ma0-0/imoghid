@@ -4,12 +4,40 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { isPayablePlan, planAmount, generateOrder, PLAN_PRICING } from "@/lib/payments";
 import { buildPaymentFormHtml, formatAmount, vbConfig } from "@/lib/vb-egateway";
+import { personalPlanPurchaseBlock } from "@/lib/agency";
+
+// Отказ, понятный пользователю: форма тарифа отправляется нативным POST, поэтому браузер
+// показал бы «голый» JSON. Браузеру (Accept: text/html) — короткая страница с сообщением и
+// ссылкой назад; остальным клиентам — JSON { error }.
+function blockedResponse(request: Request, message: string, status: number): NextResponse {
+  if ((request.headers.get("accept") ?? "").includes("text/html")) {
+    const html =
+      `<!doctype html><html lang="ro"><head><meta charset="utf-8">` +
+      `<meta name="viewport" content="width=device-width,initial-scale=1"><title>ImoGhid</title></head>` +
+      `<body style="font-family:Inter,system-ui,-apple-system,sans-serif;color:#111827;margin:0;padding:24px">` +
+      `<div style="max-width:480px;margin:48px auto;text-align:center">` +
+      `<p style="font-size:15px;line-height:1.6;margin:0 0 20px">${message}</p>` +
+      `<a href="/app/pending" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;` +
+      `font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px">← Înapoi la abonament</a>` +
+      `</div></body></html>`;
+    return new NextResponse(html, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  }
+  return NextResponse.json({ error: message }, { status });
+}
 
 // POST /api/payments/vb-initiate — форма (plan). Создаёт Payment (TRTYPE=0) и возвращает
 // авто-сабмит HTML-форму на страницу оплаты VictoriaBank (TEST). Тариф/сумма — только сервер.
 export async function POST(request: Request) {
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
+
+  // Личный план (Basic/Pro) не покупают: участник агентства (MEMBER) — пока не вышел; владелец
+  // активного агентства — иначе HUB заменился бы личным планом. До создания Payment и формы
+  // банка. Обычные пользователи не затрагиваются; места/HUB/«O accesare» — другие роуты.
+  const blockMsg = await personalPlanPurchaseBlock(sess.userId);
+  if (blockMsg) {
+    return blockedResponse(request, blockMsg, 409);
+  }
 
   // Конфиг обязателен — без терминала/ключа платёж не инициировать.
   const c = vbConfig();

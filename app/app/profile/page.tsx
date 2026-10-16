@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getUsage } from "@/lib/usage";
+import { getPlanDisplay } from "@/lib/plan-display";
 import { ProfilePanel } from "./ProfilePanel";
 
 // /app/profile — только для авторизованных (плюс middleware уже защищает /app/*).
@@ -23,8 +23,9 @@ export default async function ProfilePage() {
   });
   if (!user) redirect("/login");
 
-  // Использование анализов дела за расчётный период (DOSAR_ANALYSIS) — из UsageCounter.
-  const { used, limit } = await getUsage(session.user.id, "DOSAR_ANALYSIS");
+  // План и срок — общее правило со страницей подписки (участник/владелец — срок агентства,
+  // Basic/Pro — личный). Использование лимитов показывается на странице подписки.
+  const display = await getPlanDisplay(session.user.id, session.user.role);
 
   return (
     <ProfilePanel
@@ -35,8 +36,9 @@ export default async function ProfilePage() {
         telefon: user.phone ?? "",
         plan: user.plan,
         notifLegislatie: user.notifLegislatie,
-        usageUsed: used,
-        usageLimit: limit,
+        planKind: display.kind,
+        planExpiresAt: display.expiresAt,
+        agencyExpiresAt: display.agencyExpiresAt,
       }}
     />
   );
