@@ -3,6 +3,8 @@ import nodemailer from "nodemailer";
 import type { SubscriptionPlan, UsageFeature } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { fmtDateChisinau } from "@/lib/date-chisinau";
+import { escapeHtml } from "@/lib/escape-html";
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
 
@@ -70,8 +72,8 @@ export async function sendVerificationEmail(
       `<div style="font-family:Inter,system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#111827">` +
       `<h2 style="font-size:18px;margin:0 0 12px">Confirmați adresa de e-mail</h2>` +
       `<p style="font-size:14px;line-height:1.6;color:#374151">Bine ați venit la <b>ImoGhid</b>! Apăsați butonul de mai jos pentru a confirma adresa dvs. de e-mail.</p>` +
-      `<p style="margin:20px 0"><a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px">Confirmă adresa</a></p>` +
-      `<p style="font-size:12.5px;color:#6b7280;line-height:1.6">Linkul este valabil <b>24 de ore</b>. Dacă butonul nu funcționează, copiați adresa: <br>${link}</p>` +
+      `<p style="margin:20px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px">Confirmă adresa</a></p>` +
+      `<p style="font-size:12.5px;color:#6b7280;line-height:1.6">Linkul este valabil <b>24 de ore</b>. Dacă butonul nu funcționează, copiați adresa: <br>${escapeHtml(link)}</p>` +
       `<p style="font-size:12px;color:#9ca3af;margin-top:18px">Dacă nu ați creat un cont ImoGhid, ignorați acest mesaj.</p>` +
       `</div>`,
   });
@@ -102,7 +104,42 @@ type ReceiptData = {
   cardLast4: string | null;
   cardNetwork: string | null; // "Visa" | "Mastercard" | null
   paidAt: Date;
+  // Только для AGENCY_SEATS: блок «Locuri cumpărate …» (см. agencyReceiptInfo). У остальных
+  // платежей не задаётся — письмо не меняется.
+  agency?: AgencyReceiptInfo;
 };
+
+// Данные блока о купленных местах HUB. Берутся из записи платежа и агентства ПОСЛЕ зачисления
+// мест — ничего не пересчитывается по тарифам, чтобы число мест и сумма совпадали с оплаченным.
+export type AgencyReceiptInfo = {
+  seats: number; // мест в ЭТОМ платеже (Payment.seats)
+  pricePerSeat: number; // = сумма платежа / seats (то, что реально оплачено за место)
+  total: number; // сумма платежа (Payment.amount)
+  totalSeatsInAgency: number | null; // только при докупке: всего мест после платежа (Agency.seatsPaid)
+  expiresAt: string | null; // ISO Agency.planExpiresAt (после продления этим платежом)
+};
+
+// payment — запись Payment; agency — Agency ПОСЛЕ creditAgencySeats. Докупка определяется по
+// данным: мест в агентстве больше, чем куплено этим платежом (значит, до платежа они были).
+export function agencyReceiptInfo(
+  payment: { amount: string; seats: number | null },
+  agency: { seatsPaid: number; planExpiresAt: Date | null },
+): AgencyReceiptInfo | undefined {
+  const seats = payment.seats ?? 0;
+  const total = Number(payment.amount);
+  if (!(seats > 0) || !Number.isFinite(total)) return undefined;
+  return {
+    seats,
+    pricePerSeat: total / seats,
+    total,
+    totalSeatsInAgency: agency.seatsPaid > seats ? agency.seatsPaid : null,
+    expiresAt: agency.planExpiresAt?.toISOString() ?? null,
+  };
+}
+
+// Суммы в блоке мест — всегда с двумя знаками, в том же формате, что основная строка «Sumă»
+// ("450.00", "1350.00").
+const fmtMdl = (n: number) => n.toFixed(2);
 
 const OVERAGE_SERVICE_RO: Record<string, string> = {
   DOSAR_ANALYSIS: "Supra-limit — examinarea dosarului",
@@ -125,10 +162,14 @@ function formatReceiptDate(d: Date): string {
   return `${g("day")}/${g("month")}/${g("year")} ${g("hour")}:${g("minute")}:${g("second")}`;
 }
 
-// Отправляет bon electronic (чек) на e-mail пользователя после успешной оплаты.
-// Без SMTP-кредов не падает — логирует чек в консоль (dev-режим). Все вызовы обёрнуты
-// в try/catch на стороне callback — сбой почты НЕ ломает обработку платежа.
-export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<void> {
+// Собирает письмо-чек (тема, текст, HTML) БЕЗ отправки — чистая функция, на ней же строится
+// sendReceiptEmail; позволяет отрендерить письмо для проверки, не касаясь почтового транспорта.
+export function buildReceipt(r: ReceiptData): {
+  subject: string;
+  text: string;
+  html: string;
+  visible: [string, string | null][];
+} {
   const planLabel = r.plan === "PRO" ? "Plan Pro" : r.plan === "HUB" ? "HUB/Agenție" : "Plan Basic";
   const service =
     r.purpose === "AGENCY_SEATS"
@@ -161,35 +202,57 @@ export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<v
   ];
   const visible = rows.filter(([, v]) => v && v.trim() !== "");
 
-  const tx = getTransport();
-  if (!tx) {
-    console.log(
-      `[DEV] Bon electronic (→ ${email}):`,
-      JSON.stringify(Object.fromEntries(visible)),
-    );
-    return;
+  // Блок о местах HUB — только для платежей агентства (r.agency задан только в AGENCY_SEATS).
+  // Остальные платежи (Basic, Pro, «O accesare», sobre-limit) рендерятся как раньше.
+  let seatRows: [string, string][] = [];
+  let seatNote = "";
+  if (r.agency) {
+    const a = r.agency;
+    const cur = r.currency;
+    seatRows = [
+      ["Locuri cumpărate", String(a.seats)],
+      ["Preț per loc", `${fmtMdl(a.pricePerSeat)} ${cur}`],
+      ["Total", `${a.seats} × ${fmtMdl(a.pricePerSeat)} = ${fmtMdl(a.total)} ${cur}`],
+    ];
+    if (a.totalSeatsInAgency !== null) {
+      seatRows.push(["Total locuri în agenție", String(a.totalSeatsInAgency)]);
+    }
+    seatNote =
+      "Fiecare loc permite unui agent să folosească planul HUB. Invitați agenții din secțiunea " +
+      "Agenție, generând un cod de invitație pentru fiecare loc liber. Un loc este rezervat din " +
+      "momentul generării codului până la utilizarea sau anularea acestuia." +
+      (a.expiresAt ? ` Agenția este activă până la ${fmtDateChisinau(a.expiresAt)}.` : "");
   }
 
   const textLines = visible.map(([k, v]) => `${k}: ${v}`).join("\n");
+  const seatsText = r.agency
+    ? `\n\nLocuri HUB/Agenție\n${seatRows.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\n${seatNote}`
+    : "";
   const text =
     `ImoGhid — Bon electronic (confirmare plată)\n\n` +
-    `${textLines}\n\n` +
+    `${textLines}${seatsText}\n\n` +
     `Politica de returnare: ${RETURN_POLICY_URL} (secțiunea „Plată și rambursare")\n` +
     `Suport: ${SUPPORT_EMAIL} · ${SUPPORT_PHONE}\n`;
 
-  const rowsHtml = visible
-    .map(
-      ([k, v]) =>
-        `<tr><td style="padding:7px 0;font-size:13px;color:#6b7280;vertical-align:top;white-space:nowrap">${k}</td>` +
-        `<td style="padding:7px 0 7px 18px;font-size:13px;color:#111827;font-weight:600;text-align:right">${v}</td></tr>`,
-    )
-    .join("");
+  // В HTML все значения строк (имя покупателя, номер заказа, RRN и т.д.) экранируются; plain-text
+  // версия выше — нет. Константы реквизитов (MERCHANT_*, SUPPORT_*) — наш код, не пользовательские.
+  const rowHtml = ([k, v]: [string, string | null]) =>
+    `<tr><td style="padding:7px 0;font-size:13px;color:#6b7280;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td>` +
+    `<td style="padding:7px 0 7px 18px;font-size:13px;color:#111827;font-weight:600;text-align:right">${escapeHtml(v)}</td></tr>`;
+  const rowsHtml = visible.map(rowHtml).join("");
+
+  const seatsHtml = r.agency
+    ? `<h3 style="font-size:14px;margin:20px 0 6px">Locuri HUB/Agenție</h3>` +
+      `<table style="width:100%;border-collapse:collapse;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">${seatRows.map(rowHtml).join("")}</table>` +
+      `<p style="font-size:12.5px;color:#374151;line-height:1.7;margin:12px 0 0">${escapeHtml(seatNote)}</p>`
+    : "";
 
   const html =
     `<div style="font-family:Inter,system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#111827">` +
     `<h2 style="font-size:18px;margin:0 0 4px">Bon electronic</h2>` +
     `<p style="font-size:13px;color:#6b7280;margin:0 0 18px">Confirmarea plății pentru abonamentul ImoGhid.</p>` +
     `<table style="width:100%;border-collapse:collapse;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">${rowsHtml}</table>` +
+    seatsHtml +
     `<p style="font-size:12px;color:#6b7280;line-height:1.7;margin:16px 0 0">` +
     `Detalii privind rambursarea: <a href="${RETURN_POLICY_URL}" style="color:#1d4ed8;text-decoration:none">Termeni și Condiții — „Plată și rambursare"</a>.` +
     `</p>` +
@@ -199,11 +262,34 @@ export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<v
     `<p style="font-size:11px;color:#9ca3af;margin-top:18px">${MERCHANT_NAME} · ${MERCHANT_COUNTRY} · ${MERCHANT_URL}</p>` +
     `</div>`;
 
+  return {
+    subject: `Bon electronic — Abonament ImoGhid (comanda ${r.order})`,
+    text,
+    html,
+    visible,
+  };
+}
+
+// Отправляет bon electronic (чек) на e-mail пользователя после успешной оплаты.
+// Без SMTP-кредов не падает — логирует чек в консоль (dev-режим). Все вызовы обёрнуты
+// в try/catch на стороне callback — сбой почты НЕ ломает обработку платежа.
+export async function sendReceiptEmail(email: string, r: ReceiptData): Promise<void> {
+  const { subject, text, html, visible } = buildReceipt(r);
+
+  const tx = getTransport();
+  if (!tx) {
+    console.log(
+      `[DEV] Bon electronic (→ ${email}):`,
+      JSON.stringify(Object.fromEntries(visible)),
+    );
+    return;
+  }
+
   const from = process.env.ZOHO_SMTP_USER as string;
   await tx.sendMail({
     from: `"ImoGhid" <${from}>`,
     to: email,
-    subject: `Bon electronic — Abonament ImoGhid (comanda ${r.order})`,
+    subject,
     text,
     html,
   });
@@ -238,8 +324,8 @@ export async function sendEmailChangeEmail(
       `<div style="font-family:Inter,system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#111827">` +
       `<h2 style="font-size:18px;margin:0 0 12px">Confirmați noua adresă de e-mail</h2>` +
       `<p style="font-size:14px;line-height:1.6;color:#374151">Ați solicitat schimbarea adresei de e-mail a contului <b>ImoGhid</b>. Apăsați butonul de mai jos pentru a confirma noua adresă.</p>` +
-      `<p style="margin:20px 0"><a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px">Confirmă noua adresă</a></p>` +
-      `<p style="font-size:12.5px;color:#6b7280;line-height:1.6">Linkul este valabil <b>24 de ore</b>. Adresa va fi schimbată doar după accesarea lui. Dacă butonul nu funcționează, copiați: <br>${link}</p>` +
+      `<p style="margin:20px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px">Confirmă noua adresă</a></p>` +
+      `<p style="font-size:12.5px;color:#6b7280;line-height:1.6">Linkul este valabil <b>24 de ore</b>. Adresa va fi schimbată doar după accesarea lui. Dacă butonul nu funcționează, copiați: <br>${escapeHtml(link)}</p>` +
       `<p style="font-size:12px;color:#9ca3af;margin-top:18px">Dacă nu ați solicitat schimbarea, ignorați acest mesaj — contul rămâne pe adresa curentă.</p>` +
       `</div>`,
   });

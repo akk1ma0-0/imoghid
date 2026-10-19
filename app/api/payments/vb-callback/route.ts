@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { psignVerifyCallback, vbCompletion } from "@/lib/vb-egateway";
-import { sendReceiptEmail } from "@/lib/email";
+import { sendReceiptEmail, agencyReceiptInfo, type AgencyReceiptInfo } from "@/lib/email";
 import { creditAgencySeats, materializeAgencyPlan } from "@/lib/agency";
 
 // POST /api/payments/vb-callback — авторитетный server-to-server callback банка.
@@ -122,6 +122,7 @@ export async function POST(request: Request) {
       const now = new Date();
       let receiptTo: string | null = null;
       let receiptName: string | null = null;
+      let receiptAgency: AgencyReceiptInfo | undefined; // блок «Locuri cumpărate…» (только AGENCY_SEATS)
 
       if (payment.purpose === "OVERAGE") {
         // Разовая доплата sobre-limit — план НЕ активируем. Payment → PAID делает «грант»
@@ -200,6 +201,8 @@ export async function POST(request: Request) {
           });
           receiptTo = paidUser?.email ?? null;
           receiptName = paidUser?.name ?? null;
+          // Для чека: данные из записи платежа и агентства ПОСЛЕ зачисления мест (без пересчёта).
+          receiptAgency = agencyReceiptInfo(payment, agency);
           console.log(
             `[VB callback] PAID AGENCY_SEATS ORDER=${ORDER} owner=${payment.userId} +${payment.seats} → seatsPaid=${agency.seatsPaid}`,
           );
@@ -243,6 +246,7 @@ export async function POST(request: Request) {
             amount: payment.amount,
             currency: CURRENCY || payment.currency,
             customerName: receiptName ?? "",
+            agency: receiptAgency,
             plan: payment.plan,
             purpose: payment.purpose,
             overageFeature: payment.overageFeature,
