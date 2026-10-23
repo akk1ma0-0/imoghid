@@ -55,7 +55,7 @@ export function AgencyClient({
         <div style={{ textAlign: "center", marginTop: 32, marginBottom: 8 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>HUB / Agenție</h1>
           <p style={{ fontSize: 14, color: "var(--ink3)", lineHeight: 1.6 }}>
-            {feePerSeat} MDL / loc, minim {minSeats} locuri. Cumpărați locuri și invitați agenții
+            {feePerSeat} MDL / loc pe lună, minim {minSeats} locuri. Cumpărați locuri și invitați agenții
             din echipa dvs.
           </p>
         </div>
