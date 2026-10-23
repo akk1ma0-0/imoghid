@@ -208,8 +208,9 @@ export default function CadastruPage() {
   const [overage, setOverage] = useState<{ feeMdl: number; feature: string } | null>(null);
   const [overageConsent, setOverageConsent] = useState(false);
   const [confirmed, setConfirmed] = useState<{ addr: string; cad: string } | null>(null);
-  // Коннектор в режиме mock — данные не из реестра; предупреждаем явно.
-  const [mockSource, setMockSource] = useState(false);
+  // Источник результата: live — реестр; mock/demo — демонстрационные данные (не из реестра);
+  // null — ручной ввод/OCR или результата нет.
+  const [resultSource, setResultSource] = useState<"live" | "mock" | "demo" | null>(null);
 
   // ── Ввод вручную (текст / скриншот OCR) ──
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -228,6 +229,7 @@ export default function CadastruPage() {
     if (isDemoMode && !record) {
       const r = DEMO_CADASTRU_RESULT;
       setManualMode(true);
+      setResultSource("demo");
       setRecord({
         cadastralNo: r.cadastralNo,
         record: { addr: r.addr, supr: r.supr, dest: r.dest, val: r.val, prop: r.prop, dr: r.dr, not: r.not, int: r.int },
@@ -271,6 +273,7 @@ export default function CadastruPage() {
     setPicker(null);
     setFallback(null);
     setManualMode(true);
+    setResultSource(null);
 
     // Предупреждение: подозрительно большая площадь для квартиры (вероятно артефакт OCR).
     // Предупреждение только для m² (для ha большие числа нормальны).
@@ -357,7 +360,7 @@ export default function CadastruPage() {
     setFallback(null);
     setOverage(null);
     setManualMode(false);
-    setMockSource(false);
+    setResultSource(null);
     setOcrRawText(null);
     setParseWarn(null);
     // Без адресного поиска принимается только кадастровый номер: невалидный формат ловим
@@ -410,7 +413,7 @@ export default function CadastruPage() {
     if (data.status === "record") {
       setTrace((data.trace as TraceStep[]) ?? null);
       setRecord({ cadastralNo: String(data.cadastralNo), record: data.record as CadRecord });
-      setMockSource(data.source === "mock");
+      setResultSource(data.source === "mock" ? "mock" : data.source === "demo" ? "demo" : "live");
       return;
     }
     if (data.status === "picker") {
@@ -622,16 +625,19 @@ export default function CadastruPage() {
 
             {record && (
               <div id="result-card" style={{ marginTop: 18 }}>
-                {manualMode && (
+                {resultSource === "demo" || resultSource === "mock" ? (
                   <div className="note note-warn" style={{ marginBottom: 12 }}>
-                    Date introduse manual — nu sunt verificate oficial. Pentru certitudine juridică
-                    comandați extrasul oficial din RBI.
+                    {resultSource === "mock"
+                      ? "Date demonstrative — nu provin din Registrul bunurilor imobile."
+                      : "Date demonstrative — nu provin din registru."}
                   </div>
-                )}
-                {mockSource && !manualMode && (
-                  <div className="note note-warn" style={{ marginBottom: 12 }}>
-                    Răspuns de test (mod mock) — datele nu provin din Registrul bunurilor imobile.
-                  </div>
+                ) : (
+                  manualMode && (
+                    <div className="note note-warn" style={{ marginBottom: 12 }}>
+                      Date introduse manual — nu sunt verificate oficial. Pentru certitudine juridică
+                      comandați extrasul oficial din RBI.
+                    </div>
+                  )
                 )}
                 {parseWarn && (
                   <div className="notice amber" style={{ marginBottom: 12 }}>
@@ -705,10 +711,19 @@ export default function CadastruPage() {
                   </details>
                 )}
 
-                <div className="note note-warn" style={{ marginTop: 10 }}>
-                  Date orientative din Registrul bunurilor imobile. Persoanele cu date personale nu
-                  sunt afișate la acest pas (Legea 195/2024).
-                </div>
+                {resultSource === "live" ? (
+                  <div className="note note-warn" style={{ marginTop: 10 }}>
+                    Date din sursa oficială (Registrul bunurilor imobile, prin Agenția de Guvernare
+                    Electronică), la momentul verificării. Nu înlocuiesc extrasul oficial. Datele
+                    personale ale titularilor nu sunt afișate (Legea 195/2024).
+                  </div>
+                ) : (
+                  resultSource && (
+                    <div className="note note-warn" style={{ marginTop: 10 }}>
+                      Date demonstrative — nu provin din Registrul bunurilor imobile.
+                    </div>
+                  )
+                )}
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                   <a className="btn" href="https://www.cadastru.md/ecadastru" target="_blank" rel="noopener noreferrer">
                     Deschideți e-Cadastru ↗

@@ -236,7 +236,7 @@ export function Step2Upload({
           🏛 Comandați Extras — ASP.gov.md ↗
         </a>
         <a href="https://map.ecadastre.md" target="_blank" rel="noopener noreferrer" className="btn" style={{ fontSize: 12 }}>
-          🗺 Date cadastrale — eCadastre.md ↗
+          🗺 Harta cadastrală — eCadastre.md ↗
         </a>
       </div>
 

@@ -12,7 +12,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
     "blocks": [
       {
         "t": "p",
-        "text": "ImoGhid este o platformă digitală creată pentru agenții imobiliari din Republica Moldova, care asistă pregătirea tranzacțiilor imobiliare: identifică obiectul în baza datelor cadastrale publice, analizează documentele, organizează dosarul tranzacției și ghidează agentul pas cu pas — de la verificarea obiectului până la lista de documente necesare."
+        "text": "ImoGhid este o platformă digitală creată pentru agenții imobiliari din Republica Moldova, care asistă pregătirea tranzacțiilor imobiliare: verifică obiectul după numărul cadastral, afișând sarcinile, interdicțiile și notările din sursa oficială (Registrul bunurilor imobile, prin Agenția de Guvernare Electronică), analizează documentele, organizează dosarul tranzacției și ghidează agentul pas cu pas — de la verificarea obiectului până la lista de documente necesare."
       },
       {
         "t": "p",
@@ -33,7 +33,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Vă ajută să pregătiți o tranzacție imobiliară: identifică obiectul după adresă sau număr cadastral, afișează datele publice, analizează documentele încărcate și construiește dosarul tranzacției cu liste de verificare."
+        "text": "Vă ajută să pregătiți o tranzacție imobiliară: verifică obiectul după numărul cadastral, afișând sarcinile, interdicțiile și notările din sursa oficială (Registrul bunurilor imobile), analizează, cu ajutorul inteligenței artificiale, documentele încărcate și construiește dosarul tranzacției cu liste de verificare."
       },
       {
         "t": "q",
@@ -41,7 +41,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Nu. Ele au titlu informativ și nu produc consecințe juridice. Pentru certitudine juridică se comandă extrasul oficial din Registrul bunurilor imobile."
+        "text": "Datele provin din sursa oficială (Registrul bunurilor imobile, prin Agenția de Guvernare Electronică) și nu sunt generate de inteligența artificială, dar au titlu informativ și reflectă starea la momentul interogării; nu produc consecințe juridice. Pentru certitudine juridică se comandă extrasul oficial din Registrul bunurilor imobile."
       },
       {
         "t": "q",
@@ -49,7 +49,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Datele publice arată informații generale și indicatori de tipul „există / nu există” (de ex. interdicții). Detaliile (proprietarul, temeiul dreptului, conținutul grevărilor) se obțin doar prin extrasul oficial."
+        "text": "Verificarea din Registrul bunurilor imobile (prin Agenția de Guvernare Electronică) arată informații generale și indicatori de tipul „există / nu există” (de ex. interdicții). Detaliile (proprietarul, temeiul dreptului, conținutul grevărilor) se obțin doar prin extrasul oficial."
       },
       {
         "t": "q",
@@ -170,7 +170,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Aplicația utilizează un agent bazat pe inteligență artificială pentru a extrage și verifica informații din documente și pentru a efectua căutări cadastrale. Rezultatele au caracter asistiv și orientativ; Aplicația nu adoptă decizii cu efect juridic exclusiv automatizat, fără intervenție umană. Având în vedere utilizarea unor tehnologii noi, se realizează o Evaluare a impactului asupra protecției datelor (DPIA), conform cadrului legal."
+        "text": "Aplicația utilizează un agent bazat pe inteligență artificială exclusiv pentru a extrage și verifica informații din documentele încărcate de utilizator. Datele privind sarcinile, interdicțiile și notările asupra bunurilor imobile nu sunt generate de inteligența artificială: ele provin din sursa oficială (Registrul bunurilor imobile, prin Agenția de Guvernare Electronică). Rezultatele au caracter asistiv și orientativ; Aplicația nu adoptă decizii cu efect juridic exclusiv automatizat, fără intervenție umană. Având în vedere utilizarea unor tehnologii noi, se realizează o Evaluare a impactului asupra protecției datelor (DPIA), conform cadrului legal."
       },
       {
         "t": "h2",
@@ -178,7 +178,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "li",
-        "text": "datele cadastrale provin din sursele publice (e-Cadastru) și au titlu informativ, fără a produce consecințe juridice;"
+        "text": "datele privind sarcinile, interdicțiile și notările provin din sursa oficială — Registrul bunurilor imobile, prin Agenția de Guvernare Electronică (AGE) — și au titlu informativ, fără a produce consecințe juridice;"
       },
       {
         "t": "li",
@@ -186,11 +186,31 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "h2",
+        "text": "Verificarea sarcinilor și interdicțiilor"
+      },
+      {
+        "t": "p",
+        "text": "Când verificați un imobil după numărul cadastral, ImoGhid transmite acest număr către Agenția de Guvernare Electronică (prin platforma de interoperabilitate MConnect) și afișează rezultatul: sarcini, interdicții, notări și cotele titularilor de drepturi. Alte date despre dumneavoastră sau despre clienții dumneavoastră nu sunt transmise."
+      },
+      {
+        "t": "p",
+        "text": "Solicitările sunt făcute din numele ImoGhid („BlackSpace Tech” SRL), printr-o conexiune securizată și autentificată. Datele primite provin din sursa oficială, nu sunt generate de inteligența artificială și reflectă starea imobilului la momentul verificării."
+      },
+      {
+        "t": "p",
+        "text": "Păstrăm un jurnal al verificărilor efectuate: data și ora, numărul cadastral și rezultatul (găsit / negăsit / eroare). Jurnalul este necesar pentru securitate și pentru a putea răspunde solicitărilor autorităților. Acesta nu conține codul personal (IDNP), numele, e-mailul sau alte date ale contului dumneavoastră. Contul dumneavoastră păstrează doar numărul de verificări efectuate în perioada curentă, pentru respectarea limitelor abonamentului. Dacă creați un dosar pe baza verificării, numărul cadastral și rezultatul se salvează în dosarul din contul dumneavoastră. Termen de păstrare a jurnalului: 12 luni."
+      },
+      {
+        "t": "p",
+        "text": "Baza prelucrării: executarea serviciului solicitat de dumneavoastră."
+      },
+      {
+        "t": "h2",
         "text": "Destinatari și persoane împuternicite"
       },
       {
         "t": "p",
-        "text": "Datele pot fi prelucrate de furnizori care acționează la instrucțiunea operatorului. Nu vindem și nu comercializăm datele cu caracter personal."
+        "text": "Datele pot fi prelucrate de furnizori care acționează la instrucțiunea operatorului. Pentru verificarea sarcinilor și interdicțiilor, numărul cadastral este transmis Agenției de Guvernare Electronică (AGE), în condițiile descrise mai sus. Nu vindem și nu comercializăm datele cu caracter personal."
       },
       {
         "t": "h2",
@@ -242,7 +262,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Prezenta Politică poate fi actualizată. Versiunea în vigoare este publicată în Aplicație. Data ultimei actualizări: 20.06.2026."
+        "text": "Prezenta Politică poate fi actualizată. Versiunea în vigoare este publicată în Aplicație. Data ultimei actualizări: 23.10.2026."
       }
     ]
   },
@@ -283,7 +303,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Datele cadastrale afișate sunt preluate din sursele publice și au exclusiv titlu informativ; ele nu produc consecințe juridice. Pentru certitudine juridică este necesar extrasul oficial din Registrul bunurilor imobile. Furnizorul nu garantează exhaustivitatea sau actualitatea datelor publice."
+        "text": "Datele cadastrale afișate sunt preluate din sursa oficială (Registrul bunurilor imobile, prin Agenția de Guvernare Electronică, platforma MConnect) și au exclusiv titlu informativ; ele nu produc consecințe juridice. Pentru certitudine juridică este necesar extrasul oficial din Registrul bunurilor imobile. Furnizorul nu garantează exhaustivitatea sau actualitatea datelor furnizate de registru. Verificarea reflectă starea imobilului la momentul interogării, nu înlocuiește extrasul din Registrul bunurilor imobile și nu constituie o concluzie juridică."
       },
       {
         "t": "h2",
@@ -371,7 +391,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Termenii pot fi actualizați; versiunea în vigoare se publică în Aplicație. Data ultimei actualizări: 20.06.2026."
+        "text": "Termenii pot fi actualizați; versiunea în vigoare se publică în Aplicație. Data ultimei actualizări: 23.10.2026."
       },
       {
         "t": "h2",

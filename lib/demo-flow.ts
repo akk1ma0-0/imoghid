@@ -31,7 +31,7 @@ export const DEMO_FLOW: DemoStage[] = [
       {
         highlight: "#search-input",
         tooltip:
-          "Introduceți adresa obiectului pentru verificare. Sistemul caută automat în Registrul bunurilor imobile.",
+          "Introduceți numărul cadastral al obiectului. În versiunea reală, verificarea se face în sursa oficială; aici vedeți date demonstrative.",
         action: "auto-fill",
         value: DEMO_TRANSACTION.step1Data.address,
       },
@@ -43,7 +43,7 @@ export const DEMO_FLOW: DemoStage[] = [
       {
         highlight: "#result-card",
         tooltip:
-          "Rezultatul verificării: date cadastrale, suprafață, destinație, valoare estimată și starea grevărilor (drepturi reale, notări, interdicții).",
+          "Rezultatul verificării: suprafață, destinație și starea grevărilor (alte drepturi, notări, interdicții). Date demonstrative.",
         action: "show-flags",
       },
       {

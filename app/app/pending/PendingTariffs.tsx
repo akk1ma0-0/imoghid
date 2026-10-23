@@ -84,9 +84,9 @@ const TARIFFS: Tariff[] = [
 // features). Один справочник на все планы: описание фичи одинаково независимо от плана/лимита.
 const FEATURE_DESCRIPTIONS: Record<string, string> = {
   "Verificare cadastrală":
-    "Verifică un obiect după numărul cadastral, pe baza informațiilor oficiale din Cadastru, și indică dacă există interdicții, notări sau alte drepturi înregistrate.",
+    "Verifică un obiect după numărul cadastral, în sursa oficială (Registrul bunurilor imobile, prin Agenția de Guvernare Electronică), și arată dacă există interdicții, notări sau alte drepturi. Reflectă starea la momentul verificării și nu înlocuiește extrasul oficial.",
   "Examinarea dosarului":
-    "Verificare automată a actelor de proprietate — platforma compară documentele încărcate cu datele din registru și semnalează riscuri înainte de a lua obiectul în lucru.",
+    "Verificare automată a actelor de proprietate — platforma compară documentele încărcate cu datele din sursa oficială (Registrul bunurilor imobile) și semnalează riscuri înainte de a lua obiectul în lucru.",
   "Obiectele mele":
     "Tabloul de bord cu toate obiectele aflate în lucru — status, etapă și istoric, într-un singur loc.",
   "Check-list acte":

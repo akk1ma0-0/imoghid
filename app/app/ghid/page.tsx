@@ -119,7 +119,7 @@ export default function DemoGhidPage() {
               </div>
             </div>
             <div className="card">
-              <div className="card-hd"><b>Comparație cu datele din cadastru</b></div>
+              <div className="card-hd"><b>Comparație cu datele din cadastru</b><span className="badge b-amber" style={{ marginLeft: "auto" }}>Date demonstrative</span></div>
               <div className="card-bd">
                 <div className="field-row">
                   <DemoField label="Suprafață (doc / cadastru)" value={`${D.step3Data.objectComparison.suprafataDoc} / ${D.step3Data.objectComparison.suprafataCadastru} ✓`} />
@@ -163,7 +163,7 @@ export default function DemoGhidPage() {
         return (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div className="card" style={{ marginBottom: 0 }}>
-              <div className="card-hd" style={{ background: "var(--blue-bg)" }}><b style={{ color: "var(--blue)" }}>Partea 1 — Vânzător</b></div>
+              <div className="card-hd" style={{ background: "var(--blue-bg)" }}><b style={{ color: "var(--blue)" }}>Partea 1 — Vânzător</b><span className="badge b-amber" style={{ marginLeft: "auto" }}>Date demonstrative</span></div>
               <div className="card-bd">
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{D.step5Data.party1Name}</div>
                 {["Act de proprietate", "Extras din RBI", "Buletin de identitate", "Declarație consimțământ soț"].map((doc) => (
