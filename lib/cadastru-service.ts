@@ -1,8 +1,9 @@
 // Поиск в кадастре (Verificare imobil).
 //
 // Извлечение записи по кадастровому номеру (lookupCadastru) идёт через VPS-коннектор
-// MConnect (SOAP GetRealEstate за VPN к STISC; сейчас коннектор может отвечать моком той же
-// структуры). Разрешение адрес → здание/квартира (picker) НЕ покрывается методом
+// MConnect (SOAP GetRealEstate за VPN к STISC; коннектор отвечает mode "live" | "mock").
+// CallingUser коннектор берёт из своих настроек (IDNP представителя организации) —
+// приложение его не передаёт. Разрешение адрес → здание/квартира (picker) НЕ покрывается методом
 // GetRealEstate (он принимает кадастровый номер), поэтому этот слой моковый
 // (CAD_BUILDINGS / CAD_ADDR_INDEX) и выключен флагом ENABLE_ADDRESS_SEARCH.
 //
@@ -11,7 +12,8 @@
 //   lookupCadastru(cad)         — сеть: запись или типизированная ошибка (не бросает).
 
 import {
-  CAD_FULL_RE,
+  CAD_ERROR_CODES,
+  CAD_NUMBER_RE,
   ENABLE_ADDRESS_SEARCH,
   normalizeCadastralNumber,
   type CadErrorCode,
@@ -21,13 +23,17 @@ import {
 export type CadRecord = {
   addr: string;
   supr: string;
+  suprM2?: number | null; // площадь числом (из "87.90 m.p."); null — не распознана
   dest: string;
   val: string;
   prop: string;
   dr: string; // Alte drepturi reale
   not: string; // Notări
   int: string; // Interdicții
+  titulari?: string | null; // агрегат по правообладателям (без персональных данных)
 };
+
+export type CadSource = "live" | "mock";
 
 export type TraceStep = { s: "ok" | "run" | "wait"; title: string; val?: string; step?: string };
 
@@ -39,7 +45,7 @@ export type CadResolveResult =
   | { kind: "error"; code: CadErrorCode; title?: string; text?: string };
 
 export type CadLookupResult =
-  | { ok: true; cadastralNo: string; record: CadRecord }
+  | { ok: true; cadastralNo: string; record: CadRecord; source: CadSource }
   | { ok: false; code: CadErrorCode };
 
 export const FLAG_EXISTS = "Există";
@@ -77,11 +83,29 @@ type ConnectorRealEstate = {
   Rights?: ConnectorRight[];
 };
 
-type FetchOutcome = { ok: true; data: ConnectorRealEstate } | { ok: false; code: CadErrorCode };
+type ConnectorSuccess = { mode?: string; data?: ConnectorRealEstate | null };
+type ConnectorError = { error?: { code?: unknown } };
+
+type FetchOutcome =
+  | { ok: true; data: ConnectorRealEstate; source: CadSource }
+  | { ok: false; code: CadErrorCode };
+
+const isCadErrorCode = (v: unknown): v is CadErrorCode =>
+  typeof v === "string" && (CAD_ERROR_CODES as readonly string[]).includes(v);
+
+// Запасная классификация, если тело ошибки без известного error.code (прокси, nginx и т.п.).
+function codeFromHttpStatus(status: number): CadErrorCode {
+  if (status === 400) return "INVALID_INPUT";
+  if (status === 401 || status === 403) return "UNAUTHORIZED";
+  if (status === 404) return "NOT_FOUND";
+  if (status === 408 || status === 504) return "TIMEOUT";
+  if (status === 503) return "UNREACHABLE";
+  return "SOAP_FAULT";
+}
 
 // Запрос к коннектору. Не бросает: любой исход → типизированный результат.
-// Классификация только по транспорту/HTTP-статусу; разбор кодов ошибок коннектора — позже.
-async function fetchRealEstate(cad: string): Promise<FetchOutcome> {
+// Ошибка классифицируется по { error: { code } } коннектора, при его отсутствии — по HTTP-статусу.
+async function fetchRealEstate(cad: string, requestId: string): Promise<FetchOutcome> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), connectorTimeoutMs());
   try {
@@ -93,37 +117,61 @@ async function fetchRealEstate(cad: string): Promise<FetchOutcome> {
           "Content-Type": "application/json",
           Authorization: `Bearer ${process.env.CONNECTOR_AUTH_TOKEN ?? ""}`,
         },
-        body: JSON.stringify({ cadastralNumber: cad }),
+        // callingUser НЕ передаём — коннектор берёт его из своих настроек.
+        body: JSON.stringify({ cadastralNumber: cad, requestId }),
         signal: ctrl.signal,
         cache: "no-store",
       });
     } catch {
-      // Таймаут — наш abort; иначе сеть/DNS/отказ соединения до коннектора.
+      // Таймаут — наш abort; иначе сеть/DNS/TLS/отказ соединения до коннектора.
       return { ok: false, code: ctrl.signal.aborted ? "TIMEOUT" : "UNREACHABLE" };
     }
 
-    if (res.status === 404) return { ok: false, code: "NOT_FOUND" };
-    if (res.status === 408 || res.status === 504) return { ok: false, code: "TIMEOUT" };
-    if (res.status === 503) return { ok: false, code: "UNREACHABLE" };
-    if (!res.ok) return { ok: false, code: "UPSTREAM_ERROR" };
-
-    let json: { data?: ConnectorRealEstate | null };
+    let json: (ConnectorSuccess & ConnectorError) | null;
     try {
       json = await res.json();
     } catch {
-      return { ok: false, code: ctrl.signal.aborted ? "TIMEOUT" : "UPSTREAM_ERROR" };
+      // Тело не JSON (или оборвалось по нашему таймауту).
+      if (ctrl.signal.aborted) return { ok: false, code: "TIMEOUT" };
+      json = null;
     }
-    // Пустой ответ (нет записи) = объект не найден.
-    if (!json?.data?.CadastralNumber) return { ok: false, code: "NOT_FOUND" };
-    return { ok: true, data: json.data };
+
+    if (!res.ok) {
+      const code = json?.error?.code;
+      return { ok: false, code: isCadErrorCode(code) ? code : codeFromHttpStatus(res.status) };
+    }
+    // 200 без записи — нарушение контракта (NOT_FOUND приходит 404-м) → ошибка реестра.
+    if (!json?.data?.CadastralNumber) return { ok: false, code: "SOAP_FAULT" };
+    return { ok: true, data: json.data, source: json.mode === "live" ? "live" : "mock" };
   } finally {
     clearTimeout(timer);
   }
 }
 
+// "87.90 m.p." → 87.9. Только квадратные метры (m.p. / mp / m² / m2 / без единицы);
+// иное (ha, мусор) → null, тогда в карточке остаётся исходная строка.
+export function parseAreaM2(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const m = raw.trim().match(/^(\d+(?:[.,]\d+)?)\s*(m\.?\s*p\.?|mp|m²|m2|m\.?\s*pătra[țt]i)?$/i);
+  if (!m) return null;
+  const n = Number(m[1].replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Свод по правообладателям: только их число и доли — без имён/IDNP. Доля проходит, только если
+// похожа на долю (1/2, 0.5, 50%); иначе — «nespecificată» (на случай неожиданного содержимого).
+function summarizeHolders(rights: ConnectorRight[] | undefined): string | null {
+  if (!Array.isArray(rights) || rights.length < 2) return null;
+  const quotas = rights.map((r) => {
+    const q = typeof r?.Quota === "string" ? r.Quota.trim() : "";
+    return /^[\d\s/.,%]{1,15}$/.test(q) ? q.replace(/\s+/g, "") : "nespecificată";
+  });
+  return `${rights.length} titulari de drepturi, cote: ${quotas.join(", ")}`;
+}
+
 // Свод одного булева признака по всем Right: есть хоть одно true → «există»; все записи
 // явно false → «nu există»; иначе (поле не пришло / Rights пуст) → неизвестно.
-// Пустой Rights считаем неизвестным, а не «чисто»: TODO(AGE) — подтвердить семантику.
+// Пустой Rights = «не удалось определить», а не «нет»: TODO(AGE) — подтвердить семантику.
 function aggregateRightFlag(
   rights: ConnectorRight[] | undefined,
   key: "HasInterdictions" | "HasNotations" | "HasOtherRights",
@@ -145,33 +193,37 @@ function mapRealEstate(d: ConnectorRealEstate): CadRecord {
       a.Block ? `bl. ${a.Block}` : "",
       a.Flat ? `ap. ${a.Flat}` : "",
       a.Zone,
+      a.Locality,
     ]
       .filter(Boolean)
       .join(", ") || d.CadastralNumber;
+  const suprM2 = parseAreaM2(d.Area);
   return {
     addr,
-    supr: d.Area ? `${d.Area} m²` : "—",
+    supr: suprM2 !== null ? `${suprM2} m²` : d.Area || "—",
+    suprM2,
     dest: d.Enjoyment || d.Type || "—",
     val: "—", // nu este în structura GetRealEstate
     prop: "—", // nu este în structura GetRealEstate
     dr: aggregateRightFlag(d.Rights, "HasOtherRights"),
     not: aggregateRightFlag(d.Rights, "HasNotations"),
     int: aggregateRightFlag(d.Rights, "HasInterdictions"),
+    titulari: summarizeHolders(d.Rights),
   };
 }
 
-// Сетевой шаг: запись по полному кадастровому номеру. Не бросает.
+// Сетевой шаг: запись по кадастровому номеру. Не бросает.
 // Формат проверяется ещё раз (defense in depth) — невалидный номер в сеть не уходит.
-export async function lookupCadastru(rawCad: string): Promise<CadLookupResult> {
+export async function lookupCadastru(rawCad: string, requestId: string): Promise<CadLookupResult> {
   const cad = normalizeCadastralNumber(rawCad);
-  if (!CAD_FULL_RE.test(cad)) return { ok: false, code: "INVALID_FORMAT" };
+  if (!CAD_NUMBER_RE.test(cad)) return { ok: false, code: "INVALID_INPUT" };
   try {
-    const r = await fetchRealEstate(cad);
+    const r = await fetchRealEstate(cad, requestId);
     if (!r.ok) return r;
-    return { ok: true, cadastralNo: cad, record: mapRealEstate(r.data) };
+    return { ok: true, cadastralNo: cad, record: mapRealEstate(r.data), source: r.source };
   } catch {
     // Неожиданное исключение (например, в маппинге) — не глотаем молча, а типизируем.
-    return { ok: false, code: "UPSTREAM_ERROR" };
+    return { ok: false, code: "SOAP_FAULT" };
   }
 }
 
@@ -220,11 +272,11 @@ export function resolveCadastruQuery(
 ): CadResolveResult {
   const addressSearch = opts.addressSearch ?? ENABLE_ADDRESS_SEARCH;
   const clean = (query ?? "").trim().replace(/\s+/g, " ");
-  if (!clean) return { kind: "error", code: "INVALID_FORMAT" };
+  if (!clean) return { kind: "error", code: "INVALID_INPUT" };
 
-  // Полный кадастровый номер → напрямую в коннектор.
+  // Кадастровый номер (участок/здание/помещение) → напрямую в коннектор.
   const asCad = normalizeCadastralNumber(clean);
-  if (CAD_FULL_RE.test(asCad)) {
+  if (CAD_NUMBER_RE.test(asCad)) {
     return {
       kind: "cad",
       cad: asCad,
@@ -235,7 +287,7 @@ export function resolveCadastruQuery(
     };
   }
 
-  if (!addressSearch) return { kind: "error", code: "INVALID_FORMAT" };
+  if (!addressSearch) return { kind: "error", code: "INVALID_INPUT" };
 
   // Адрес (разрешение адрес → здание/квартира — моковое, не покрывается GetRealEstate)
   const apt = cadExtractApt(clean);

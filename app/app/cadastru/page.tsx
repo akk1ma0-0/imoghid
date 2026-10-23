@@ -126,12 +126,14 @@ type TraceStep = { s: "ok" | "run" | "wait"; title: string; val?: string; step?:
 type CadRecord = {
   addr: string;
   supr: string;
+  suprM2?: number | null; // площадь числом из MConnect ("87.90 m.p." → 87.9)
   dest: string;
   val: string;
   prop: string;
   dr: string;
   not: string;
   int: string;
+  titulari?: string | null; // «N titulari de drepturi, cote: …» — без персональных данных
 };
 type Building = { bcad: string; addr: string; teren: string; apts: number[] };
 
@@ -206,6 +208,8 @@ export default function CadastruPage() {
   const [overage, setOverage] = useState<{ feeMdl: number; feature: string } | null>(null);
   const [overageConsent, setOverageConsent] = useState(false);
   const [confirmed, setConfirmed] = useState<{ addr: string; cad: string } | null>(null);
+  // Коннектор в режиме mock — данные не из реестра; предупреждаем явно.
+  const [mockSource, setMockSource] = useState(false);
 
   // ── Ввод вручную (текст / скриншот OCR) ──
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -353,13 +357,14 @@ export default function CadastruPage() {
     setFallback(null);
     setOverage(null);
     setManualMode(false);
+    setMockSource(false);
     setOcrRawText(null);
     setParseWarn(null);
     // Без адресного поиска принимается только кадастровый номер: невалидный формат ловим
     // ещё на клиенте — без запроса (сервер проверяет повторно и тоже ничего не списывает).
     if (!ENABLE_ADDRESS_SEARCH && !isValidCadastralNumber(raw)) {
       setTrace(null);
-      setFallback(CAD_ERROR_TEXT.INVALID_FORMAT);
+      setFallback(CAD_ERROR_TEXT.INVALID_INPUT);
       return;
     }
     setTrace([{ s: "run", title: "Recunosc datele introduse…" }]);
@@ -405,6 +410,7 @@ export default function CadastruPage() {
     if (data.status === "record") {
       setTrace((data.trace as TraceStep[]) ?? null);
       setRecord({ cadastralNo: String(data.cadastralNo), record: data.record as CadRecord });
+      setMockSource(data.source === "mock");
       return;
     }
     if (data.status === "picker") {
@@ -431,7 +437,9 @@ export default function CadastruPage() {
     const obj = {
       address: addr,
       cadastralNo: record.cadastralNo,
-      suprafata: noDash(record.record.supr),
+      // Поле шага 1 — «Suprafață (m²)»: из MConnect переносим число, из ручного ввода — как есть.
+      suprafata:
+        typeof record.record.suprM2 === "number" ? String(record.record.suprM2) : noDash(record.record.supr),
       destinatie: noDash(record.record.dest),
       valoare: noDash(record.record.val),
     };
@@ -620,6 +628,11 @@ export default function CadastruPage() {
                     comandați extrasul oficial din RBI.
                   </div>
                 )}
+                {mockSource && !manualMode && (
+                  <div className="note note-warn" style={{ marginBottom: 12 }}>
+                    Răspuns de test (mod mock) — datele nu provin din Registrul bunurilor imobile.
+                  </div>
+                )}
                 {parseWarn && (
                   <div className="notice amber" style={{ marginBottom: 12 }}>
                     <div className="notice-dot" />
@@ -679,6 +692,11 @@ export default function CadastruPage() {
                   <FlagBox k="Notări" v={record.record.not} />
                   <FlagBox k="Interdicții" v={record.record.int} critical />
                 </div>
+                {record.record.titulari && (
+                  <div className="note" style={{ marginTop: 10 }}>
+                    {record.record.titulari}
+                  </div>
+                )}
 
                 {ocrRawText && (
                   <details className="ocr-raw">

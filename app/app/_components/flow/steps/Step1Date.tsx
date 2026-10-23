@@ -246,7 +246,7 @@ export function Step1Date({
                 <label>Număr cadastral</label>
                 <input
                   type="text"
-                  placeholder="0100000.000.0000"
+                  placeholder="0100109.159.02.001"
                   value={cadastralNo}
                   onChange={(e) => setCadastralNo(e.target.value)}
                 />
@@ -297,7 +297,7 @@ export function Step1Date({
                 <div className="field-row">
                   <div className="field-group">
                     <label>Număr cadastral</label>
-                    <input type="text" placeholder="0100000.000.0000" value={cadastralNo} onChange={(e) => setCadastralNo(e.target.value)} />
+                    <input type="text" placeholder="0100109.159.02.001" value={cadastralNo} onChange={(e) => setCadastralNo(e.target.value)} />
                   </div>
                   <div className="field-group">
                     <label>Tip obiect</label>
@@ -336,7 +336,7 @@ export function Step1Date({
                 <div className="field-row">
                   <div className="field-group">
                     <label>Număr cadastral</label>
-                    <input type="text" placeholder="0100000.000.0000" value={cadastralNo2} onChange={(e) => setCadastralNo2(e.target.value)} />
+                    <input type="text" placeholder="0100109.159.02.001" value={cadastralNo2} onChange={(e) => setCadastralNo2(e.target.value)} />
                   </div>
                   <div className="field-group">
                     <label>Tip obiect</label>

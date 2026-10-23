@@ -3,12 +3,13 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/transaction-auth";
 import { isDemoRequest } from "@/lib/demo-guard";
 import { usageBlockResponse } from "@/lib/usage";
-import { CAD_ERROR_STATUS } from "@/lib/cadastru-config";
+import { CAD_ERROR_STATUS, CAD_PUBLIC_CODE } from "@/lib/cadastru-config";
 import { runCadastruLookup } from "@/lib/cadastru-lookup";
 
 // POST /api/cadastru/lookup { query }
-//   200 { status: "record" | "picker", … }
-//   400 INVALID_FORMAT · 404 NOT_FOUND · 502 UPSTREAM_ERROR · 503 UNREACHABLE · 504 TIMEOUT
+//   200 { status: "record", source: "live" | "mock" | "demo", … } | { status: "picker", … }
+//   400 INVALID_INPUT · 404 NOT_FOUND · 502 SOAP_FAULT · 503 UNREACHABLE · 504 TIMEOUT
+//   503 UNAVAILABLE (WSSEC / UNAUTHORIZED коннектора — причина наружу не раскрывается)
 //     → { status: "error", code, title, text }
 //   402 / 403 / 429 — лимит тарифа (usageBlockResponse).
 // Лимит резервируется только перед реальным вызовом кадастра и возвращается при неудаче
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
         cadastralNo: outcome.cadastralNo,
         record: outcome.record,
         trace: outcome.trace,
+        source: outcome.source,
       });
     case "picker":
       return NextResponse.json({
@@ -50,7 +52,7 @@ export async function POST(request: Request) {
       return usageBlockResponse(outcome.usage, "CADASTRU_CHECK");
     case "error":
       return NextResponse.json(
-        { status: "error", code: outcome.code, title: outcome.title, text: outcome.text },
+        { status: "error", code: CAD_PUBLIC_CODE[outcome.code], title: outcome.title, text: outcome.text },
         { status: CAD_ERROR_STATUS[outcome.code] },
       );
   }

@@ -6,10 +6,10 @@ import {
   resolveCadastruQuery,
   type CadBuilding,
   type CadRecord,
+  type CadSource,
   type TraceStep,
 } from "@/lib/cadastru-service";
 import { DEMO_CADASTRU_RESULT } from "@/lib/demo-data";
-import { userPseudonym } from "@/lib/pseudonym";
 import { releaseUsage, reserveUsage, type UsageResult } from "@/lib/usage";
 
 // Оркестрация кадастровой проверки (роут /api/cadastru/lookup — тонкая обёртка над ней).
@@ -19,18 +19,27 @@ import { releaseUsage, reserveUsage, type UsageResult } from "@/lib/usage";
 //   3) вызов кадастра;
 //   4) успех = получена запись → резерв остаётся списанием; иначе — возврат резерва в finally.
 // Demo: только мок, без коннектора, без резерва и без записей в БД.
+// requestId уходит в коннектор и в наш лог — по нему сопоставляются логи двух сторон.
 
 export type CadastruOutcome =
-  | { kind: "record"; cadastralNo: string; record: CadRecord; trace: TraceStep[] }
+  | { kind: "record"; cadastralNo: string; record: CadRecord; trace: TraceStep[]; source: CadSource | "demo" }
   | { kind: "picker"; building: CadBuilding; note: string; trace: TraceStep[] }
   | { kind: "blocked"; usage: Extract<UsageResult, { ok: false }> }
   | { kind: "error"; code: CadErrorCode; title: string; text: string };
 
 type LogCode = CadErrorCode | "OK" | "PICKER" | "BLOCKED" | "DEMO" | "RELEASE_FAILED";
 
-// Лог без персональных данных: ни кадастрового номера, ни тела ответа, ни e-mail.
-function logLookup(requestId: string, user: string, code: LogCode, ms: number) {
-  const line = JSON.stringify({ evt: "cadastru_lookup", requestId, user, code, ms });
+// Лог без персональных данных: только requestId, код и длительность — ни кадастрового
+// номера, ни тела ответа, ни идентификатора пользователя.
+// WSSEC / UNAUTHORIZED — сломана наша конфигурация (сертификат, токен): error + маркер алерта.
+const ALERT_CODES: ReadonlySet<LogCode> = new Set(["WSSEC", "UNAUTHORIZED", "RELEASE_FAILED"]);
+
+function logLookup(requestId: string, code: LogCode, ms: number) {
+  if (ALERT_CODES.has(code)) {
+    console.error(JSON.stringify({ evt: "cadastru_lookup", requestId, code, ms, alert: "CADASTRU_CONNECTOR" }));
+    return;
+  }
+  const line = JSON.stringify({ evt: "cadastru_lookup", requestId, code, ms });
   if (code === "OK" || code === "PICKER" || code === "DEMO") console.info(line);
   else console.warn(line);
 }
@@ -51,9 +60,8 @@ export async function runCadastruLookup(args: {
   addressSearch?: boolean; // переопределение ENABLE_ADDRESS_SEARCH (тесты)
 }): Promise<CadastruOutcome> {
   const requestId = randomUUID();
-  const user = userPseudonym(args.userId);
   const started = Date.now();
-  const done = (code: LogCode) => logLookup(requestId, user, code, Date.now() - started);
+  const done = (code: LogCode) => logLookup(requestId, code, Date.now() - started);
 
   // 1) Резолв без сети.
   const resolved = resolveCadastruQuery(args.query, { addressSearch: args.addressSearch });
@@ -73,7 +81,8 @@ export async function runCadastruLookup(args: {
     return {
       kind: "record",
       cadastralNo: d.cadastralNo,
-      record: { addr: d.addr, supr: d.supr, dest: d.dest, val: d.val, prop: d.prop, dr: d.dr, not: d.not, int: d.int },
+      record: { addr: d.addr, supr: d.supr, dest: d.dest, val: d.val, prop: d.prop, dr: d.dr, not: d.not, int: d.int, titulari: null },
+      source: "demo",
       trace: [
         { s: "ok", title: "Număr cadastral", val: d.cadastralNo },
         { s: "ok", title: "Înregistrare demonstrativă (demo)" },
@@ -91,21 +100,27 @@ export async function runCadastruLookup(args: {
   // 3) Вызов; 4) возврат резерва при любой неудаче — в finally (в т.ч. при исключении).
   let success = false;
   try {
-    const result = await lookupCadastru(resolved.cad);
+    const result = await lookupCadastru(resolved.cad, requestId);
     if (!result.ok) {
       done(result.code);
       return errorOutcome(result.code);
     }
     success = true;
     done("OK");
-    return { kind: "record", cadastralNo: result.cadastralNo, record: result.record, trace: resolved.trace };
+    return {
+      kind: "record",
+      cadastralNo: result.cadastralNo,
+      record: result.record,
+      trace: resolved.trace,
+      source: result.source,
+    };
   } finally {
     if (!success) {
       try {
         await releaseUsage(reserved.reservation);
       } catch {
         // Не удалось вернуть резерв — ответ пользователю не ломаем, но сигналим громко.
-        logLookup(requestId, user, "RELEASE_FAILED", Date.now() - started);
+        logLookup(requestId, "RELEASE_FAILED", Date.now() - started);
       }
     }
   }
