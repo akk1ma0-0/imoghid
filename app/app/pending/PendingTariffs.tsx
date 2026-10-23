@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useDemo } from "@/app/contexts/DemoContext";
+import { AGENCY_SEAT_FEE_MDL } from "@/lib/plan-limits";
 
 // Плашки тарифов (plan = null). Две плашки → оплата VictoriaBank. Ручное назначение
 // плана админом остаётся параллельным путём. Показывается, когда WAITLIST_MODE выключен.
@@ -61,7 +62,7 @@ const TARIFFS: Tariff[] = [
   {
     plan: "HUB",
     label: "HUB / Agenție",
-    price: "450 MDL",
+    price: `${AGENCY_SEAT_FEE_MDL} MDL`, // единый источник цены места — lib/plan-limits.ts
     priceUnit: "/ loc",
     priceInline: true,
     agencyCta: true,
@@ -327,11 +328,15 @@ export function PendingTariffs({
                 {t.label}
               </div>
               {t.priceInline ? (
-                // Цена + единица в одну строку, меньшим шрифтом — не переносится на узких карточках.
-                <div style={{ fontSize: 22, fontWeight: 700, margin: "8px 0 4px", whiteSpace: "nowrap" }}>
-                  {t.price}{" "}
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink3)" }}>{t.priceUnit}</span>
-                </div>
+                // «450 MDL / loc» в одну строку (не переносится на узких карточках), ниже период
+                // тем же стилем, что у Basic/Pro.
+                <>
+                  <div style={{ fontSize: 22, fontWeight: 700, margin: "8px 0 4px", whiteSpace: "nowrap" }}>
+                    {t.price}{" "}
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink3)" }}>{t.priceUnit}</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink3)" }}>/ lună</div>
+                </>
               ) : (
                 <>
                   <div style={{ fontSize: 30, fontWeight: 700, margin: "8px 0 4px" }}>{t.price}</div>
