@@ -50,6 +50,7 @@ export async function POST(request: Request) {
         data: {
           order,
           userId: sess.userId,
+          payerEmail: user.email, // снимок для хранения операции после удаления аккаунта
           plan: user.plan ?? "BASIC", // Payment.plan non-null; для single-access — справочно
           amount,
           currency: c.currency,

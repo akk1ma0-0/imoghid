@@ -6,9 +6,11 @@ import { prisma } from "@/lib/prisma";
 // Используется и self-delete (/api/user), и admin-delete (/api/admin/users/[id]).
 //
 // onDelete по схеме для связей на User:
-//   Cascade  → Payment, EmailVerificationToken, UserDocument, CreatorPost, UserFile,
-//              Notification (удаляются автоматически вместе с User);
-//   SetNull  → PageVisit (остаётся, userId → null — сознательно, для аналитики);
+//   Cascade  → EmailVerificationToken, UserDocument, CreatorPost, UserFile, Notification,
+//              PaymentMethod, Subscription (удаляются автоматически вместе с User);
+//   SetNull  → Payment и RecurringConsent (платёжные операции хранятся 2 года — контракт банка,
+//              п. 3.2.5: остаются с userId → null, плательщик — в Payment.payerEmail);
+//              PageVisit (остаётся, userId → null — сознательно, для аналитики);
 //   Restrict → InviteCode, Transaction (+ каскад дочерних), Report, SavedListingContact,
 //              BlacklistReport, AnuntGeneration — удаляем ЯВНО до delete(User),
 //              иначе FK-constraint не даст удалить пользователя.
@@ -26,6 +28,16 @@ export async function deleteUserCompletely(userId: string): Promise<void> {
   const hashes = brs.map((b) => b.phoneHash);
 
   await prisma.$transaction(async (db) => {
+    // Платежи НЕ удаляются: после удаления аккаунта они остаются с userId = null. Снимок
+    // e-mail плательщика проставлен при создании платежа; здесь — подстраховка для записей
+    // без него, пока связь с аккаунтом ещё есть.
+    const owner = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (owner) {
+      await db.payment.updateMany({
+        where: { userId, payerEmail: null },
+        data: { payerEmail: owner.email },
+      });
+    }
     if (hashes.length) {
       await db.listing999.updateMany({
         where: { blacklistPhoneHash: { in: hashes } },
@@ -41,8 +53,9 @@ export async function deleteUserCompletely(userId: string): Promise<void> {
     // Дочерние записи транзакций каскадятся (onDelete: Cascade в схеме).
     await db.transaction.deleteMany({ where: { userId } });
     await db.inviteCode.deleteMany({ where: { createdById: userId } });
-    // Cascade-связи (Payment, EmailVerificationToken, UserDocument, CreatorPost,
-    // UserFile, Notification) уйдут автоматически; PageVisit отвяжется (SetNull).
+    // Cascade-связи (EmailVerificationToken, UserDocument, CreatorPost, UserFile, Notification,
+    // PaymentMethod, Subscription) уйдут автоматически; Payment, RecurringConsent и PageVisit
+    // отвяжутся (SetNull).
     await db.user.delete({ where: { id: userId } });
   });
 

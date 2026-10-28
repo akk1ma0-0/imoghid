@@ -187,6 +187,9 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   payments             Payment[]
   pageVisits           PageVisit[]
+  paymentMethods       PaymentMethod[]
+  subscriptions        Subscription[]
+  recurringConsents    RecurringConsent[]
 
   @@map("users")
 }
@@ -196,7 +199,10 @@ model User {
 model Payment {
   id        String          @id @default(cuid())
   order     String          @unique // числовой ORDER, отправленный банку (min 6 цифр)
-  userId    String
+  // Платёжные операции хранятся не менее 2 лет (контракт банка, п. 3.2.5) — и после удаления
+  // аккаунта: userId → null (SetNull), плательщик остаётся в payerEmail (снимок при создании).
+  userId    String?
+  payerEmail String?
   plan      SubscriptionPlan // тариф, который активируется при успешной оплате
   amount    String          // "300.00" / "500.00" (MDL), decimal с точкой
   currency  String          @default("MDL")
@@ -226,19 +232,162 @@ model Payment {
   // Идемпотентность: атомарный «клейм» перед вызовом TRTYPE=21. Только первый callback
   // переводит null → now(); повторные/параллельные callback'и банка не дублируют завершение.
   completionStartedAt DateTime?
+
+  // ── Провайдер и рекуррентные списания (CyberSource). Для платежей VictoriaBank — значения
+  // по умолчанию / null; VB-поток эти поля не читает.
+  provider             PaymentProvider  @default(VICTORIABANK)
+  initiator            PaymentInitiator @default(CUSTOMER) // CUSTOMER — клиент на сайте (CIT); MERCHANT — автосписание (MIT)
+  subscriptionId       String?   // подписка, по которой это списание
+  periodStart          DateTime? // начало оплачиваемого периода подписки
+  attemptNo            Int?      // номер попытки списания за период (1, 2, …)
+  csTransactionId      String?   @unique // id транзакции CyberSource
+  networkTransactionId String?   // id сети карты (Visa/MC) — нужен как previousTransactionId для MIT
+  declineReason        String?   // причина отказа провайдера (errorInformation.reason)
+  processorCode        String?   // код ответа процессора/банка-эмитента
+
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   singleAccessGrants SingleAccessGrant[]
+  recurringConsents  RecurringConsent[]
 
+  // Ключ идемпотентности автосписания: одна попытка N за период подписки. Для платежей без
+  // подписки поля NULL → в PostgreSQL NULL не конфликтуют, ограничение их не затрагивает.
+  @@unique([subscriptionId, periodStart, attemptNo])
   @@index([userId])
   @@map("payments")
+}
+
+// ── CyberSource: сохранённая карта (токены TMS). Номер карты, CVV и данные 3-D Secure НЕ
+// хранятся — только идентификаторы токенов и отображаемые признаки карты.
+model PaymentMethod {
+  id                     String              @id @default(cuid())
+  userId                 String
+  provider               PaymentProvider     @default(CYBERSOURCE)
+  tmsCustomerId          String              // TMS customer
+  tmsPaymentInstrumentId String              @unique // TMS paymentInstrument
+  cardLast4              String?
+  cardBrand              String?             // Visa / Mastercard
+  expMonth               Int?
+  expYear                Int?
+  status                 PaymentMethodStatus @default(ACTIVE)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  removedAt              DateTime?           // токен удалён у провайдера
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+
+  @@index([userId])
+  @@map("payment_methods")
+}
+
+// ── Подписка с автопродлением (CyberSource). Личная (PERSONAL: Basic/Pro) или агентская (AGENCY:
+// оплата мест HUB). Пока не используется кодом — VB-поток живёт без этой таблицы.
+// «Не больше одной активной подписки на пользователя на kind» — проверяется в коде (частичный
+// уникальный индекс Prisma не описывает).
+model Subscription {
+  id                          String             @id @default(cuid())
+  userId                      String             // плательщик (для AGENCY — владелец агентства)
+  kind                        SubscriptionKind
+  plan                        SubscriptionPlan
+  agencyId                    String?
+  status                      SubscriptionStatus @default(ACTIVE)
+  provider                    PaymentProvider    @default(CYBERSOURCE)
+  paymentMethodId             String?
+  initialNetworkTransactionId String?            // networkTransactionId первого платежа (CIT)
+  currentPeriodStart          DateTime
+  currentPeriodEnd            DateTime
+  nextChargeAt                DateTime?          // когда пробовать следующее списание (с учётом повторов)
+  failedAttempts              Int                @default(0)
+  cancelAtPeriodEnd           Boolean            @default(false)
+  canceledAt                  DateTime?
+  createdAt                   DateTime           @default(now())
+  updatedAt                   DateTime           @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency        Agency?        @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  payments      Payment[]
+  consents      RecurringConsent[]
+
+  @@index([userId, kind, status])
+  @@index([status, nextChargeAt])
+  @@index([agencyId])
+  @@map("subscriptions")
+}
+
+// Согласие клиента на автопродление — запись для аудита и споров (правила сетей для
+// stored credentials). Не меняется задним числом; переживает удаление аккаунта/подписки
+// (SetNull), как и платежи. ip/userAgent — момент согласия.
+model RecurringConsent {
+  id             String   @id @default(cuid())
+  userId         String?
+  subscriptionId String?
+  paymentId      String?  // первый платёж, при котором дано согласие
+  textVersion    String   // версия текста согласия, показанного клиенту
+  amount         String   // сумма периода на момент согласия, "300.00"
+  currency       String
+  acceptedAt     DateTime @default(now())
+  ip             String?
+  userAgent      String?
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@map("recurring_consents")
+}
+
+enum SubscriptionKind {
+  PERSONAL // Basic / Pro
+  AGENCY   // места HUB/Agenție
+}
+
+enum SubscriptionStatus {
+  ACTIVE    // оплачено, автопродление включено
+  PAST_DUE  // списание не прошло, идут повторы
+  CANCELED  // отменена клиентом
+  EXPIRED   // повторы исчерпаны / срок вышел
+}
+
+enum PaymentMethodStatus {
+  ACTIVE
+  REMOVED
+}
+
+// Входящие события webhook провайдера — защита от повторной обработки (провайдер
+// доставляет «как минимум один раз»). Тело события не храним: только id, тип и время.
+model WebhookEvent {
+  id          String          @id @default(cuid())
+  provider    PaymentProvider @default(CYBERSOURCE)
+  eventId     String          // id события у провайдера
+  type        String          // тип события (напр. payments.payments.accept)
+  receivedAt  DateTime        @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, eventId])
+  @@map("webhook_events")
+}
+
+enum PaymentProvider {
+  VICTORIABANK
+  CYBERSOURCE
+}
+
+enum PaymentInitiator {
+  CUSTOMER // платёж с участием клиента (CIT)
+  MERCHANT // автосписание по сохранённому токену (MIT)
 }
 
 enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  UNKNOWN // исход у провайдера неизвестен (таймаут/5xx) — ждёт сверки, повтор не делать
 }
 
 enum PaymentPurpose {
@@ -269,6 +418,7 @@ model Agency {
   owner       User                @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   memberships AgencyMembership[]
   inviteCodes InviteCode[]
+  subscriptions Subscription[]
 
   @@map("agencies")
 }

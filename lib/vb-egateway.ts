@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { paymentCurrency } from "@/lib/payments";
+
 // ── Конфигурация из окружения ──
 export function vbConfig() {
   return {
@@ -14,7 +16,7 @@ export function vbConfig() {
     merchName: process.env.VB_MERCH_NAME ?? "BlackSpace Tech SRL",
     merchUrl: process.env.VB_MERCH_URL ?? "https://imoghid.md",
     merchAddress: process.env.VB_MERCH_ADDRESS ?? "bd. Decebal 99D, mun. Chișinău",
-    currency: "MDL",
+    currency: paymentCurrency(),
     country: "md",
     merchGmt: "+2",
     lang: "ro",

@@ -73,6 +73,7 @@ export async function POST(request: Request) {
         data: {
           order,
           userId: sess.userId,
+          payerEmail: user.email, // снимок для хранения операции после удаления аккаунта
           plan: user.plan!, // != null, т.к. fee посчитан
           amount,
           currency: c.currency,

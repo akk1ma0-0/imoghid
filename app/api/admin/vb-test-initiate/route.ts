@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         data: {
           order,
           userId: guard.userId,
+          payerEmail: user.email,
           plan: planRaw,
           amount,
           currency: c.currency,

@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   for (let i = 0; i < 2; i++) {
     try {
       await prisma.payment.create({
-        data: { order, userId: sess.userId, plan: planRaw, amount, currency: c.currency },
+        data: { order, userId: sess.userId, payerEmail: user.email, plan: planRaw, amount, currency: c.currency },
       });
       break;
     } catch {

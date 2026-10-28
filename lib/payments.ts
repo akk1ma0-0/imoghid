@@ -1,5 +1,12 @@
 import type { SubscriptionPlan } from "@prisma/client";
 
+// Валюта платежей (ISO 4217) — общая для всех провайдеров. PAYMENT_CURRENCY, по умолчанию MDL;
+// невалидное значение (не 3 латинские буквы) → MDL, чтобы не отправить банку мусор.
+export function paymentCurrency(): string {
+  const v = (process.env.PAYMENT_CURRENCY ?? "").trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(v) ? v : "MDL";
+}
+
 // Тарифы (MDL). Тексты описания — временные плейсхолдеры (поправим позже).
 export const PLAN_PRICING = {
   BASIC: { amount: 300, label: "Basic", descRo: "Plan de bază pentru agenți" },

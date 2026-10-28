@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { psignVerifyCallback, vbCompletion } from "@/lib/vb-egateway";
-import { sendReceiptEmail, agencyReceiptInfo, type AgencyReceiptInfo } from "@/lib/email";
-import { creditAgencySeats, materializeAgencyPlan } from "@/lib/agency";
+import { sendReceiptEmail } from "@/lib/email";
+import { fulfillPaidPayment, isAttributed, type FulfillmentResult } from "@/lib/billing";
 
 // POST /api/payments/vb-callback — авторитетный server-to-server callback банка.
 // Всегда отвечаем HTTP 200 (иначе банк ретраит), даже при невалидной подписи.
 // Поля callback'а (ACTION/RC/RRN/…), проверка P_SIGN по victoria_pub.pem.
+const LOG_TAG = "[VB callback]";
 const ALLOWED = [
   "ORDER", "TERMINAL", "ACTION", "RC", "TEXT", "APPROVAL", "RRN", "INT_REF",
   "TIMESTAMP", "NONCE", "P_SIGN", "AMOUNT", "CURRENCY", "TRTYPE", "BIN", "CARD", "AUTH", "ECI",
@@ -28,11 +29,17 @@ export async function POST(request: Request) {
 
   const { ACTION, RC, ORDER, RRN, INT_REF, AMOUNT, CURRENCY } = data;
 
-  const payment = await prisma.payment.findUnique({ where: { order: ORDER } });
-  if (!payment) {
+  const found = await prisma.payment.findUnique({ where: { order: ORDER } });
+  if (!found) {
     console.error("[VB callback] unknown ORDER:", ORDER);
     return new NextResponse("OK", { status: 200 });
   }
+  // Аккаунт удалён (платёж хранится с userId = null) — выдавать некому, захват не делаем.
+  if (!isAttributed(found)) {
+    console.error("[VB callback] payment without account (user deleted), ORDER:", ORDER);
+    return new NextResponse("OK", { status: 200 });
+  }
+  const payment = found;
   // Идемпотентность: уже оплачено — ничего не делаем.
   if (payment.status === "PAID") {
     return new NextResponse("OK", { status: 200 });
@@ -120,121 +127,26 @@ export async function POST(request: Request) {
 
     if (captureRc === "00") {
       const now = new Date();
-      let receiptTo: string | null = null;
-      let receiptName: string | null = null;
-      let receiptAgency: AgencyReceiptInfo | undefined; // блок «Locuri cumpărate…» (только AGENCY_SEATS)
-
-      if (payment.purpose === "OVERAGE") {
-        // Разовая доплата sobre-limit — план НЕ активируем. Payment → PAID делает «грант»
-        // активным (overageConsumedAt=null); он потратится при следующем over-limit
-        // действии по фиче (lib/usage.ts). Это и закрывает money leak: до PAID гранта нет.
-        const paidUser = await prisma.user.findUnique({
-          where: { id: payment.userId },
-          select: { email: true, name: true },
+      // Выдача оплаченного (план / места / гранты) — общий код lib/billing.ts.
+      let fulfilled: FulfillmentResult;
+      try {
+        fulfilled = await fulfillPaidPayment(payment, now, LOG_TAG);
+      } catch (e) {
+        // Прочие назначения, как и раньше, не перехватываем (ошибка → 500, банк ретраит).
+        if (payment.purpose !== "AGENCY_SEATS") throw e;
+        // Сбой активации мест (напр. БД): транзакция откатилась целиком → status остался PENDING,
+        // агентство НЕ создано (без рассинхрона). Сбрасываем клейм (completionStartedAt=null),
+        // чтобы ретрай банка ЗАНОВО прошёл клейм и повторил активацию, а не завис. Средства
+        // уже захвачены (TRTYPE=21); при ретрае повторный capture может вернуть «уже завершено»
+        // (у TRTYPE=21 нет идемпотентного RC) — тогда останется ручной разбор.
+        console.error("[VB callback] AGENCY_SEATS activation failed ORDER=" + ORDER, e);
+        await prisma.payment.updateMany({
+          where: { id: payment.id, status: "PENDING" },
+          data: { completionStartedAt: null },
         });
-        await prisma.payment.update({
-          where: { id: payment.id },
-          data: { status: "PAID", rc: "00" },
-        });
-        receiptTo = paidUser?.email ?? null;
-        receiptName = paidUser?.name ?? null;
-        console.log(
-          `[VB callback] PAID OVERAGE ORDER=${ORDER} feature=${payment.overageFeature} user=${payment.userId}`,
-        );
-      } else if (payment.purpose === "SINGLE_ACCESS") {
-        // «O accesare» — план НЕ активируем. Payment → PAID + создаём 3 одноразовых гранта
-        // (по 1 на CADASTRU_CHECK / DOSAR_ANALYSIS / OBIECTE_CREATE). До PAID грантов нет →
-        // брошенная оплата ничего не выдаёт (нет money leak). Клейм completionStartedAt
-        // гарантирует, что эта ветка отработает ровно один раз (без дублей грантов).
-        const paidUser = await prisma.user.findUnique({
-          where: { id: payment.userId },
-          select: { email: true, name: true },
-        });
-        await prisma.$transaction([
-          prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
-          prisma.singleAccessGrant.createMany({
-            data: (["CADASTRU_CHECK", "DOSAR_ANALYSIS", "OBIECTE_CREATE"] as const).map(
-              (feature) => ({ userId: payment.userId, feature, paymentId: payment.id }),
-            ),
-          }),
-        ]);
-        receiptTo = paidUser?.email ?? null;
-        receiptName = paidUser?.name ?? null;
-        console.log(
-          `[VB callback] PAID SINGLE_ACCESS ORDER=${ORDER} user=${payment.userId} (3 grants)`,
-        );
-      } else if (payment.purpose === "AGENCY_SEATS") {
-        // HUB/Agenție — покупка мест. АТОМАРНО (как SINGLE_ACCESS): payment→PAID и создание/
-        // продление агентства владельца (seatsPaid += N, planExpiresAt = now+30д) в ОДНОЙ
-        // транзакции. Иначе при сбое между ними платёж оставался PAID без агентства, а ретрай
-        // банка выходил рано (status===PAID) — деньги списаны, места не начислены. Личные планы
-        // участников НЕ трогаем (раздача мест — Чекпоинт 2). Дублей мест нет: клейм
-        // completionStartedAt пропускает до этой ветки лишь ОДИН callback, а обычный повтор
-        // после успеха выходит по status===PAID (idempotent).
-        const paidUser = await prisma.user.findUnique({
-          where: { id: payment.userId },
-          select: { email: true, name: true },
-        });
-        try {
-          const agency = await prisma.$transaction(async (tx) => {
-            await tx.payment.update({
-              where: { id: payment.id },
-              data: { status: "PAID", rc: "00" },
-            });
-            const ag = await creditAgencySeats(payment.userId, payment.seats ?? 0, tx);
-            // Владелец отметил «беру место себе»: создаём self-membership (role=OWNER) и
-            // материализуем plan=HUB — в ТОЙ ЖЕ транзакции. Идемпотентно: если membership уже
-            // есть (напр. докупка), пропускаем (userId в AgencyMembership @unique). Занятое место
-            // считается автоматически (occupied = members.length на /app/agency).
-            if (payment.ownerTakesSeat) {
-              const existingMembership = await tx.agencyMembership.findUnique({
-                where: { userId: payment.userId },
-              });
-              if (!existingMembership) {
-                await tx.agencyMembership.create({
-                  data: { agencyId: ag.id, userId: payment.userId, role: "OWNER" },
-                });
-                await materializeAgencyPlan(payment.userId, tx);
-              }
-            }
-            return ag;
-          });
-          receiptTo = paidUser?.email ?? null;
-          receiptName = paidUser?.name ?? null;
-          // Для чека: данные из записи платежа и агентства ПОСЛЕ зачисления мест (без пересчёта).
-          receiptAgency = agencyReceiptInfo(payment, agency);
-          console.log(
-            `[VB callback] PAID AGENCY_SEATS ORDER=${ORDER} owner=${payment.userId} +${payment.seats} → seatsPaid=${agency.seatsPaid}`,
-          );
-        } catch (e) {
-          // Сбой активации (напр. БД): транзакция откатилась целиком → status остался PENDING,
-          // агентство НЕ создано (без рассинхрона). Сбрасываем клейм (completionStartedAt=null),
-          // чтобы ретрай банка ЗАНОВО прошёл клейм и повторил активацию, а не завис. Средства
-          // уже захвачены (TRTYPE=21); при ретрае повторный capture может вернуть «уже завершено»
-          // (у TRTYPE=21 нет идемпотентного RC) — тогда останется ручной разбор.
-          console.error("[VB callback] AGENCY_SEATS activation failed ORDER=" + ORDER, e);
-          await prisma.payment.updateMany({
-            where: { id: payment.id, status: "PENDING" },
-            data: { completionStartedAt: null },
-          });
-          return new NextResponse("OK", { status: 200 });
-        }
-      } else {
-        // Подписка → активируем план на 30 дней.
-        // Автопродление/повторное списание НЕ реализуем (ждём ответа банка по recurring);
-        // по истечении planExpiresAt cron обнулит план (см. /api/cron/check-expired-plans).
-        const planExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        const [, paidUser] = await prisma.$transaction([
-          prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
-          prisma.user.update({
-            where: { id: payment.userId },
-            data: { plan: payment.plan, planActivatedAt: now, planExpiresAt },
-          }),
-        ]);
-        receiptTo = paidUser?.email ?? null;
-        receiptName = paidUser?.name ?? null;
-        console.log(`[VB callback] PAID ORDER=${ORDER} plan=${payment.plan} user=${payment.userId}`);
+        return new NextResponse("OK", { status: 200 });
       }
+      const { receiptTo, receiptName, receiptAgency } = fulfilled;
 
       // Bon electronic — чек на e-mail пользователя. Non-blocking: сбой почты НЕ должен
       // ломать обработку платежа (callback обязан вернуть 200). Поля carte/approval —
