@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test": "node --import tsx --test \"lib/**/*.test.ts\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
