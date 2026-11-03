@@ -330,3 +330,72 @@ export async function sendEmailChangeEmail(
       `</div>`,
   });
 }
+
+// ── Письма автопродления подписки (CyberSource) ───────────────────────────────
+// Простым языком, без технических терминов. Без SMTP-кредов не падают — пишут в консоль.
+const PLAN_LABEL: Record<string, string> = { BASIC: "Basic", PRO: "Pro", HUB: "HUB / Agenție" };
+const ACCOUNT_URL = "https://imoghid.md/app/pending";
+
+async function sendSimpleEmail(email: string, subject: string, paragraphs: string[], cta?: { label: string; url: string }) {
+  const tx = getTransport();
+  const text = paragraphs.join("\n\n") + (cta ? `\n\n${cta.label}: ${cta.url}` : "") + `\n\nÎntrebări: ${SUPPORT_EMAIL}`;
+  if (!tx) {
+    console.log(`[DEV] Billing email (→ ${email}): ${subject}`);
+    return;
+  }
+  const html =
+    `<div style="font-family:Inter,system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#111827">` +
+    `<h2 style="font-size:18px;margin:0 0 12px">${escapeHtml(subject)}</h2>` +
+    paragraphs.map((p) => `<p style="font-size:14px;line-height:1.6;color:#374151">${escapeHtml(p)}</p>`).join("") +
+    (cta
+      ? `<p style="margin:20px 0"><a href="${escapeHtml(cta.url)}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px">${escapeHtml(cta.label)}</a></p>`
+      : "") +
+    `<p style="font-size:12px;color:#9ca3af;margin-top:18px">Întrebări: ${escapeHtml(SUPPORT_EMAIL)} · ${escapeHtml(SUPPORT_PHONE)}</p>` +
+    `</div>`;
+  const from = process.env.ZOHO_SMTP_USER as string;
+  await tx.sendMail({ from: `"ImoGhid" <${from}>`, to: email, subject, text, html });
+}
+
+// За 3 дня до списания (один раз на период).
+export function sendBillingReminderEmail(email: string, r: { name: string; plan: string; amount: string; currency: string; chargeAt: Date }) {
+  return sendSimpleEmail(email, "Abonamentul se reînnoiește în curând", [
+    `Bună ziua${r.name ? `, ${r.name}` : ""}!`,
+    `Abonamentul ImoGhid ${PLAN_LABEL[r.plan] ?? r.plan} se reînnoiește automat. În data de ${fmtDateChisinau(r.chargeAt.toISOString())} vom debita ${r.amount} ${r.currency} de pe cardul salvat.`,
+    `Dacă nu doriți reînnoirea, puteți anula abonamentul din cont înainte de această dată.`,
+  ], { label: "Contul meu", url: ACCOUNT_URL });
+}
+
+// Списание не прошло. soft — попробуем ещё раз; hard — нужна другая карта.
+export function sendBillingFailedEmail(
+  email: string,
+  r: { name: string; plan: string; amount: string; currency: string; kind: "soft" | "hard"; nextAttemptAt: Date | null; accessUntil: Date },
+) {
+  const intro = `Bună ziua${r.name ? `, ${r.name}` : ""}!`;
+  const until = fmtDateChisinau(r.accessUntil.toISOString());
+  const body =
+    r.kind === "soft"
+      ? [
+          intro,
+          `Nu am reușit să debităm ${r.amount} ${r.currency} pentru abonamentul ${PLAN_LABEL[r.plan] ?? r.plan}.${r.nextAttemptAt ? ` Vom încerca din nou în data de ${fmtDateChisinau(r.nextAttemptAt.toISOString())}.` : ""}`,
+          `Accesul rămâne activ până la ${until}. Verificați, vă rugăm, dacă pe card sunt fonduri suficiente.`,
+        ]
+      : [
+          intro,
+          `Plata de ${r.amount} ${r.currency} pentru abonamentul ${PLAN_LABEL[r.plan] ?? r.plan} a fost refuzată de banca emitentă, iar cardul salvat nu mai poate fi folosit.`,
+          `Actualizați cardul pentru a păstra abonamentul. Accesul rămâne activ până la ${until}.`,
+        ];
+  return sendSimpleEmail(email, r.kind === "soft" ? "Plata abonamentului nu a reușit" : "Actualizați cardul", body, {
+    label: r.kind === "soft" ? "Contul meu" : "Actualizați cardul",
+    url: ACCOUNT_URL,
+  });
+}
+
+// Подписка закончилась: отмена клиентом или неудачные списания.
+export function sendSubscriptionEndedEmail(email: string, r: { name: string; plan: string; reason: "canceled" | "payment_failed" }) {
+  const intro = `Bună ziua${r.name ? `, ${r.name}` : ""}!`;
+  const body =
+    r.reason === "canceled"
+      ? [intro, `Abonamentul ImoGhid ${PLAN_LABEL[r.plan] ?? r.plan} s-a încheiat, așa cum ați solicitat. Nu vor mai avea loc debitări, iar cardul salvat a fost șters.`, `Puteți reveni oricând alegând un plan nou.`]
+      : [intro, `Nu am reușit să încasăm plata pentru abonamentul ${PLAN_LABEL[r.plan] ?? r.plan}, așa că abonamentul a fost oprit, iar cardul salvat a fost șters.`, `Puteți reactiva oricând abonamentul cu un card valid.`];
+  return sendSimpleEmail(email, "Abonamentul s-a încheiat", body, { label: "Alegeți un plan", url: ACCOUNT_URL });
+}

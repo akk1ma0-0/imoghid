@@ -28,6 +28,7 @@ export type CsDetails = {
   approvalCode: string | null;
   networkTransactionId: string | null;
   reconciliationId: string | null;
+  merchantAdviceCode: string | null; // processorInformation.merchantAdvice.code (правила повторов сети)
 };
 
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
@@ -42,6 +43,7 @@ export function detailsOf(json: Record<string, unknown> | null): CsDetails {
     approvalCode: str(pi.approvalCode),
     networkTransactionId: str(pi.networkTransactionId),
     reconciliationId: str(json?.reconciliationId),
+    merchantAdviceCode: str(obj(pi.merchantAdvice).code),
   };
 }
 

@@ -62,9 +62,22 @@ export type MitChargeResult =
 // clientReferenceInformation.code = Payment.order (ссылка для сверки, не дедупликация).
 export async function chargeSavedCard(input: MitChargeInput): Promise<MitChargeResult> {
   assertAmount(input.amount);
+  const claim = await claimChargeAttempt(input);
+  if (claim.kind === "duplicate") return claim;
+  const { payment, amount, currency } = claim;
+  return sendCharge(input, payment, amount, currency);
+}
+
+// Шаг 1 — «клейм» попытки: строка Payment с уникальным ключом (subscriptionId, periodStart,
+// attemptNo) создаётся ДО вызова API. Параллельный/повторный запуск получает P2002 → duplicate.
+export async function claimChargeAttempt(
+  input: MitChargeInput,
+): Promise<
+  | { kind: "duplicate"; paymentId: string; status: string }
+  | { kind: "claimed"; payment: { id: string; order: string }; amount: string; currency: string }
+> {
   const currency = paymentCurrency();
   const amount = money(input.amount);
-
   let payment: { id: string; order: string };
   try {
     payment = await prisma.payment.create({
@@ -94,7 +107,16 @@ export async function chargeSavedCard(input: MitChargeInput): Promise<MitChargeR
     }
     throw e;
   }
+  return { kind: "claimed", payment, amount, currency };
+}
 
+// Шаг 2 — запрос в CyberSource и запись исхода в ту же строку Payment.
+async function sendCharge(
+  input: MitChargeInput,
+  payment: { id: string; order: string },
+  amount: string,
+  currency: string,
+): Promise<MitChargeResult> {
   const outcome = await send(
     "mit_charge",
     "/pts/v2/payments",

@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 import { revokeExpiredAgencies } from "@/lib/agency";
+import { billingEnabled, runBillingCycle } from "@/lib/cybersource/billing-cycle";
 
 // GET /api/cron/check-expired-plans — ежедневный отзыв истёкших планов (Vercel Cron).
 // Находит plan != null И planExpiresAt < now() → сбрасывает план и инкрементирует
@@ -24,6 +25,21 @@ function authorized(request: Request): boolean {
 export async function GET(request: Request) {
   if (!authorized(request)) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  // Сначала автосписания CyberSource (CS_BILLING_ENABLED=true): успешное продление сдвигает
+  // planExpiresAt до проверки истёкших планов ниже. Отдельный cron не заводим (лимит Hobby — 2).
+  // Сбой биллинга не должен блокировать отзыв истёкших планов.
+  let billing: { processed: number; byResult: Record<string, number> } | null = null;
+  if (billingEnabled()) {
+    try {
+      const results = await runBillingCycle();
+      const byResult: Record<string, number> = {};
+      for (const r of results) byResult[r.result] = (byResult[r.result] ?? 0) + 1;
+      billing = { processed: results.length, byResult };
+    } catch (e) {
+      console.error("[cron] billing cycle failed", e);
+    }
   }
 
   const now = new Date();
@@ -50,6 +66,7 @@ export async function GET(request: Request) {
     ok: true,
     revoked: result.count,
     agencyMembers,
+    billing,
     at: now.toISOString(),
   });
 }

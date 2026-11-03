@@ -17,6 +17,7 @@ import { fulfillPaidPayment, isAttributed } from "@/lib/billing";
 import { sendReceiptEmail } from "@/lib/email";
 import { getTransactionDetails } from "@/lib/cybersource/checkout";
 import { findByReferenceCode } from "@/lib/cybersource/search";
+import { addMonthsAnchored, chargeDueFor } from "@/lib/billing-period";
 import {
   CIT_FINAL_FAILURES,
   decodeJwtPayload,
@@ -28,7 +29,6 @@ import {
 } from "@/lib/cybersource/cit-validation";
 
 const LOG_TAG = "[CS complete]";
-const PERIOD_MS = 30 * 24 * 60 * 60 * 1000; // как fulfillSubscription / creditAgencySeats
 
 export type CitResult =
   | { status: "paid" }
@@ -142,6 +142,8 @@ export async function completeCitPayment(args: {
     }
 
     const now = new Date();
+    // Период — календарный месяц от момента оплаты (якорь); списание — за сутки до его конца.
+    const periodEnd = addMonthsAnchored(now, 1);
     // Записи CyberSource: токены карты, подписка, согласие. Идемпотентно: при повторе после сбоя
     // PaymentMethod находится по unique tmsPaymentInstrumentId, подписка — по payment.subscriptionId.
     await prisma.$transaction(async (tx) => {
@@ -181,9 +183,12 @@ export async function completeCitPayment(args: {
             provider: "CYBERSOURCE",
             paymentMethodId: pm.id,
             initialNetworkTransactionId: facts.networkTransactionId,
+            anchorAt: now,
+            amount: payment.amount, // сумма согласия — её и списываем ежемесячно
+            currency: payment.currency,
             currentPeriodStart: now,
-            currentPeriodEnd: new Date(now.getTime() + PERIOD_MS),
-            nextChargeAt: new Date(now.getTime() + PERIOD_MS),
+            currentPeriodEnd: periodEnd,
+            nextChargeAt: chargeDueFor(periodEnd),
           },
         });
         await tx.payment.update({ where: { id: payment.id }, data: { subscriptionId: sub.id } });
@@ -197,7 +202,8 @@ export async function completeCitPayment(args: {
 
     const fresh = await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
     if (!isAttributed(fresh)) return { status: "failed", code: "NO_ACCOUNT" };
-    const fulfilled = await fulfillPaidPayment(fresh, now, LOG_TAG);
+    // Подписка CyberSource — календарный период; места агентства пока прежней логикой (30 дней).
+    const fulfilled = await fulfillPaidPayment(fresh, now, LOG_TAG, { periodEnd });
     if (fresh.purpose === "AGENCY_SEATS" && fresh.subscriptionId) {
       const agency = await prisma.agency.findUnique({ where: { ownerId: fresh.userId }, select: { id: true } });
       if (agency) await prisma.subscription.update({ where: { id: fresh.subscriptionId }, data: { agencyId: agency.id } });

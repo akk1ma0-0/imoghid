@@ -113,13 +113,15 @@ export async function fulfillAgencySeats(
   };
 }
 
-// Подписка → активируем план на 30 дней от now.
+// Подписка → активируем план. VictoriaBank: 30 дней от now (как раньше). CyberSource передаёт
+// periodEnd — конец календарного периода (lib/billing-period.ts).
 export async function fulfillSubscription(
   payment: AttributedPayment,
   now: Date,
   logTag: string,
+  periodEnd?: Date,
 ): Promise<FulfillmentResult> {
-  const planExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const planExpiresAt = periodEnd ?? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   const [, paidUser] = await prisma.$transaction([
     prisma.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } }),
     prisma.user.update({
@@ -136,6 +138,7 @@ export async function fulfillPaidPayment(
   payment: AttributedPayment,
   now: Date,
   logTag: string,
+  opts: { periodEnd?: Date } = {},
 ): Promise<FulfillmentResult> {
   switch (payment.purpose) {
     case "OVERAGE":
@@ -145,6 +148,6 @@ export async function fulfillPaidPayment(
     case "AGENCY_SEATS":
       return fulfillAgencySeats(payment, logTag);
     case "SUBSCRIPTION":
-      return fulfillSubscription(payment, now, logTag);
+      return fulfillSubscription(payment, now, logTag, opts.periodEnd);
   }
 }

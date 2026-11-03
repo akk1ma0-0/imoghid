@@ -304,6 +304,13 @@ model Subscription {
   failedAttempts              Int                @default(0)
   cancelAtPeriodEnd           Boolean            @default(false)
   canceledAt                  DateTime?
+  // ── Ежемесячное списание (MIT) ──
+  anchorAt                    DateTime?          // якорь календарного периода (дата первой оплаты); null — legacy → currentPeriodStart
+  amount                      String?            // сумма, на которую клиент дал согласие ("300.00"); null — legacy → RecurringConsent
+  currency                    String?
+  reminderSentFor             DateTime?          // currentPeriodEnd, для которого уже ушло письмо «через 3 дня списание»
+  graceEndsAt                 DateTime?          // до этого момента доступ сохраняется при PAST_DUE
+  billingHold                 String?            // списание остановлено до решения админа (напр. PRICE_CHANGED, REVIEW)
   createdAt                   DateTime           @default(now())
   updatedAt                   DateTime           @updatedAt
 
