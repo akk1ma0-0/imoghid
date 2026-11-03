@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  CARD_CHANGE_DENIED_TEXT,
+  cardChangeAccess,
+  cardChangeDeniedText,
   canCancel,
   canChangeCard,
   canPayNow,
@@ -120,5 +123,34 @@ describe("кулдаун", () => {
     assert.equal(cooldownLeftMs(null, 5000, now), 0);
     assert.equal(cooldownLeftMs(new Date(now.getTime() - 2000), 5000, now), 3000);
     assert.equal(cooldownLeftMs(new Date(now.getTime() - 9000), 5000, now), 0);
+  });
+});
+
+describe("допуск к странице смены карты", () => {
+  const view = (over: Partial<SubForRules> = {}) => toClientView(sub(over), card(), now, null);
+  it("активная подписка с суммой → допуск (сумма и валюта для текста согласия)", () => {
+    assert.deepEqual(cardChangeAccess(view()), { ok: true, amount: "300.00", currency: "MDL" });
+  });
+  it("PAST_DUE → допуск", () => {
+    assert.deepEqual(cardChangeAccess(view({ status: "PAST_DUE" })), { ok: true, amount: "300.00", currency: "MDL" });
+  });
+  it("отменена, доступ ещё есть → допуск", () => {
+    assert.equal(cardChangeAccess(view({ cancelAtPeriodEnd: true })).ok, true);
+    assert.equal(cardChangeAccess(view({ status: "CANCELED", cancelAtPeriodEnd: true })).ok, true);
+  });
+  it("нет подписки или EXPIRED → NO_SUBSCRIPTION (с объяснением, не молча)", () => {
+    assert.deepEqual(cardChangeAccess(null), { ok: false, reason: "NO_SUBSCRIPTION" });
+    assert.deepEqual(cardChangeAccess(view({ status: "EXPIRED" })), { ok: false, reason: "NO_SUBSCRIPTION" });
+  });
+  it("регрессия: сумма не заполнена (подписка до шага 6) → NO_AMOUNT, а не тихий редирект", () => {
+    assert.deepEqual(cardChangeAccess(view({ amount: null })), { ok: false, reason: "NO_AMOUNT" });
+    assert.deepEqual(cardChangeAccess(view({ currency: null })), { ok: false, reason: "NO_AMOUNT" });
+  });
+  it("у каждой причины отказа есть понятный текст; чужие значения параметра игнорируются", () => {
+    assert.equal(cardChangeDeniedText("NO_SUBSCRIPTION"), CARD_CHANGE_DENIED_TEXT.NO_SUBSCRIPTION);
+    assert.equal(cardChangeDeniedText("NO_AMOUNT"), CARD_CHANGE_DENIED_TEXT.NO_AMOUNT);
+    assert.equal(cardChangeDeniedText("updated"), null);
+    assert.equal(cardChangeDeniedText("<script>"), null);
+    assert.equal(cardChangeDeniedText(null), null);
   });
 });

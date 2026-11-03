@@ -108,6 +108,29 @@ export function toClientView(s: SubForRules, card: CardForRules, now: Date, last
   };
 }
 
+// ── Допуск к странице смены карты (/app/subscription/card) ──
+// Раньше условие было внутри страницы и молча уводило в профиль, если у подписки не заполнена
+// сумма (подписки, созданные до шага 6). Теперь сумму даёт согласие клиента (см.
+// subscription-service), а отказ всегда объясняется.
+export type CardChangeAccess =
+  | { ok: true; amount: string; currency: string }
+  | { ok: false; reason: "NO_SUBSCRIPTION" | "NO_AMOUNT" };
+
+export function cardChangeAccess(view: Pick<ClientSubscriptionView, "canChangeCard" | "amount" | "currency"> | null): CardChangeAccess {
+  if (!view || !view.canChangeCard) return { ok: false, reason: "NO_SUBSCRIPTION" };
+  if (!view.amount || !view.currency) return { ok: false, reason: "NO_AMOUNT" };
+  return { ok: true, amount: view.amount, currency: view.currency };
+}
+
+export const CARD_CHANGE_DENIED_TEXT: Record<"NO_SUBSCRIPTION" | "NO_AMOUNT", string> = {
+  NO_SUBSCRIPTION: "Cardul poate fi schimbat doar pentru un abonament cu reînnoire automată activ.",
+  NO_AMOUNT: "Cardul nu poate fi schimbat acum. Contactați-ne la info@biseeth.md și vom rezolva rapid.",
+};
+
+export function cardChangeDeniedText(reason: string | null | undefined): string | null {
+  return reason === "NO_SUBSCRIPTION" || reason === "NO_AMOUNT" ? CARD_CHANGE_DENIED_TEXT[reason] : null;
+}
+
 // Простой кулдаун (как в resend-verification): повторное действие раньше срока → 429.
 export function cooldownLeftMs(lastAt: Date | null, cooldownMs: number, now: Date): number {
   if (!lastAt) return 0;

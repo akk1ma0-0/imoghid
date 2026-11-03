@@ -2,6 +2,7 @@
 // Подписки VictoriaBank сюда не попадают: берём только provider CYBERSOURCE, kind PERSONAL.
 import { prisma } from "@/lib/prisma";
 import { chargeDueFor } from "@/lib/billing-period";
+import { paymentCurrency } from "@/lib/payments";
 import { canCancel, canResume, toClientView, type ClientSubscriptionView } from "@/lib/subscription-rules";
 
 const include = { paymentMethod: true } as const;
@@ -32,10 +33,19 @@ async function lastFailureAt(subscriptionId: string): Promise<Date | null> {
   return p?.createdAt ?? null;
 }
 
+// Сумма и валюта подписки. У подписок, созданных до шага 6, поля пусты — берём из последнего
+// согласия клиента (то, на что он согласился), валюта по умолчанию — PAYMENT_CURRENCY.
+export async function effectiveAmount(sub: { id: string; amount: string | null; currency: string | null }): Promise<{ amount: string | null; currency: string }> {
+  if (sub.amount) return { amount: sub.amount, currency: sub.currency ?? paymentCurrency() };
+  const c = await prisma.recurringConsent.findFirst({ where: { subscriptionId: sub.id }, orderBy: { acceptedAt: "desc" }, select: { amount: true, currency: true } });
+  return { amount: c?.amount ?? null, currency: sub.currency ?? c?.currency ?? paymentCurrency() };
+}
+
 export async function getClientSubscription(userId: string, now: Date = new Date()): Promise<ClientSubscriptionView | null> {
   const sub = await findOwnSubscription(userId, now);
   if (!sub) return null;
-  return toClientView(sub, sub.paymentMethod, now, await lastFailureAt(sub.id));
+  const eff = await effectiveAmount(sub);
+  return toClientView({ ...sub, amount: eff.amount, currency: eff.currency }, sub.paymentMethod, now, await lastFailureAt(sub.id));
 }
 
 export type ActionResult =

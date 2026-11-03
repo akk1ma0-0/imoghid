@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { fmtDateChisinau } from "@/lib/date-chisinau";
+import { cardChangeDeniedText } from "@/lib/subscription-rules";
 
 // Блок управления подпиской с автопродлением (CyberSource) в профиле. Для пользователей без такой
 // подписки (в т.ч. VictoriaBank) ничего не показывает — их интерфейс не меняется.
@@ -46,8 +47,12 @@ export function CsSubscriptionBlock() {
   }
   useEffect(() => {
     load();
-    if (new URLSearchParams(window.location.search).get("card") === "updated") {
-      setMessage({ tone: "ok", text: "Cardul a fost actualizat." });
+    const card = new URLSearchParams(window.location.search).get("card");
+    if (card === "updated") setMessage({ tone: "ok", text: "Cardul a fost actualizat." });
+    else {
+      // Страница смены карты не пустила — объясняем причину, а не молчим.
+      const denied = cardChangeDeniedText(card);
+      if (denied) setMessage({ tone: "warn", text: denied });
     }
   }, []);
 
@@ -67,7 +72,16 @@ export function CsSubscriptionBlock() {
     }
   }
 
-  if (!loaded || !view) return null;
+  if (!loaded) return null;
+  if (!view) {
+    // Подписки с автопродлением нет, но причина отказа странице смены карты должна быть видна.
+    return message ? (
+      <div className="notice amber" style={{ marginTop: 16 }}>
+        <div className="notice-dot" />
+        <div>{message.text}</div>
+      </div>
+    ) : null;
+  }
   const card = cardLabel(view.card);
 
   return (
