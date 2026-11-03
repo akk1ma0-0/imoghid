@@ -15,6 +15,7 @@ import {
 const res = (httpStatus: number, json: Record<string, unknown> | null): CsResponse => ({
   httpStatus,
   json,
+  text: json ? JSON.stringify(json) : "",
   requestId: typeof json?.id === "string" ? json.id : null,
   correlationId: null,
   ms: 1,

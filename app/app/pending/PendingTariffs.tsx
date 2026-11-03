@@ -394,7 +394,8 @@ export function PendingTariffs({
                     {personalPlanBlockedMsg}
                   </p>
                 ) : isAuthenticated ? (
-                  <form method="POST" action="/api/payments/vb-initiate">
+                  <form method="POST" action="/api/payments/start">
+                    <input type="hidden" name="purpose" value="SUBSCRIPTION" />
                     <input type="hidden" name="plan" value={t.plan} />
                     <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
                     <button

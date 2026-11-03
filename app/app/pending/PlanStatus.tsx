@@ -255,7 +255,8 @@ export function PlanStatus({
                 Verificări cadastrale și obiecte nelimitate, 60 examinări dosar, Anunțuri 999.
               </p>
             </div>
-            <form method="POST" action="/api/payments/vb-initiate" style={{ flex: "0 0 auto" }}>
+            <form method="POST" action="/api/payments/start" style={{ flex: "0 0 auto" }}>
+              <input type="hidden" name="purpose" value="SUBSCRIPTION" />
               <input type="hidden" name="plan" value="PRO" />
               <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
               <button type="submit" disabled={!agreed} className="btn solid" style={{ justifyContent: "center", height: 44 }}>

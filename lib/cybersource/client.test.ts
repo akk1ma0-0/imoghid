@@ -102,9 +102,11 @@ describe("safePathId", () => {
 });
 
 describe("acceptFor", () => {
-  it("pts — hal+json, tss/tms — json", () => {
+  it("pts и tss/transactions — hal+json, tss/searches и tms — json, uc — jwt", () => {
     assert.equal(acceptFor("/pts/v2/payments"), "application/hal+json;charset=utf-8");
     assert.equal(acceptFor("/tss/v2/searches"), "application/json;charset=utf-8");
+    assert.equal(acceptFor("/tss/v2/transactions/123"), "application/hal+json;charset=utf-8");
+    assert.equal(acceptFor("/uc/v1/sessions"), "application/jwt");
     assert.equal(acceptFor("/tms/v2/customers/ABC"), "application/json;charset=utf-8");
   });
 });

@@ -91,7 +91,8 @@ export function AgencyClient({
                 <a href="/termeni" target="_blank" rel="noopener noreferrer">Termenii de plată și Politica de returnare</a>.
               </span>
             </label>
-            <form method="POST" action="/api/payments/vb-agency-initiate">
+            <form method="POST" action="/api/payments/start">
+              <input type="hidden" name="purpose" value="AGENCY_SEATS" />
               <input type="hidden" name="seats" value={buySeats} />
               <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
               <input type="hidden" name="takeOwnerSeat" value={takeSeat ? "true" : "false"} />
@@ -214,7 +215,8 @@ export function AgencyClient({
         <button className="btn solid" disabled={busy || free <= 0} onClick={generateCode}>
           Generează cod de invitație
         </button>
-        <form method="POST" action="/api/payments/vb-agency-initiate" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <form method="POST" action="/api/payments/start" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="hidden" name="purpose" value="AGENCY_SEATS" />
           <input type="hidden" name="agreedToTerms" value="true" />
           <input type="number" name="seats" min={1} defaultValue={1} style={{ width: 72, height: 38, padding: "0 10px" }} title="Locuri suplimentare" />
           <button type="submit" className="btn">Cumpără locuri suplimentare</button>

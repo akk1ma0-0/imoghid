@@ -1,0 +1,115 @@
+// CyberSource Unified Checkout (v1): capture context и чтение деталей транзакции.
+//
+// Capture context — POST /uc/v1/sessions (Sessions API, Unified Checkout v1; прежний
+// /up/v1/capture-contexts относится к v0 и требует clientVersion). Ответ — подписанный JWT
+// (Accept: application/jwt), в нём clientLibrary + clientLibraryIntegrity для загрузки JS.
+// Проверено на тестовой среде: MDL, 3DS и создание токенов TMS принимаются.
+//
+// Поля (developer.cybersource.com, Unified Checkout → Sessions API / Capture Context):
+//   targetOrigins (https, без wildcard), allowedCardNetworks, allowedPaymentTypes, country, locale,
+//   captureMandate.*, completeMandate.{type, decisionManager, consumerAuthentication, tms{tokenCreate,tokenTypes}},
+//   data.orderInformation.amountDetails.{totalAmount,currency}, data.clientReferenceInformation.code.
+//   clientVersion не передаём — сервер выбирает актуальную совместимую версию (рекомендация документации).
+import { csRequest, CsTransportError, safePathId } from "@/lib/cybersource/client";
+import { transactionFactsOf, type TxnFacts } from "@/lib/cybersource/cit-validation";
+
+// Список origin'ов страницы оплаты (CS_UC_TARGET_ORIGINS, через запятую). Только https.
+export function ucTargetOrigins(): string[] {
+  return (process.env.CS_UC_TARGET_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim().replace(/\/+$/, ""))
+    .filter((o) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(o));
+}
+
+export type CaptureContextResult =
+  | { ok: true; captureContext: string; clientLibrary: string; clientLibraryIntegrity: string }
+  | { ok: false; httpStatus: number; reason: string | null };
+
+export async function createCaptureContext(args: {
+  amount: string; // "300.00"
+  currency: string;
+  referenceCode: string; // = Payment.order → clientReferenceInformation.code транзакции
+}): Promise<CaptureContextResult> {
+  const targetOrigins = ucTargetOrigins();
+  if (targetOrigins.length === 0) return { ok: false, httpStatus: 0, reason: "CS_UC_TARGET_ORIGINS not set" };
+  try {
+    const res = await csRequest({
+      op: "uc_session",
+      method: "POST",
+      path: "/uc/v1/sessions",
+      body: {
+        targetOrigins,
+        allowedCardNetworks: ["VISA", "MASTERCARD"],
+        allowedPaymentTypes: ["PANENTRY"], // только ввод карты: токен для автосписания и 3DS
+        country: "MD",
+        locale: "ro_RO",
+        captureMandate: {
+          billingType: "NONE", // адрес не собираем — не нужен для услуги
+          requestEmail: false,
+          requestPhone: false,
+          requestShipping: false,
+          showAcceptedNetworkIcons: true,
+        },
+        completeMandate: {
+          type: "CAPTURE", // продажа: авторизация + списание одним запросом
+          decisionManager: false,
+          consumerAuthentication: "3DS",
+          tms: { tokenCreate: true, tokenTypes: ["customer", "paymentInstrument"] },
+        },
+        data: {
+          orderInformation: { amountDetails: { totalAmount: args.amount, currency: args.currency } },
+          clientReferenceInformation: { code: args.referenceCode },
+        },
+      },
+    });
+    const jwt = res.text.trim();
+    if ((res.httpStatus === 200 || res.httpStatus === 201) && /^[\w-]+\.[\w-]+\.[\w-]+$/.test(jwt)) {
+      const lib = clientLibraryOf(jwt);
+      if (!lib) return { ok: false, httpStatus: res.httpStatus, reason: "NO_CLIENT_LIBRARY" };
+      return { ok: true, captureContext: jwt, ...lib };
+    }
+    const reason = typeof res.json?.reason === "string" ? res.json.reason : null;
+    return { ok: false, httpStatus: res.httpStatus, reason };
+  } catch (e) {
+    if (e instanceof CsTransportError) return { ok: false, httpStatus: 0, reason: e.kind };
+    throw e;
+  }
+}
+
+// URL библиотеки и SRI-хеш — из самого capture context (их нельзя хардкодить: меняются).
+// Разрешаем только хосты CyberSource по https.
+function clientLibraryOf(jwt: string): { clientLibrary: string; clientLibraryIntegrity: string } | null {
+  try {
+    const payload = JSON.parse(Buffer.from(jwt.split(".")[1], "base64url").toString("utf8")) as {
+      ctx?: { data?: { clientLibrary?: unknown; clientLibraryIntegrity?: unknown } }[];
+    };
+    const d = payload.ctx?.[0]?.data;
+    const url = typeof d?.clientLibrary === "string" ? d.clientLibrary : "";
+    const integrity = typeof d?.clientLibraryIntegrity === "string" ? d.clientLibraryIntegrity : "";
+    const host = new URL(url).hostname;
+    if (!url.startsWith("https://") || !/(^|\.)cybersource\.com$/.test(host) || !integrity) return null;
+    return { clientLibrary: url, clientLibraryIntegrity: integrity };
+  } catch {
+    return null;
+  }
+}
+
+export type DetailsResult =
+  | { ok: true; facts: TxnFacts }
+  | { ok: false; httpStatus: number; reason: string | null }; // 404 — нет/ещё не проиндексирована
+
+// Детали транзакции — авторитетный источник сумм, статуса и токенов (GET /tss/v2/transactions/{id}).
+export async function getTransactionDetails(transactionId: string): Promise<DetailsResult> {
+  try {
+    const res = await csRequest({ op: "tss_details", method: "GET", path: `/tss/v2/transactions/${safePathId(transactionId)}` });
+    if (res.httpStatus === 200) {
+      const facts = transactionFactsOf(res.json);
+      return facts ? { ok: true, facts } : { ok: false, httpStatus: 200, reason: "UNPARSEABLE" };
+    }
+    const reason = typeof res.json?.reason === "string" ? res.json.reason : null;
+    return { ok: false, httpStatus: res.httpStatus, reason };
+  } catch (e) {
+    if (e instanceof CsTransportError) return { ok: false, httpStatus: 0, reason: e.kind };
+    throw e;
+  }
+}

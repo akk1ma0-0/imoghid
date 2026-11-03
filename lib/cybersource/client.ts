@@ -104,6 +104,7 @@ export function buildAuthHeaders(input: {
 export type CsResponse = {
   httpStatus: number;
   json: Record<string, unknown> | null; // null — пустое тело (204) или не JSON
+  text: string; // сырое тело (нужно для JWT-ответов); НЕ логируется
   requestId: string | null; // id ресурса/транзакции CyberSource из тела ответа
   correlationId: string | null; // заголовок v-c-correlation-id
   ms: number;
@@ -177,7 +178,7 @@ export async function csRequest(args: {
     }
   }
   const requestId = typeof json?.id === "string" ? json.id : null;
-  const result: CsResponse = { httpStatus: raw.status, json, requestId, correlationId: raw.correlationId, ms: Date.now() - started };
+  const result: CsResponse = { httpStatus: raw.status, json, text: raw.text, requestId, correlationId: raw.correlationId, ms: Date.now() - started };
   logCs({ op: args.op, http: raw.status, status: typeof json?.status === "string" ? json.status : null, requestId, correlationId: raw.correlationId, ms: result.ms });
   return result;
 }
@@ -189,11 +190,15 @@ function logCs(line: { op: string; http: number; status: string | null; requestI
   else console.warn(s);
 }
 
-// Accept зависит от API (проверено на тестовой среде): pts (платежи) отвечает только на
-// application/hal+json (с application/json — 404); tss (поиск) и tms (токены) с hal+json
-// отвечают 406 Not Acceptable и принимают application/json.
+// Accept зависит от эндпоинта (проверено на тестовой среде, совпадает с accepts в SDK):
+//   /pts/*               (платежи)            — только application/hal+json (с json → 404);
+//   /tss/v2/transactions (детали транзакции)  — только application/hal+json (с json → 406);
+//   /tss/v2/searches     (поиск), /tms/*      — только application/json (с hal+json → 406);
+//   /uc/v1/sessions      (capture context)    — application/jwt (ответ — JWT-строка).
 export function acceptFor(path: string): string {
-  return path.startsWith("/pts/") ? "application/hal+json;charset=utf-8" : "application/json;charset=utf-8";
+  if (path.startsWith("/uc/")) return "application/jwt";
+  if (path.startsWith("/pts/") || path.startsWith("/tss/v2/transactions")) return "application/hal+json;charset=utf-8";
+  return "application/json;charset=utf-8";
 }
 
 // Идентификаторы в путях (id транзакций и токенов TMS) — только безопасные символы.

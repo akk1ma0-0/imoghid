@@ -251,6 +251,7 @@ model Payment {
   subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   singleAccessGrants SingleAccessGrant[]
   recurringConsents  RecurringConsent[]
+  operations         PaymentOperation[]
 
   // Ключ идемпотентности автосписания: одна попытка N за период подписки. Для платежей без
   // подписки поля NULL → в PostgreSQL NULL не конфликтуют, ограничение их не затрагивает.
@@ -357,6 +358,35 @@ enum SubscriptionStatus {
 enum PaymentMethodStatus {
   ACTIVE
   REMOVED
+}
+
+// Последующие операции по платежу у провайдера (void / refund / удаление токена / сверка) —
+// журнал с Request ID CyberSource (нужен для приёмки банка и разбора). Без данных карты.
+model PaymentOperation {
+  id          String               @id @default(cuid())
+  paymentId   String?
+  provider    PaymentProvider      @default(CYBERSOURCE)
+  type        PaymentOperationType
+  requestId   String?              // id ответа CyberSource
+  httpStatus  Int?                 // 0 — сеть/таймаут
+  outcome     String               // approved / declined / invalid / unknown / …
+  amount      String?
+  actorUserId String?              // кто запустил (админ); без FK — журнал переживает удаление
+  createdAt   DateTime             @default(now())
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@map("payment_operations")
+}
+
+enum PaymentOperationType {
+  VOID
+  REFUND
+  REVERSAL
+  CAPTURE
+  TOKEN_DELETE
+  RECONCILE
 }
 
 // Входящие события webhook провайдера — защита от повторной обработки (провайдер

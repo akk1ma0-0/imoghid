@@ -73,6 +73,9 @@ export const authConfig = {
 
       const isPending = nextUrl.pathname.startsWith("/app/pending");
       const isWaitlist = nextUrl.pathname.startsWith("/app/waitlist");
+      // Страница оплаты картой (CyberSource): покупает первый план тот, у кого плана ещё нет.
+      // Доступ к самой оплате проверяет страница (PAYMENT_PROVIDER / CS_BETA_EMAILS).
+      const isCheckout = nextUrl.pathname.startsWith("/app/checkout");
 
       // Доступ в приложение даёт: активный план, непотраченный «O accesare»-грант (Этап C),
       // либо владение агентством (Этап D — владелец без своего места всё равно заходит в
@@ -85,7 +88,7 @@ export const authConfig = {
       // Флаг НЕ читается здесь (edge-middleware инлайнит env на билде) — только в Node-слое.
       // /app/waitlist допускаем (это цель редиректа со страницы pending).
       if (!hasAccess) {
-        return isPending || isWaitlist ? true : Response.redirect(new URL("/app/pending", nextUrl));
+        return isPending || isWaitlist || isCheckout ? true : Response.redirect(new URL("/app/pending", nextUrl));
       }
 
       // /app/pending доступна и подписчикам (статус плана/лимитов, докупить «O accesare»,
