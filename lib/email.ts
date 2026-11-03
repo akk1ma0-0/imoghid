@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import nodemailer from "nodemailer";
-import type { SubscriptionPlan, UsageFeature } from "@prisma/client";
+import type { PaymentPurpose, SubscriptionPlan, UsageFeature } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { fmtDateChisinau } from "@/lib/date-chisinau";
@@ -96,7 +96,7 @@ type ReceiptData = {
   plan: SubscriptionPlan;
   // Тип платежа. OVERAGE → доплата sobre-limit; SINGLE_ACCESS → «O accesare»;
   // AGENCY_SEATS → покупка N мест HUB/Agenție; иначе абонемент.
-  purpose?: "SUBSCRIPTION" | "OVERAGE" | "SINGLE_ACCESS" | "AGENCY_SEATS";
+  purpose?: PaymentPurpose;
   overageFeature?: UsageFeature | null;
   seats?: number | null; // для AGENCY_SEATS
   rrn: string | null;

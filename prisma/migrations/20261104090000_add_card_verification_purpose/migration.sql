@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "PaymentPurpose" ADD VALUE 'CARD_VERIFICATION';
+

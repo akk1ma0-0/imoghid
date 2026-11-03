@@ -341,6 +341,21 @@ async function expire(sub: Sub, reason: "canceled" | "payment_failed", now: Date
   return reason === "canceled" ? "expired_canceled" : "expired_payment_failed";
 }
 
+// «Plătește acum»: списание просроченного периода по текущей (новой) карте — тот же механизм,
+// что у cron (сверка незавершённой попытки, сумма согласия, ключ идемпотентности попытки).
+// Вызывающий проверяет право (lib/subscription-rules.ts → canPayNow) и владельца.
+export async function chargeSubscriptionNow(subscriptionId: string, now: Date = new Date()): Promise<string> {
+  const sub = (await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+    include: { paymentMethod: true, user: { select: { id: true, email: true, name: true, plan: true, planActivatedAt: true } } },
+  })) as Sub | null;
+  if (!sub || sub.status !== "PAST_DUE" || sub.cancelAtPeriodEnd || sub.billingHold) return "not_allowed";
+  if (sub.failedAttempts >= MAX_ATTEMPTS) return "not_allowed";
+  const result = await charge(sub, now);
+  log({ subscriptionId: sub.id, action: "pay_now", result });
+  return result;
+}
+
 // Флаг включения автосписаний из cron (по умолчанию выключен).
 export function billingEnabled(): boolean {
   return (process.env.CS_BILLING_ENABLED ?? "").trim().toLowerCase() === "true";

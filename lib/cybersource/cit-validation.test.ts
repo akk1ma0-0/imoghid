@@ -208,3 +208,61 @@ describe("jwtKeyPaths — только имена ключей", () => {
     assert.deepEqual(jwtKeyPaths(null), []);
   });
 });
+
+// ── Смена карты: проверка 0.00 ──
+import { validateCardVerification, type CardVerificationView } from "@/lib/cybersource/cit-validation";
+
+const cardPayment = (over: Partial<CardVerificationView> = {}): CardVerificationView => ({
+  userId: "user-1",
+  order: "17621234567891234",
+  amount: "0.00",
+  currency: "MDL",
+  provider: "CYBERSOURCE",
+  initiator: "CUSTOMER",
+  status: "PENDING",
+  purpose: "CARD_VERIFICATION",
+  ...over,
+});
+// Нулевая авторизация с созданием токена: ics_auth (без ics_bill), сумма только authorizedAmount.
+const zeroAuth = (over: Record<string, unknown> = {}) =>
+  details({
+    orderInformation: { amountDetails: { authorizedAmount: "0", currency: "MDL" } },
+    applicationInformation: { applications: [{ name: "ics_pay_subscription_create", rCode: "1" }, { name: "ics_auth", rCode: "1" }, { name: "ics_pa_enroll", rCode: "1" }] },
+    ...over,
+  });
+
+describe("validateCardVerification (смена карты)", () => {
+  it("успешная нулевая авторизация с токенами → ok (сумма из authorizedAmount)", () => {
+    const f = transactionFactsOf(zeroAuth())!;
+    assert.equal(f.amount, "0");
+    assert.equal(f.isPayment, true);
+    assert.deepEqual(validateCardVerification(cardPayment(), f, "user-1"), { ok: true });
+  });
+  it("выбор транзакции: 3DS-транзакции пропускаются, нулевая авторизация (только ics_auth) берётся", () => {
+    assert.deepEqual(
+      paymentTransactionIds([
+        { id: "T-SETUP", applications: [{ name: "ics_pa_setup" }] },
+        { id: "T-ZERO", applications: [{ name: "ics_pay_subscription_create" }, { name: "ics_auth" }, { name: "ics_pa_enroll" }] },
+      ]),
+      ["T-ZERO"],
+    );
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(paSetupOnly())!, "user-1"), { ok: false, code: "NOT_READY" });
+  });
+  it("чужой платёж / не тот тип / уже выполнено", () => {
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth())!, "user-2"), { ok: false, code: "NOT_OWNER" });
+    assert.deepEqual(validateCardVerification(cardPayment({ purpose: "SUBSCRIPTION" }), transactionFactsOf(zeroAuth())!, "user-1"), { ok: false, code: "WRONG_PROVIDER" });
+    assert.deepEqual(validateCardVerification(cardPayment({ status: "PAID" }), transactionFactsOf(zeroAuth())!, "user-1"), { ok: false, code: "ALREADY_PAID" });
+  });
+  it("строгий FAILED: отказ ics_auth; заполненная, но ненулевая сумма; другая валюта/ссылка", () => {
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth({ applicationInformation: { applications: [{ name: "ics_auth", rCode: "0" }] } }))!, "user-1"), { ok: false, code: "DECLINED" });
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth({ orderInformation: { amountDetails: { totalAmount: "300.00", currency: "MDL" } } }))!, "user-1"), { ok: false, code: "AMOUNT_MISMATCH" });
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth({ orderInformation: { amountDetails: { authorizedAmount: "0", currency: "EUR" } } }))!, "user-1"), { ok: false, code: "CURRENCY_MISMATCH" });
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth({ clientReferenceInformation: { code: "other" } }))!, "user-1"), { ok: false, code: "REFERENCE_MISMATCH" });
+  });
+  it("не готово (→ UNKNOWN): нет суммы, валюты или токенов", () => {
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth({ orderInformation: { amountDetails: { currency: "MDL" } } }))!, "user-1"), { ok: false, code: "NOT_READY" });
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth({ orderInformation: { amountDetails: { authorizedAmount: "0" } } }))!, "user-1"), { ok: false, code: "NOT_READY" });
+    assert.deepEqual(validateCardVerification(cardPayment(), transactionFactsOf(zeroAuth({ paymentInformation: { card: { suffix: "0007" } } }))!, "user-1"), { ok: false, code: "NOT_READY" });
+    assert.equal(CIT_FINAL_FAILURES.has("NOT_READY"), false);
+  });
+});

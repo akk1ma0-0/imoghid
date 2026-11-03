@@ -49,7 +49,7 @@ function log(line: Record<string, unknown>) {
 // на секунды: 404 на деталях и «оплата в поиске ещё не видна» — это «ещё не проиндексировано»
 // (facts=null → UNKNOWN и повтор), а не повод взять другую транзакцию.
 // transient=true — была сетевая/серверная ошибка; notIndexed=true — был 404 / ничего не найдено.
-async function locateTransaction(
+export async function locateTransaction(
   payment: Payment,
   resultJwt: unknown,
 ): Promise<{ facts: TxnFacts | null; transient: boolean; notIndexed: boolean }> {
@@ -91,6 +91,8 @@ export async function completeCitPayment(args: {
   const payment = await prisma.payment.findUnique({ where: { id: args.paymentId } });
   if (!payment || (!args.asAdmin && payment.userId !== args.actorUserId)) return { status: "not_found" };
   if (payment.provider !== "CYBERSOURCE" || payment.initiator !== "CUSTOMER") return { status: "failed", code: "WRONG_PROVIDER" };
+  // Проверка карты (смена карты) завершается в card-change.ts, не здесь.
+  if (payment.purpose === "CARD_VERIFICATION") return { status: "failed", code: "WRONG_PURPOSE" };
   if (payment.status === "PAID") return { status: "already_paid" };
   if (payment.status === "FAILED") return { status: "failed", code: payment.declineReason ?? "FAILED" };
   if (!isAttributed(payment)) return { status: "failed", code: "NO_ACCOUNT" };

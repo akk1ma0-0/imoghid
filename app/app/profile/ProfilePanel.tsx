@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { PasswordInput } from "@/components/PasswordInput";
 import type { PlanKind } from "@/lib/plan-display";
 import { fmtDateChisinau, planExpiryLabel } from "@/lib/date-chisinau";
+import { CsSubscriptionBlock } from "./CsSubscriptionBlock";
 
 type Initial = {
   name: string;
@@ -318,6 +319,9 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
               <Link className="btn" href="/app/pending" style={{ marginTop: 14, justifyContent: "center" }}>
                 Gestionați abonamentul
               </Link>
+              {/* Подписка с автопродлением (CyberSource): отмена, возобновление, смена карты.
+                  У остальных пользователей блок пустой. */}
+              <CsSubscriptionBlock />
             </>
           )}
         </div>

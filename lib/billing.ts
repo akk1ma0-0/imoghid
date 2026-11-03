@@ -149,5 +149,8 @@ export async function fulfillPaidPayment(
       return fulfillAgencySeats(payment, logTag);
     case "SUBSCRIPTION":
       return fulfillSubscription(payment, now, logTag, opts.periodEnd);
+    case "CARD_VERIFICATION":
+      // Проверка карты на 0.00 ничего не выдаёт — обрабатывается в lib/cybersource/card-change.ts.
+      throw new Error("CARD_VERIFICATION payments are not fulfilled");
   }
 }

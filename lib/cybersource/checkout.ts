@@ -29,6 +29,9 @@ export async function createCaptureContext(args: {
   amount: string; // "300.00"
   currency: string;
   referenceCode: string; // = Payment.order → clientReferenceInformation.code транзакции
+  // CAPTURE — первая оплата (продажа). AUTH — проверка карты на 0.00 (Account Verification):
+  // нулевую авторизацию нельзя capture (Payments Developer Guide, Zero Amount Authorizations).
+  type?: "CAPTURE" | "AUTH";
 }): Promise<CaptureContextResult> {
   const targetOrigins = ucTargetOrigins();
   if (targetOrigins.length === 0) return { ok: false, httpStatus: 0, reason: "CS_UC_TARGET_ORIGINS not set" };
@@ -51,7 +54,7 @@ export async function createCaptureContext(args: {
           showAcceptedNetworkIcons: true,
         },
         completeMandate: {
-          type: "CAPTURE", // продажа: авторизация + списание одним запросом
+          type: args.type ?? "CAPTURE", // продажа (по умолчанию) или только авторизация
           decisionManager: false,
           consumerAuthentication: "3DS",
           tms: { tokenCreate: true, tokenTypes: ["customer", "paymentInstrument"] },

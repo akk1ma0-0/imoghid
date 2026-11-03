@@ -123,7 +123,8 @@ export function transactionFactsOf(json: Record<string, unknown> | null): TxnFac
     id,
     isPayment: hasPaymentApplication(appList.map((a) => str(a.name))),
     referenceCode: str(obj(json?.clientReferenceInformation).code),
-    amount: str(order.totalAmount),
+    // У нулевой авторизации (проверка карты) сумма может прийти только как authorizedAmount.
+    amount: str(order.totalAmount) ?? str(order.authorizedAmount),
     currency: str(order.currency),
     outcome,
     customerId: str(obj(pay.customer).id) ?? str(obj(tok.customer).id),
@@ -185,5 +186,31 @@ export function validateCitCompletion(payment: CitPaymentView, facts: TxnFacts, 
   if (a === null) return { ok: false, code: "NOT_READY" };
   if (a !== cents(payment.amount)) return { ok: false, code: "AMOUNT_MISMATCH" };
   if (facts.outcome !== "approved") return { ok: false, code: "NOT_READY" };
+  return { ok: true };
+}
+
+// ── Смена карты: проверка карты на 0.00 (Account Verification) через Unified Checkout ──
+// Те же строгие правила, что у первой оплаты: FAILED — только явный отказ ics_auth или
+// заполненные, но другие reference / валюта / сумма (≠ 0); всё прочее — NOT_READY (повтор).
+// Токены новой карты обязательны: без них карта не может заменить старую → NOT_READY.
+export type CardVerificationView = CitPaymentView & { purpose: string };
+
+export function validateCardVerification(payment: CardVerificationView, facts: TxnFacts, userId: string): CitCheck {
+  if (payment.userId !== userId) return { ok: false, code: "NOT_OWNER" };
+  if (payment.provider !== "CYBERSOURCE" || payment.initiator !== "CUSTOMER" || payment.purpose !== "CARD_VERIFICATION") {
+    return { ok: false, code: "WRONG_PROVIDER" };
+  }
+  if (payment.status === "PAID") return { ok: false, code: "ALREADY_PAID" };
+  if (!facts.isPayment) return { ok: false, code: "NOT_READY" };
+  if (facts.referenceCode === null) return { ok: false, code: "NOT_READY" };
+  if (facts.referenceCode !== payment.order) return { ok: false, code: "REFERENCE_MISMATCH" };
+  if (facts.outcome === "declined") return { ok: false, code: "DECLINED" };
+  if (facts.currency === null) return { ok: false, code: "NOT_READY" };
+  if (facts.currency.toUpperCase() !== payment.currency.toUpperCase()) return { ok: false, code: "CURRENCY_MISMATCH" };
+  const a = cents(facts.amount);
+  if (a === null) return { ok: false, code: "NOT_READY" };
+  if (a !== 0) return { ok: false, code: "AMOUNT_MISMATCH" };
+  if (facts.outcome !== "approved") return { ok: false, code: "NOT_READY" };
+  if (!facts.customerId || !facts.paymentInstrumentId) return { ok: false, code: "NOT_READY" };
   return { ok: true };
 }

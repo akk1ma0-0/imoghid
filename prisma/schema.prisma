@@ -432,6 +432,7 @@ enum PaymentPurpose {
   OVERAGE       // разовая доплата sobre-limit (грант на одно превышение по фиче)
   SINGLE_ACCESS // «O accesare» (30 MDL) — пакет из 3 одноразовых грантов, без плана
   AGENCY_SEATS  // HUB/Agenție — покупка N мест (450 MDL/место, мин. 3), Этап D
+  CARD_VERIFICATION // смена карты подписки CyberSource: проверка 0.00 (Account Verification), без списания
 }
 
 enum AgencyRole {
