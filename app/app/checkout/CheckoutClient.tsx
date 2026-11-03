@@ -58,8 +58,9 @@ export function CheckoutClient(props: {
 
   async function complete(paymentId: string, result: string) {
     setPhase("verifying");
-    // Результат может проиндексироваться у CyberSource не сразу — несколько повторов.
-    for (let i = 0; i < 6; i++) {
+    // Транзакция оплаты индексируется у CyberSource с задержкой в секунды — повторяем с
+    // нарастающей паузой: 12 попыток, 1 → 7,6 с (около минуты в сумме).
+    for (let i = 0; i < 12; i++) {
       const r = await fetch("/api/payments/cs/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,7 +81,7 @@ export function CheckoutClient(props: {
         setMessage("Plata nu a putut fi confirmată. Contactați-ne la info@biseeth.md — vom verifica tranzacția.");
         return;
       }
-      await wait(3000);
+      await wait(Math.min(1000 + i * 600, 8000));
     }
     setPhase("error");
     setMessage("Plata se verifică. Abonamentul se va activa automat după confirmare — reveniți peste câteva minute.");

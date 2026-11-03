@@ -43,8 +43,48 @@ export function transactionIdCandidates(payload: Record<string, unknown> | null)
 
 const CARD_TYPES: Record<string, string> = { "001": "Visa", "002": "Mastercard" };
 
+// Unified Checkout создаёт под одним reference code НЕСКОЛЬКО транзакций: настройка и проверка
+// 3-D Secure (ics_pa_setup, ics_pa_enroll) и саму оплату (ics_auth + ics_bill, плюс создание
+// токена ics_pay_subscription_create). Оплата — только транзакция с ics_auth или ics_bill;
+// у 3DS-транзакций нет суммы, валюты и токенов (проверено на тестовой среде).
+const PAYMENT_APPS = new Set(["ics_auth", "ics_bill"]);
+
+export function hasPaymentApplication(appNames: (string | null)[]): boolean {
+  return appNames.some((n) => n !== null && PAYMENT_APPS.has(n));
+}
+
+// id транзакций ОПЛАТЫ из результатов поиска (search.ts) — 3DS-транзакции отбрасываются.
+export function paymentTransactionIds(summaries: { id: string; applications: { name: string | null }[] }[]): string[] {
+  return summaries.filter((s) => hasPaymentApplication(s.applications.map((a) => a.name))).map((s) => s.id);
+}
+
+// Имена ключей payload JWT (пути до глубины 4) — БЕЗ значений, для диагностики структуры
+// результата Unified Checkout. Массивы обозначаются «[]» (смотрим только первый элемент).
+export function jwtKeyPaths(payload: Record<string, unknown> | null, maxPaths = 80): string[] {
+  const out: string[] = [];
+  const walk = (v: unknown, path: string, depth: number) => {
+    if (out.length >= maxPaths) return;
+    if (Array.isArray(v)) {
+      out.push(`${path}[]`);
+      if (depth < 4 && v.length) walk(v[0], `${path}[]`, depth + 1);
+      return;
+    }
+    if (v && typeof v === "object") {
+      for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+        const p = path ? `${path}.${k}` : k;
+        if (val && typeof val === "object" && depth < 4) walk(val, p, depth + 1);
+        else out.push(p);
+        if (out.length >= maxPaths) return;
+      }
+    }
+  };
+  walk(payload, "", 0);
+  return out;
+}
+
 export type TxnFacts = {
   id: string;
+  isPayment: boolean; // есть ics_auth или ics_bill (не 3DS-транзакция)
   referenceCode: string | null;
   amount: string | null;
   currency: string | null;
@@ -72,13 +112,16 @@ export function transactionFactsOf(json: Record<string, unknown> | null): TxnFac
   const appList = (Array.isArray(apps) ? apps : []).map(obj);
   const auth = appList.find((a) => a.name === "ics_auth");
   const authCode = str(auth?.rCode);
-  const outcome = authCode === "1" ? "approved" : authCode === "0" ? "declined" : "unknown";
+  // rCode: 1 — успех, 0 — отказ, -1 — ошибка. Отказ — только при заполненном rCode ≠ 1;
+  // нет ics_auth или rCode — исход ещё не известен.
+  const outcome = authCode === "1" ? "approved" : authCode !== null ? "declined" : "unknown";
   const suffix = str(card.suffix);
   const type = str(card.type);
   const month = Number(card.expirationMonth);
   const year = Number(card.expirationYear);
   return {
     id,
+    isPayment: hasPaymentApplication(appList.map((a) => str(a.name))),
     referenceCode: str(obj(json?.clientReferenceInformation).code),
     amount: str(order.totalAmount),
     currency: str(order.currency),
@@ -119,19 +162,28 @@ export type CitCheck =
         | "AMOUNT_MISMATCH"
         | "CURRENCY_MISMATCH"
         | "DECLINED"
-        | "NOT_APPROVED";
+        | "NOT_READY"; // не транзакция оплаты / поля ещё не заполнены → UNKNOWN и повтор
     };
 
+// Коды, после которых платёж становится FAILED (окончательно). Всё остальное — не окончательно.
+export const CIT_FINAL_FAILURES = new Set(["REFERENCE_MISMATCH", "AMOUNT_MISMATCH", "CURRENCY_MISMATCH", "DECLINED"]);
+
 // Проверка «эта транзакция CyberSource — оплата именно этого Payment этого пользователя».
+// FAILED окончательный, поэтому несоответствие — только для ЗАПОЛНЕННЫХ и отличающихся полей;
+// отсутствие поля, 3DS-транзакция или незавершённый статус → NOT_READY (повторить позже).
 export function validateCitCompletion(payment: CitPaymentView, facts: TxnFacts, userId: string): CitCheck {
   if (payment.userId !== userId) return { ok: false, code: "NOT_OWNER" };
   if (payment.provider !== "CYBERSOURCE" || payment.initiator !== "CUSTOMER") return { ok: false, code: "WRONG_PROVIDER" };
   if (payment.status === "PAID") return { ok: false, code: "ALREADY_PAID" };
+  if (!facts.isPayment) return { ok: false, code: "NOT_READY" };
+  if (facts.referenceCode === null) return { ok: false, code: "NOT_READY" };
   if (facts.referenceCode !== payment.order) return { ok: false, code: "REFERENCE_MISMATCH" };
-  if ((facts.currency ?? "").toUpperCase() !== payment.currency.toUpperCase()) return { ok: false, code: "CURRENCY_MISMATCH" };
-  const a = cents(facts.amount);
-  if (a === null || a !== cents(payment.amount)) return { ok: false, code: "AMOUNT_MISMATCH" };
   if (facts.outcome === "declined") return { ok: false, code: "DECLINED" };
-  if (facts.outcome !== "approved") return { ok: false, code: "NOT_APPROVED" };
+  if (facts.currency === null) return { ok: false, code: "NOT_READY" };
+  if (facts.currency.toUpperCase() !== payment.currency.toUpperCase()) return { ok: false, code: "CURRENCY_MISMATCH" };
+  const a = cents(facts.amount);
+  if (a === null) return { ok: false, code: "NOT_READY" };
+  if (a !== cents(payment.amount)) return { ok: false, code: "AMOUNT_MISMATCH" };
+  if (facts.outcome !== "approved") return { ok: false, code: "NOT_READY" };
   return { ok: true };
 }

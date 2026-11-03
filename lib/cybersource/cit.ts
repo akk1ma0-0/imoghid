@@ -18,7 +18,10 @@ import { sendReceiptEmail } from "@/lib/email";
 import { getTransactionDetails } from "@/lib/cybersource/checkout";
 import { findByReferenceCode } from "@/lib/cybersource/search";
 import {
+  CIT_FINAL_FAILURES,
   decodeJwtPayload,
+  jwtKeyPaths,
+  paymentTransactionIds,
   transactionIdCandidates,
   validateCitCompletion,
   type TxnFacts,
@@ -40,25 +43,37 @@ function log(line: Record<string, unknown>) {
   console.info(JSON.stringify({ evt: "cs_cit_complete", ...line }));
 }
 
-// Ищем транзакцию этого платежа: сначала по id из JWT браузера, затем по нашему reference code.
-// transient=true — была сетевая/серверная ошибка (исход неизвестен, а не «нет транзакции»).
-async function locateTransaction(payment: Payment, resultJwt: unknown): Promise<{ facts: TxnFacts | null; transient: boolean }> {
+// Ищем транзакцию ОПЛАТЫ этого платежа (ics_auth / ics_bill): сначала по id из JWT браузера,
+// затем по нашему reference code. Под тем же reference code Unified Checkout создаёт и
+// 3DS-транзакции (ics_pa_setup / ics_pa_enroll) — они пропускаются. Индекс CyberSource отстаёт
+// на секунды: 404 на деталях и «оплата в поиске ещё не видна» — это «ещё не проиндексировано»
+// (facts=null → UNKNOWN и повтор), а не повод взять другую транзакцию.
+// transient=true — была сетевая/серверная ошибка; notIndexed=true — был 404 / ничего не найдено.
+async function locateTransaction(
+  payment: Payment,
+  resultJwt: unknown,
+): Promise<{ facts: TxnFacts | null; transient: boolean; notIndexed: boolean }> {
   let transient = false;
+  let notIndexed = false;
   const tryIds = async (ids: string[]) => {
     for (const id of ids) {
       const d = await getTransactionDetails(id);
-      if (d.ok && d.facts.referenceCode === payment.order) return d.facts;
-      if (!d.ok && (d.httpStatus === 0 || d.httpStatus >= 500)) transient = true;
+      if (d.ok && d.facts.isPayment && d.facts.referenceCode === payment.order) return d.facts;
+      if (!d.ok && d.httpStatus === 404) notIndexed = true;
+      else if (!d.ok && (d.httpStatus === 0 || d.httpStatus >= 500)) transient = true;
     }
     return null;
   };
   let facts = await tryIds(transactionIdCandidates(decodeJwtPayload(resultJwt)));
   if (!facts) {
     const s = await findByReferenceCode(payment.order);
-    if (s.ok) facts = await tryIds(s.summaries.slice(0, 3).map((x) => x.id));
-    else if (s.httpStatus === 0 || s.httpStatus >= 500) transient = true;
+    if (s.ok) {
+      const ids = paymentTransactionIds(s.summaries).slice(0, 3);
+      if (ids.length === 0) notIndexed = true; // в поиске пока только 3DS-транзакции или ничего
+      facts = await tryIds(ids);
+    } else if (s.httpStatus === 0 || s.httpStatus >= 500) transient = true;
   }
-  return { facts, transient };
+  return { facts, transient, notIndexed };
 }
 
 export async function completeCitPayment(args: {
@@ -68,6 +83,11 @@ export async function completeCitPayment(args: {
   resultJwt?: unknown; // результат Unified Checkout из браузера — только подсказка
 }): Promise<CitResult> {
   const started = Date.now();
+  // Диагностика структуры результата Unified Checkout: только имена ключей, без значений.
+  if (args.resultJwt !== undefined) {
+    const payload = decodeJwtPayload(args.resultJwt);
+    console.info(JSON.stringify({ evt: "cs_cit_result_jwt", paymentId: args.paymentId, decoded: payload !== null, keys: jwtKeyPaths(payload) }));
+  }
   const payment = await prisma.payment.findUnique({ where: { id: args.paymentId } });
   if (!payment || (!args.asAdmin && payment.userId !== args.actorUserId)) return { status: "not_found" };
   if (payment.provider !== "CYBERSOURCE" || payment.initiator !== "CUSTOMER") return { status: "failed", code: "WRONG_PROVIDER" };
@@ -87,18 +107,20 @@ export async function completeCitPayment(args: {
     });
 
   try {
-    const { facts, transient } = await locateTransaction(payment, args.resultJwt);
+    const { facts, transient, notIndexed } = await locateTransaction(payment, args.resultJwt);
     if (!facts) {
       await release("UNKNOWN");
-      log({ paymentId: payment.id, order: payment.order, result: "unknown", transient, ms: Date.now() - started });
+      log({ paymentId: payment.id, order: payment.order, result: "unknown", transient, notIndexed, ms: Date.now() - started });
       return { status: "unknown" };
     }
 
     const check = validateCitCompletion(payment, facts, payment.userId);
     if (!check.ok) {
-      if (check.code === "NOT_APPROVED") {
+      // FAILED — окончательный: только явный отказ ics_auth или заполненные, но другие сумма /
+      // валюта / reference. Всё прочее (не готово, не оплата) — UNKNOWN и повтор.
+      if (!CIT_FINAL_FAILURES.has(check.code)) {
         await release("UNKNOWN");
-        log({ paymentId: payment.id, csTransactionId: facts.id, result: "unknown", ms: Date.now() - started });
+        log({ paymentId: payment.id, csTransactionId: facts.id, result: "unknown", reason: check.code, ms: Date.now() - started });
         return { status: "unknown" };
       }
       await prisma.payment.update({

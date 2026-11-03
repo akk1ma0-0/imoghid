@@ -4,7 +4,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  CIT_FINAL_FAILURES,
   decodeJwtPayload,
+  jwtKeyPaths,
+  paymentTransactionIds,
   transactionFactsOf,
   transactionIdCandidates,
   validateCitCompletion,
@@ -98,9 +101,9 @@ describe("validateCitCompletion", () => {
     assert.deepEqual(validateCitCompletion(payment(), facts({ orderInformation: { amountDetails: { totalAmount: "300.00", currency: "EUR" } } }), "user-1"), { ok: false, code: "CURRENCY_MISMATCH" });
     assert.deepEqual(validateCitCompletion(payment(), facts({ clientReferenceInformation: { code: "other" } }), "user-1"), { ok: false, code: "REFERENCE_MISMATCH" });
   });
-  it("отказ банка → DECLINED; статус не финальный → NOT_APPROVED", () => {
+  it("отказ банка → DECLINED; без приложений оплаты → NOT_READY", () => {
     assert.deepEqual(validateCitCompletion(payment(), facts({ applicationInformation: { applications: [{ name: "ics_auth", rCode: "0" }] } }), "user-1"), { ok: false, code: "DECLINED" });
-    assert.deepEqual(validateCitCompletion(payment(), facts({ applicationInformation: { applications: [] } }), "user-1"), { ok: false, code: "NOT_APPROVED" });
+    assert.deepEqual(validateCitCompletion(payment(), facts({ applicationInformation: { applications: [] } }), "user-1"), { ok: false, code: "NOT_READY" });
   });
 });
 
@@ -114,5 +117,94 @@ describe("JWT результата из браузера — только под
     assert.equal(decodeJwtPayload(123), null);
     assert.deepEqual(transactionIdCandidates(null), []);
     assert.deepEqual(transactionIdCandidates(decodeJwtPayload(jwtOf({ id: "abc" }))), []);
+  });
+});
+
+// ── Сценарии по результатам тестовой оплаты: под одним reference code UC создаёт 3DS-транзакцию
+// (ics_pa_setup — без суммы, валюты и токенов) и транзакцию оплаты (ics_auth + ics_bill).
+const paSetupOnly = () => ({
+  id: "7000000000000000000008",
+  submitTimeUTC: "2026-11-03T14:38:27Z",
+  applicationInformation: { reasonCode: 100, applications: [{ name: "ics_pa_setup", rCode: "1", rFlag: "SOK" }] },
+  clientReferenceInformation: { code: "17621234567891234" },
+  paymentInformation: { card: { suffix: "0007" } },
+});
+const fullPayment = () =>
+  details({
+    orderInformation: { amountDetails: { totalAmount: "300", currency: "MDL" } },
+    applicationInformation: {
+      applications: [
+        { name: "ics_pay_subscription_create", rCode: "1" },
+        { name: "ics_auth", rCode: "1" },
+        { name: "ics_bill", rCode: "1" },
+        { name: "ics_pa_enroll", rCode: "1" },
+      ],
+    },
+  });
+
+describe("3DS-транзакции и строгие условия FAILED", () => {
+  it("транзакция только с ics_pa_setup — не оплата: NOT_READY (пропуск), а не FAILED", () => {
+    const f = transactionFactsOf(paSetupOnly())!;
+    assert.equal(f.isPayment, false);
+    assert.equal(f.amount, null);
+    assert.equal(f.currency, null);
+    const check = validateCitCompletion(payment(), f, "user-1");
+    assert.deepEqual(check, { ok: false, code: "NOT_READY" });
+    assert.equal(CIT_FINAL_FAILURES.has("NOT_READY"), false, "NOT_READY не должен вести к FAILED");
+  });
+  it("только ics_pa_enroll — тоже не оплата", () => {
+    const f = transactionFactsOf({ ...paSetupOnly(), applicationInformation: { applications: [{ name: "ics_pa_enroll", rCode: "1" }] } })!;
+    assert.equal(f.isPayment, false);
+    assert.deepEqual(validateCitCompletion(payment(), f, "user-1"), { ok: false, code: "NOT_READY" });
+  });
+  it("поиск вернул только 3DS-транзакцию → нет id оплаты (→ UNKNOWN и повтор)", () => {
+    assert.deepEqual(paymentTransactionIds([{ id: "T-3DS", applications: [{ name: "ics_pa_setup" }] }]), []);
+    assert.deepEqual(
+      paymentTransactionIds([
+        { id: "T-PAY", applications: [{ name: "ics_pay_subscription_create" }, { name: "ics_auth" }, { name: "ics_bill" }, { name: "ics_pa_enroll" }] },
+        { id: "T-3DS", applications: [{ name: "ics_pa_setup" }] },
+      ]),
+      ["T-PAY"],
+    );
+  });
+  it("отказ ics_auth (rCode 0 или -1) → DECLINED (окончательный FAILED)", () => {
+    for (const rCode of ["0", "-1"]) {
+      const f = facts({ applicationInformation: { applications: [{ name: "ics_auth", rCode }] } });
+      assert.equal(f.outcome, "declined");
+      const check = validateCitCompletion(payment(), f, "user-1");
+      assert.deepEqual(check, { ok: false, code: "DECLINED" });
+      assert.equal(CIT_FINAL_FAILURES.has("DECLINED"), true);
+    }
+  });
+  it("ics_auth без rCode — исход неизвестен: NOT_READY", () => {
+    const f = facts({ applicationInformation: { applications: [{ name: "ics_auth" }] } });
+    assert.equal(f.outcome, "unknown");
+    assert.deepEqual(validateCitCompletion(payment(), f, "user-1"), { ok: false, code: "NOT_READY" });
+  });
+  it("транзакция оплаты без суммы или валюты → NOT_READY, а не MISMATCH", () => {
+    assert.deepEqual(validateCitCompletion(payment(), facts({ orderInformation: { amountDetails: { currency: "MDL" } } }), "user-1"), { ok: false, code: "NOT_READY" });
+    assert.deepEqual(validateCitCompletion(payment(), facts({ orderInformation: { amountDetails: { totalAmount: "300.00" } } }), "user-1"), { ok: false, code: "NOT_READY" });
+    assert.deepEqual(validateCitCompletion(payment(), facts({ orderInformation: {} }), "user-1"), { ok: false, code: "NOT_READY" });
+    assert.deepEqual(validateCitCompletion(payment(), facts({ clientReferenceInformation: {} }), "user-1"), { ok: false, code: "NOT_READY" });
+  });
+  it("полная оплата (как на тестовой среде: сумма \"300\", 4 приложения) → approved, ok", () => {
+    const f = transactionFactsOf(fullPayment())!;
+    assert.equal(f.isPayment, true);
+    assert.equal(f.outcome, "approved");
+    assert.ok(f.customerId && f.paymentInstrumentId && f.networkTransactionId);
+    assert.deepEqual(validateCitCompletion(payment(), f, "user-1"), { ok: true });
+  });
+  it("окончательные отказы — только явные несоответствия и отказ", () => {
+    assert.deepEqual([...CIT_FINAL_FAILURES].sort(), ["AMOUNT_MISMATCH", "CURRENCY_MISMATCH", "DECLINED", "REFERENCE_MISMATCH"]);
+  });
+});
+
+describe("jwtKeyPaths — только имена ключей", () => {
+  it("пути без значений, массивы как []", () => {
+    const paths = jwtKeyPaths({ iss: "secret-value", content: { paymentInformation: { card: { number: "XXXX" } } }, list: [{ id: "123" }] });
+    assert.deepEqual(paths, ["iss", "content.paymentInformation.card.number", "list[]", "list[].id"]);
+    assert.equal(paths.join(" ").includes("secret-value"), false);
+    assert.equal(paths.join(" ").includes("XXXX"), false);
+    assert.deepEqual(jwtKeyPaths(null), []);
   });
 });
