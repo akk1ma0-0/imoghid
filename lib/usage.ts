@@ -9,6 +9,7 @@ import {
   FEATURE_LABEL_RO,
   type LimitedFeature,
 } from "@/lib/plan-limits";
+import { summarizeSingleAccess, type SingleAccessSummary } from "@/lib/single-access";
 
 export type UsageResult =
   | { ok: true; viaOverage?: boolean; viaSingleAccess?: boolean }
@@ -74,6 +75,17 @@ async function consumeSingleAccessGrant(
 }
 
 // Есть ли у пользователя хоть один непотраченный грант «O accesare» (любой фичи).
+// Неиспользованные гранты «O accesare» пользователя: всего и по функциям (для индикатора на
+// /app/pending и в профиле; PlanStatus берёт total через getUsageSummary). Единственное место,
+// где этот подсчёт делается; чистая часть — lib/single-access.ts.
+export async function getSingleAccessSummary(userId: string): Promise<SingleAccessSummary> {
+  const grants = await prisma.singleAccessGrant.findMany({
+    where: { userId, consumedAt: null },
+    select: { feature: true, consumedAt: true },
+  });
+  return summarizeSingleAccess(grants);
+}
+
 // Используется для JWT-claim hasSingleAccess (WAITLIST-гейт).
 export async function hasUnconsumedSingleAccess(userId: string): Promise<boolean> {
   const n = await prisma.singleAccessGrant.count({
@@ -324,6 +336,7 @@ export async function getUsageSummary(userId: string): Promise<{
   planExpiresAt: string | null;
   rows: UsageSummaryRow[];
   singleAccessCount: number;
+  singleAccess: SingleAccessSummary;
 }> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -331,14 +344,14 @@ export async function getUsageSummary(userId: string): Promise<{
   });
   const plan = user?.plan ?? null;
 
-  const [cadastru, dosar, creator, anunt, activeObjects, singleAccessCount] =
+  const [cadastru, dosar, creator, anunt, activeObjects, singleAccess] =
     await Promise.all([
       getUsage(userId, "CADASTRU_CHECK"),
       getUsage(userId, "DOSAR_ANALYSIS"),
       getUsage(userId, "CREATOR_HUB"),
       getUsage(userId, "ANUNT_999"),
       prisma.transaction.count({ where: { userId, status: { not: "ARCHIVE" } } }),
-      prisma.singleAccessGrant.count({ where: { userId, consumedAt: null } }),
+      getSingleAccessSummary(userId),
     ]);
 
   const obiecteLimit = planFeatureLimit(plan, "OBIECTE_ACTIVE");
@@ -361,7 +374,8 @@ export async function getUsageSummary(userId: string): Promise<{
       row("CREATOR_HUB", creator.used, creator.limit),
       row("ANUNT_999", anunt.used, anunt.limit),
     ],
-    singleAccessCount,
+    singleAccessCount: singleAccess.total,
+    singleAccess,
   };
 }
 

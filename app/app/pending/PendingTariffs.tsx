@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useDemo } from "@/app/contexts/DemoContext";
 import { AGENCY_SEAT_FEE_MDL } from "@/lib/plan-limits";
+import { accessesAvailableText, singleAccessBreakdownText, type SingleAccessSummary } from "@/lib/single-access";
 
 // Плашки тарифов (plan = null). Две плашки → оплата VictoriaBank. Ручное назначение
 // плана админом остаётся параллельным путём. Показывается, когда WAITLIST_MODE выключен.
@@ -181,11 +182,15 @@ export function PendingTariffs({
   isAuthenticated = true,
   changeMode = false,
   personalPlanBlockedMsg = null,
+  singleAccess = null,
 }: {
   isAuthenticated?: boolean;
   changeMode?: boolean;
   personalPlanBlockedMsg?: string | null;
+  // Неиспользованные разовые доступы пользователя без плана (с сервера); null / total=0 — плашки нет.
+  singleAccess?: SingleAccessSummary | null;
 }) {
+  const hasSingleAccess = !!singleAccess && singleAccess.total > 0;
   const { startDemo } = useDemo();
   const [agreed, setAgreed] = useState(false);
 
@@ -241,6 +246,21 @@ export function PendingTariffs({
               : "Creați un cont pentru a activa un abonament. Plata este procesată securizat de VictoriaBank."}
         </p>
       </div>
+
+      {/* Разовые доступы без плана: сколько осталось и куда их потратить. */}
+      {hasSingleAccess && !changeMode && (
+        <div className="notice blue" style={{ maxWidth: 720, margin: "14px auto 0" }}>
+          <div className="notice-dot" />
+          <div style={{ fontSize: 13, lineHeight: 1.55, flex: 1 }}>
+            <b>Accese unice disponibile: {singleAccess!.total}</b>
+            <div style={{ color: "var(--ink2)", marginTop: 2 }}>{singleAccessBreakdownText(singleAccess!)}</div>
+            <div style={{ color: "var(--ink3)", marginTop: 2 }}>Le puteți folosi chiar acum, fără abonament.</div>
+            <Link className="btn solid" href="/app/cadastru" style={{ marginTop: 10, display: "inline-flex" }}>
+              Folosește acum →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Смена плана: предупреждение о замене текущего плана и пересчёте периода. */}
       {changeMode && (
@@ -509,8 +529,13 @@ export function PendingTariffs({
             </div>
             <p style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.55, margin: 0 }}>
               Un singur pachet: <b>1 verificare cadastrală</b> + <b>1 examinare dosar</b> + <b>1 obiect</b>.
-              Se consumă o singură dată, nu se reînnoiește.
+              Se consumă o singură dată, nu se reînnoiește. Creator Hub nu este inclus.
             </p>
+            {hasSingleAccess && (
+              <p style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.55, margin: "6px 0 0" }}>
+                <b>Aveți deja {accessesAvailableText(singleAccess!.total)}.</b>
+              </p>
+            )}
           </div>
           <div style={{ flex: "0 0 auto", minWidth: 200 }}>
             {isAuthenticated ? (

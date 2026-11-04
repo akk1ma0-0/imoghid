@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { getUsageSummary } from "@/lib/usage";
+import { getSingleAccessSummary, getUsageSummary } from "@/lib/usage";
 import { getPlanDisplay } from "@/lib/plan-display";
 import { personalPlanPurchaseBlock } from "@/lib/agency";
+import { isWaitlistedFromEnv } from "@/lib/waitlist";
 import { PendingTariffs } from "./PendingTariffs";
 import { PlanStatus } from "./PlanStatus";
 
@@ -63,24 +64,21 @@ export default async function PendingPage({
       );
     }
 
-    // Точечный обход waitlist для тестовых аккаунтов (напр. тест платежей при активной
-    // рекламной кампании). Список email в WAITLIST_BYPASS_EMAILS (через запятую).
-    const isAdmin = session!.user.role === "ADMIN";
-    const email = session!.user.email?.toLowerCase() ?? "";
-    const bypassEmails = (process.env.WAITLIST_BYPASS_EMAILS ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    const bypassWaitlist = isAdmin || (email !== "" && bypassEmails.includes(email));
+    // Разовые доступы («O accesare») без плана: индикатор над тарифами.
+    const singleAccess = await getSingleAccessSummary(userId);
 
-    // Waitlist-режим: не-админ без плана (и не в списке обхода) → «ждите приглашение».
-    if (process.env.WAITLIST_MODE === "true" && !bypassWaitlist) {
+    // Waitlist-режим: не-админ без плана (и не в списке обхода WAITLIST_BYPASS_EMAILS) →
+    // «ждите приглашение». Правило — lib/waitlist.ts (то же, что в профиле). Пользователь с
+    // неиспользованным грантом уже допущен в приложение (middleware) и обратно с
+    // /app/waitlist возвращается на /app, поэтому его на waitlist не отправляем — иначе
+    // страница тарифов и индикатор были бы для него недостижимы.
+    if (singleAccess.total === 0 && isWaitlistedFromEnv({ role: session!.user.role, email: session!.user.email })) {
       redirect("/app/waitlist");
     }
 
     // Без плана, но владелец активного агентства (место себе не брал) — личный Basic/Pro
     // недоступен: вместо кнопок оплаты в карточках показываем причину.
-    return <PendingTariffs isAuthenticated personalPlanBlockedMsg={personalBlock} />;
+    return <PendingTariffs isAuthenticated personalPlanBlockedMsg={personalBlock} singleAccess={singleAccess} />;
   }
 
   // Тарифы. Для анонимного посетителя кнопки ведут на регистрацию (без формы оплаты).

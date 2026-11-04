@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { PasswordInput } from "@/components/PasswordInput";
 import type { PlanKind } from "@/lib/plan-display";
 import { fmtDateChisinau, planExpiryLabel } from "@/lib/date-chisinau";
+import { accessesAvailableText, singleAccessBreakdownText, type SingleAccessSummary } from "@/lib/single-access";
 import { CsSubscriptionBlock } from "./CsSubscriptionBlock";
 
 type Initial = {
@@ -19,6 +20,9 @@ type Initial = {
   planKind: PlanKind;
   planExpiresAt: string | null;
   agencyExpiresAt: string | null;
+  // Только при plan = null: неиспользованные разовые доступы и признак waitlist.
+  singleAccess: SingleAccessSummary;
+  waitlisted: boolean;
 };
 
 function Notice({ kind, text }: { kind: "red" | "green"; text: string }) {
@@ -290,12 +294,38 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
         <div className="card-hd"><b>Abonament</b></div>
         <div className="card-bd">
           {initial.plan === null ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="badge b-amber" style={{ fontSize: 12, padding: "3px 12px" }}>În așteptare</span>
-              <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
-                Plan: În așteptare — activarea de către administrator.
-              </span>
-            </div>
+            initial.singleAccess.total > 0 ? (
+              // Без подписки, но с оплаченными разовыми доступами.
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                  <span className="badge b-gray" style={{ fontSize: 12, padding: "3px 12px" }}>Fără abonament</span>
+                  <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
+                    Aveți {accessesAvailableText(initial.singleAccess.total)}.
+                  </span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--ink2)", lineHeight: 1.55 }}>
+                  {singleAccessBreakdownText(initial.singleAccess)}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                  <Link className="btn solid" href="/app/cadastru">Folosește acum →</Link>
+                  <Link className="btn" href="/app/pending">Alegeți un plan</Link>
+                </div>
+              </div>
+            ) : initial.waitlisted ? (
+              // Ждёт приглашения / ручной активации администратором — прежний текст.
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className="badge b-amber" style={{ fontSize: 12, padding: "3px 12px" }}>În așteptare</span>
+                <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
+                  Plan: În așteptare — activarea de către administrator.
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span className="badge b-gray" style={{ fontSize: 12, padding: "3px 12px" }}>Fără abonament</span>
+                <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>Nu aveți un abonament activ.</span>
+                <Link className="btn" href="/app/pending">Alegeți un plan</Link>
+              </div>
+            )
           ) : (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
