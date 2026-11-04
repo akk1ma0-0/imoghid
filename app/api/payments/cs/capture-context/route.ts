@@ -7,6 +7,7 @@ import { isCyberSourceEnabledFor } from "@/lib/payment-provider";
 import { resolvePaymentIntent } from "@/lib/payment-intent";
 import { RECURRING_CONSENT_VERSION } from "@/lib/recurring-consent";
 import { createCaptureContext } from "@/lib/cybersource/checkout";
+import { checkPersonalCheckout, hasOwnCsSubscription } from "@/lib/plan-change-service";
 
 // POST /api/payments/cs/capture-context
 //   { purpose, plan?, seats?, takeOwnerSeat?, agreedToTerms, agreedToRecurring, consentVersion }
@@ -24,7 +25,10 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({ where: { id: sess.userId }, select: { email: true, role: true } });
   if (!user) return NextResponse.json({ error: "Utilizator negăsit." }, { status: 404 });
-  if (!isCyberSourceEnabledFor(user)) return NextResponse.json({ error: "Plata cu cardul salvat nu este disponibilă." }, { status: 403 });
+  // Владелец подписки CyberSource может сменить план и вне бета-списка (иначе кнопка вела бы в тупик).
+  if (!isCyberSourceEnabledFor(user) && !(await hasOwnCsSubscription(sess.userId))) {
+    return NextResponse.json({ error: "Plata cu cardul salvat nu este disponibilă." }, { status: 403 });
+  }
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "Cerere invalidă." }, { status: 400 });
@@ -39,12 +43,21 @@ export async function POST(request: Request) {
   if (!resolved.ok) return NextResponse.json({ error: resolved.message }, { status: resolved.status });
   const { intent } = resolved;
 
-  // Одна активная подписка на тип (смена плана с автопродлением — следующий шаг).
-  const active = await prisma.subscription.findFirst({
-    where: { userId: sess.userId, kind: intent.purpose === "AGENCY_SEATS" ? "AGENCY" : "PERSONAL", status: { in: ["ACTIVE", "PAST_DUE"] } },
-    select: { id: true },
-  });
-  if (active) return NextResponse.json({ error: "Aveți deja un abonament cu reînnoire automată." }, { status: 409 });
+  // Одна активная подписка на тип. Личная: Basic → Pro — эта оплата заменит текущую подписку
+  // (Payment.replacesSubscriptionId, замена — в cit.ts после успеха); тот же план или понижение —
+  // отказ (понижение идёт без оплаты, со следующего периода). Агентская — по-прежнему одна.
+  let replacesSubscriptionId: string | null = null;
+  if (intent.purpose === "SUBSCRIPTION") {
+    const pc = await checkPersonalCheckout(sess.userId, intent.plan);
+    if (!pc.ok) return NextResponse.json({ error: pc.message }, { status: pc.status });
+    replacesSubscriptionId = pc.replacesSubscriptionId;
+  } else {
+    const active = await prisma.subscription.findFirst({
+      where: { userId: sess.userId, kind: "AGENCY", status: { in: ["ACTIVE", "PAST_DUE"] } },
+      select: { id: true },
+    });
+    if (active) return NextResponse.json({ error: "Aveți deja un abonament cu reînnoire automată." }, { status: 409 });
+  }
 
   const currency = paymentCurrency();
   const amount = intent.amount.toFixed(2);
@@ -61,6 +74,7 @@ export async function POST(request: Request) {
       ownerTakesSeat: intent.ownerTakesSeat,
       provider: "CYBERSOURCE",
       initiator: "CUSTOMER",
+      replacesSubscriptionId,
     },
     select: { id: true, order: true },
   });

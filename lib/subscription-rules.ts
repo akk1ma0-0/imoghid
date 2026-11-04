@@ -1,6 +1,7 @@
 // Правила управления подпиской CyberSource для клиента — чистые функции (без БД/сети), под тесты.
 // Состояние в БД: status (ACTIVE / PAST_DUE / CANCELED / EXPIRED) + флаг cancelAtPeriodEnd.
 // Клиенту отдаём только безопасное представление: без токенов, billingHold и внутренних полей.
+import { canCancelDowngrade, canDowngrade, canUpgrade } from "@/lib/plan-change-rules";
 
 export type SubForRules = {
   status: "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED";
@@ -12,6 +13,10 @@ export type SubForRules = {
   plan: string;
   amount: string | null;
   currency: string | null;
+  // Запланированная смена плана (Pro → Basic со следующего периода), см. plan-change-rules.ts.
+  pendingPlan?: string | null;
+  pendingAmount?: string | null;
+  pendingFrom?: Date | null;
 };
 
 export type CardForRules = {
@@ -82,13 +87,28 @@ export type ClientSubscriptionView = {
   canResume: boolean;
   canChangeCard: boolean;
   canPayNow: boolean;
+  // Смена плана. upgradeTo/downgradeTo — null, если сейчас недоступна.
+  upgradeTo: { plan: string; amount: string } | null;
+  downgradeTo: { plan: string; amount: string } | null;
+  pendingChange: { plan: string; amount: string | null; from: string } | null; // «După DD.MM.YYYY: Basic»
+  canCancelPendingChange: boolean;
 };
 
-export function toClientView(s: SubForRules, card: CardForRules, now: Date, lastFailureAt: Date | null): ClientSubscriptionView | null {
+// Контекст смены плана: идёт ли автосписание с неясным исходом и цены каталога ("500.00").
+export type PlanChangeViewCtx = { chargeInFlight: boolean; prices: { BASIC: string; PRO: string } };
+
+export function toClientView(
+  s: SubForRules,
+  card: CardForRules,
+  now: Date,
+  lastFailureAt: Date | null,
+  pc: PlanChangeViewCtx | null = null,
+): ClientSubscriptionView | null {
   const status = clientStatus(s);
   if (!status) return null;
   const activeCard = card && card.status === "ACTIVE" ? card : null;
   const payNow = canPayNow(s, card);
+  const ctx = { now, chargeInFlight: pc?.chargeInFlight ?? false };
   return {
     plan: s.plan,
     amount: s.amount,
@@ -105,6 +125,11 @@ export function toClientView(s: SubForRules, card: CardForRules, now: Date, last
     canResume: canResume(s, card, now).ok,
     canChangeCard: canChangeCard(s),
     canPayNow: payNow.ok && cardChangedSince(card, lastFailureAt),
+    upgradeTo: pc && canUpgrade(s, ctx).ok ? { plan: "PRO", amount: pc.prices.PRO } : null,
+    downgradeTo: pc && canDowngrade(s, ctx).ok ? { plan: "BASIC", amount: pc.prices.BASIC } : null,
+    pendingChange:
+      s.pendingPlan && s.pendingFrom ? { plan: s.pendingPlan, amount: s.pendingAmount ?? null, from: s.pendingFrom.toISOString() } : null,
+    canCancelPendingChange: canCancelDowngrade(s, ctx).ok,
   };
 }
 

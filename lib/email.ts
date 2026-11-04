@@ -356,12 +356,49 @@ async function sendSimpleEmail(email: string, subject: string, paragraphs: strin
   await tx.sendMail({ from: `"ImoGhid" <${from}>`, to: email, subject, text, html });
 }
 
-// За 3 дня до списания (один раз на период).
-export function sendBillingReminderEmail(email: string, r: { name: string; plan: string; amount: string; currency: string; chargeAt: Date }) {
+// За 3 дня до списания (один раз на период). changedFrom — план текущего периода, если со
+// следующего действует запланированная смена (plan — новый план, amount — его сумма).
+export function sendBillingReminderEmail(
+  email: string,
+  r: { name: string; plan: string; amount: string; currency: string; chargeAt: Date; changedFrom?: string | null },
+) {
+  const date = fmtDateChisinau(r.chargeAt.toISOString());
   return sendSimpleEmail(email, "Abonamentul se reînnoiește în curând", [
     `Bună ziua${r.name ? `, ${r.name}` : ""}!`,
-    `Abonamentul ImoGhid ${PLAN_LABEL[r.plan] ?? r.plan} se reînnoiește automat. În data de ${fmtDateChisinau(r.chargeAt.toISOString())} vom debita ${r.amount} ${r.currency} de pe cardul salvat.`,
+    r.changedFrom
+      ? `Așa cum ați ales, abonamentul ImoGhid trece de la planul ${PLAN_LABEL[r.changedFrom] ?? r.changedFrom} la planul ${PLAN_LABEL[r.plan] ?? r.plan}. În data de ${date} vom debita noua sumă — ${r.amount} ${r.currency} — de pe cardul salvat.`
+      : `Abonamentul ImoGhid ${PLAN_LABEL[r.plan] ?? r.plan} se reînnoiește automat. În data de ${date} vom debita ${r.amount} ${r.currency} de pe cardul salvat.`,
     `Dacă nu doriți reînnoirea, puteți anula abonamentul din cont înainte de această dată.`,
+  ], { label: "Contul meu", url: ACCOUNT_URL });
+}
+
+// Клиент выбрал переход на более дешёвый план со следующего периода (без списания сейчас).
+export function sendPlanDowngradeScheduledEmail(
+  email: string,
+  r: { name: string; fromPlan: string; toPlan: string; amount: string; currency: string; effectiveAt: Date },
+) {
+  const from = PLAN_LABEL[r.fromPlan] ?? r.fromPlan;
+  const to = PLAN_LABEL[r.toPlan] ?? r.toPlan;
+  const date = fmtDateChisinau(r.effectiveAt.toISOString());
+  return sendSimpleEmail(email, `Trecerea la planul ${to} a fost programată`, [
+    `Bună ziua${r.name ? `, ${r.name}` : ""}!`,
+    `Ați ales să treceți de la planul ${from} la planul ${to}. Până la ${date} planul ${from} rămâne activ, cu toate funcțiile lui.`,
+    `Începând cu ${date}, abonamentul continuă cu planul ${to}, iar plata lunară va fi de ${r.amount} ${r.currency}.`,
+    `Dacă v-ați răzgândit, puteți anula schimbarea din cont până la această dată.`,
+  ], { label: "Contul meu", url: ACCOUNT_URL });
+}
+
+// Списание за новый период прошло по новому (запланированному) плану.
+export function sendPlanChangedAtRenewalEmail(
+  email: string,
+  r: { name: string; fromPlan: string; toPlan: string; amount: string; currency: string; paidUntil: Date },
+) {
+  const from = PLAN_LABEL[r.fromPlan] ?? r.fromPlan;
+  const to = PLAN_LABEL[r.toPlan] ?? r.toPlan;
+  return sendSimpleEmail(email, `Abonamentul continuă cu planul ${to}`, [
+    `Bună ziua${r.name ? `, ${r.name}` : ""}!`,
+    `Așa cum ați ales, abonamentul a trecut de la planul ${from} la planul ${to}. Am debitat ${r.amount} ${r.currency} pentru luna următoare.`,
+    `Planul ${to} este activ până la ${fmtDateChisinau(r.paidUntil.toISOString())}, apoi se reînnoiește automat cu aceeași sumă.`,
   ], { label: "Contul meu", url: ACCOUNT_URL });
 }
 

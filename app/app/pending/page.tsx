@@ -7,6 +7,8 @@ import { personalPlanPurchaseBlock } from "@/lib/agency";
 import { isWaitlistedFromEnv } from "@/lib/waitlist";
 import { PendingTariffs } from "./PendingTariffs";
 import { PlanStatus } from "./PlanStatus";
+import { hasOwnCsSubscription } from "@/lib/plan-change-service";
+import { CsSubscriptionBlock } from "@/app/app/profile/CsSubscriptionBlock";
 
 // Точка решения «тарифы vs waitlist» — серверный компонент (Node runtime).
 // Страница ПУБЛИЧНАЯ (SIP — банк требует доступную без логина страницу цен):
@@ -40,6 +42,27 @@ export default async function PendingPage({
     // кода приглашения. HUB сюда не попадает: участник сначала выходит из агентства, а
     // владелец управляет HUB со страницы /app/agency (владельцу change=1 тоже не открываем).
     if (plan && changeRequested && (plan === "BASIC" || plan === "PRO") && !personalBlock) {
+      // Подписка с автопродлением (CyberSource): смена плана — кнопками подписки (Basic → Pro сразу
+      // с оплатой, Pro → Basic со следующего периода), а не формой VictoriaBank.
+      if (await hasOwnCsSubscription(userId)) {
+        return (
+          <div className="ig-page" style={{ maxWidth: 560, margin: "0 auto", padding: "32px 16px" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>Schimbați planul</h1>
+            <p style={{ fontSize: 13.5, color: "var(--ink3)", lineHeight: 1.6, margin: 0 }}>
+              Trecerea la Pro are loc imediat, cu plata noului plan. Trecerea la Basic are loc de la următoarea lună, fără
+              plată acum.
+            </p>
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="card-bd" style={{ padding: "4px 20px 20px" }}>
+                <CsSubscriptionBlock />
+              </div>
+            </div>
+            <p style={{ marginTop: 14, fontSize: 13 }}>
+              <a href="/app/pending">← Înapoi la abonament</a>
+            </p>
+          </div>
+        );
+      }
       return <PendingTariffs isAuthenticated changeMode />;
     }
 

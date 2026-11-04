@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { isCyberSourceEnabledFor } from "@/lib/payment-provider";
+import { hasOwnCsSubscription } from "@/lib/plan-change-service";
 import { POST as vbInitiate } from "@/app/api/payments/vb-initiate/route";
 import { POST as vbAgencyInitiate } from "@/app/api/payments/vb-agency-initiate/route";
 
@@ -27,6 +28,10 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Utilizator negăsit." }, { status: 404 });
 
   let cyberSource = isCyberSourceEnabledFor(user);
+  // Личная подписка CyberSource уже есть → смена плана только через CyberSource (страница оплаты:
+  // Basic → Pro — оплата с заменой подписки; Pro → Basic / тот же план — пояснение). Иначе оплата
+  // через VictoriaBank создала бы второй план поверх подписки, которая продолжает списываться.
+  if (purpose === "SUBSCRIPTION" && !cyberSource && (await hasOwnCsSubscription(sess.userId))) cyberSource = true;
   if (cyberSource && purpose === "AGENCY_SEATS") {
     const existing = await prisma.agency.findUnique({ where: { ownerId: sess.userId }, select: { id: true } });
     if (existing) cyberSource = false;

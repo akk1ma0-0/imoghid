@@ -2,10 +2,26 @@
 // Подписки VictoriaBank сюда не попадают: берём только provider CYBERSOURCE, kind PERSONAL.
 import { prisma } from "@/lib/prisma";
 import { chargeDueFor } from "@/lib/billing-period";
-import { paymentCurrency } from "@/lib/payments";
+import { paymentCurrency, PLAN_PRICING } from "@/lib/payments";
 import { canCancel, canResume, toClientView, type ClientSubscriptionView } from "@/lib/subscription-rules";
 
+// Цены каталога в формате суммы подписки ("500.00") — для смены плана.
+export const planPrices = () => ({ BASIC: PLAN_PRICING.BASIC.amount.toFixed(2), PRO: PLAN_PRICING.PRO.amount.toFixed(2) });
+
+// Автосписание по подписке с ещё неясным исходом (PENDING / UNKNOWN) — смену плана в это время
+// не начинаем, чтобы не было двойной оплаты или смены «не того» периода.
+export async function chargeInFlight(subscriptionId: string): Promise<boolean> {
+  const p = await prisma.payment.findFirst({
+    where: { subscriptionId, initiator: "MERCHANT", status: { in: ["PENDING", "UNKNOWN"] } },
+    select: { id: true },
+  });
+  return !!p;
+}
+
 const include = { paymentMethod: true } as const;
+
+// Сброс запланированной смены плана (Pro → Basic).
+export const CLEAR_PENDING = { pendingPlan: null, pendingAmount: null, pendingFrom: null, pendingSetAt: null } as const;
 
 // Текущая подписка владельца: ACTIVE / PAST_DUE или отменённая, у которой период ещё идёт.
 export async function findOwnSubscription(userId: string, now: Date = new Date()) {
@@ -45,7 +61,10 @@ export async function getClientSubscription(userId: string, now: Date = new Date
   const sub = await findOwnSubscription(userId, now);
   if (!sub) return null;
   const eff = await effectiveAmount(sub);
-  return toClientView({ ...sub, amount: eff.amount, currency: eff.currency }, sub.paymentMethod, now, await lastFailureAt(sub.id));
+  return toClientView({ ...sub, amount: eff.amount, currency: eff.currency }, sub.paymentMethod, now, await lastFailureAt(sub.id), {
+    chargeInFlight: await chargeInFlight(sub.id),
+    prices: planPrices(),
+  });
 }
 
 export type ActionResult =
@@ -58,6 +77,7 @@ function log(action: string, subscriptionId: string | null, result: string) {
 
 // Отмена в конце периода: доступ до конца оплаченного периода, возврата нет, токен остаётся
 // до EXPIRED (удаляет биллинг). Повторный вызов — без изменений (changed=false).
+// Запланированная смена плана при отмене теряет смысл — сбрасывается.
 export async function cancelOwnSubscription(userId: string, now: Date = new Date()): Promise<ActionResult> {
   const sub = await findOwnSubscription(userId, now);
   if (!sub) return { ok: false, status: 404, message: "Nu aveți un abonament cu reînnoire automată." };
@@ -67,7 +87,7 @@ export async function cancelOwnSubscription(userId: string, now: Date = new Date
   }
   const upd = await prisma.subscription.updateMany({
     where: { id: sub.id, cancelAtPeriodEnd: false, status: { in: ["ACTIVE", "PAST_DUE"] } },
-    data: { cancelAtPeriodEnd: true, canceledAt: now },
+    data: { cancelAtPeriodEnd: true, canceledAt: now, ...CLEAR_PENDING },
   });
   log("cancel", sub.id, upd.count ? "canceled" : "already_canceled");
   return { ok: true, changed: upd.count > 0, subscription: await getClientSubscription(userId, now) };

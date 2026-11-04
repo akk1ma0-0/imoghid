@@ -6,8 +6,10 @@
 //   3) транзакцию ищем САМИ у CyberSource: кандидаты id из присланного JWT → детали
 //      (GET /tss/v2/transactions/{id}); нет — поиск по нашему reference code (search.ts);
 //   4) проверка суммы/валюты/статуса/reference (cit-validation.ts);
-//   5) PaymentMethod + Subscription + привязка RecurringConsent (одна транзакция БД),
-//      затем fulfillPaidPayment (план / места) и чек.
+//   5) PaymentMethod + Subscription + привязка RecurringConsent (одна транзакция БД, recordCitSuccess);
+//      при переходе Basic → Pro (Payment.replacesSubscriptionId) в той же транзакции закрывается
+//      старая подписка, а её токен удаляется уже после транзакции; затем fulfillPaidPayment
+//      (план / места; planActivatedAt = дата оплаты) и чек.
 // Неясный исход (сеть, 5xx, транзакция ещё не найдена, статус не финальный) → UNKNOWN,
 // клейм снимается — повторный вызов/сверка продолжит с того же места.
 import type { Payment } from "@prisma/client";
@@ -18,6 +20,7 @@ import { sendReceiptEmail } from "@/lib/email";
 import { getTransactionDetails } from "@/lib/cybersource/checkout";
 import { findByReferenceCode } from "@/lib/cybersource/search";
 import { addMonthsAnchored, chargeDueFor } from "@/lib/billing-period";
+import { retirePaymentMethod } from "@/lib/cybersource/token-retire";
 import {
   CIT_FINAL_FAILURES,
   decodeJwtPayload,
@@ -74,6 +77,124 @@ export async function locateTransaction(
     } else if (s.httpStatus === 0 || s.httpStatus >= 500) transient = true;
   }
   return { facts, transient, notIndexed };
+}
+
+export type CitRecords = {
+  subscriptionId: string | null;
+  periodStart: Date;
+  periodEnd: Date;
+  replacedSubscription: boolean; // старая подписка закрыта этим вызовом
+  retirePaymentMethodId: string | null; // токен старой подписки — удалить ПОСЛЕ транзакции
+};
+
+// Записи после подтверждённой оплаты (CIT) — одна транзакция БД:
+//   данные транзакции в Payment → (Basic → Pro) закрытие старой подписки → PaymentMethod →
+//   новая подписка → привязка платежа и согласия.
+// Идемпотентно и безопасно при параллельных вызовах: строка Payment блокируется (FOR UPDATE), и
+// если подписка уже создана (payment.subscriptionId), второй вызов ничего не создаёт и возвращает
+// тот же период. Ошибка на любом шаге откатывает всё, включая закрытие старой подписки.
+// hooks.afterReplace — только для тестов (сбой посреди транзакции).
+export async function recordCitSuccess(
+  paymentId: string,
+  facts: TxnFacts,
+  now: Date,
+  hooks: { afterReplace?: () => Promise<void> } = {},
+): Promise<CitRecords> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "payments" WHERE id = ${paymentId} FOR UPDATE`;
+    const payment = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        csTransactionId: facts.id,
+        networkTransactionId: facts.networkTransactionId,
+        processorCode: facts.processorCode,
+        approval: facts.approvalCode,
+        cardLast4: facts.cardLast4,
+      },
+    });
+
+    // Старая подписка (Basic → Pro): её токен удалим после транзакции, если он не нужен новой.
+    const old = payment.replacesSubscriptionId
+      ? await tx.subscription.findUnique({ where: { id: payment.replacesSubscriptionId }, select: { id: true, userId: true, paymentMethodId: true } })
+      : null;
+    const oldPmId = old && old.userId === payment.userId ? old.paymentMethodId : null;
+
+    if (payment.subscriptionId) {
+      // Повтор: всё уже записано — возвращаем период созданной подписки.
+      const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId } });
+      return {
+        subscriptionId: sub.id,
+        periodStart: sub.currentPeriodStart,
+        periodEnd: sub.currentPeriodEnd,
+        replacedSubscription: false,
+        retirePaymentMethodId: oldPmId && oldPmId !== sub.paymentMethodId ? oldPmId : null,
+      };
+    }
+
+    // Период — календарный месяц от момента оплаты (якорь); списание — за сутки до его конца.
+    const periodEnd = addMonthsAnchored(now, 1);
+    let replaced = false;
+    if (old && old.userId === payment.userId) {
+      // Закрываем сразу, без возврата. cancelAtPeriodEnd=false: биллинг такую подписку не берёт
+      // ни для списания, ни для «окончания» (иначе он сбросил бы план и удалил токен).
+      const closed = await tx.subscription.updateMany({
+        where: { id: old.id, userId: payment.userId, kind: "PERSONAL", status: { in: ["ACTIVE", "PAST_DUE", "CANCELED"] } },
+        data: {
+          status: "CANCELED",
+          cancelAtPeriodEnd: false,
+          canceledAt: now,
+          nextChargeAt: null,
+          graceEndsAt: null,
+          pendingPlan: null,
+          pendingAmount: null,
+          pendingFrom: null,
+          pendingSetAt: null,
+        },
+      });
+      replaced = closed.count > 0;
+      await hooks.afterReplace?.();
+    }
+
+    let subscriptionId: string | null = null;
+    let newPmId: string | null = null;
+    if (facts.customerId && facts.paymentInstrumentId) {
+      const card = { cardLast4: facts.cardLast4, cardBrand: facts.cardBrand, expMonth: facts.expMonth, expYear: facts.expYear };
+      const pm = await tx.paymentMethod.upsert({
+        where: { tmsPaymentInstrumentId: facts.paymentInstrumentId },
+        create: { userId: payment.userId!, tmsCustomerId: facts.customerId, tmsPaymentInstrumentId: facts.paymentInstrumentId, ...card },
+        update: { ...card, status: "ACTIVE", removedAt: null },
+      });
+      newPmId = pm.id;
+      const sub = await tx.subscription.create({
+        data: {
+          userId: payment.userId!,
+          kind: payment.purpose === "AGENCY_SEATS" ? "AGENCY" : "PERSONAL",
+          plan: payment.plan,
+          status: "ACTIVE",
+          provider: "CYBERSOURCE",
+          paymentMethodId: pm.id,
+          initialNetworkTransactionId: facts.networkTransactionId,
+          anchorAt: now,
+          amount: payment.amount, // сумма согласия — её и списываем ежемесячно
+          currency: payment.currency,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          nextChargeAt: chargeDueFor(periodEnd),
+        },
+      });
+      subscriptionId = sub.id;
+      await tx.payment.update({ where: { id: payment.id }, data: { subscriptionId: sub.id } });
+      await tx.recurringConsent.updateMany({ where: { paymentId: payment.id }, data: { subscriptionId: sub.id } });
+    }
+    return {
+      subscriptionId,
+      periodStart: now,
+      periodEnd,
+      replacedSubscription: replaced,
+      retirePaymentMethodId: oldPmId && oldPmId !== newPmId ? oldPmId : null,
+    };
+  });
 }
 
 export async function completeCitPayment(args: {
@@ -144,68 +265,25 @@ export async function completeCitPayment(args: {
     }
 
     const now = new Date();
-    // Период — календарный месяц от момента оплаты (якорь); списание — за сутки до его конца.
-    const periodEnd = addMonthsAnchored(now, 1);
-    // Записи CyberSource: токены карты, подписка, согласие. Идемпотентно: при повторе после сбоя
-    // PaymentMethod находится по unique tmsPaymentInstrumentId, подписка — по payment.subscriptionId.
-    await prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          csTransactionId: facts.id,
-          networkTransactionId: facts.networkTransactionId,
-          processorCode: facts.processorCode,
-          approval: facts.approvalCode,
-          cardLast4: facts.cardLast4,
-        },
-      });
-      if (!payment.subscriptionId && facts.customerId && facts.paymentInstrumentId) {
-        const card = {
-          cardLast4: facts.cardLast4,
-          cardBrand: facts.cardBrand,
-          expMonth: facts.expMonth,
-          expYear: facts.expYear,
-        };
-        const pm = await tx.paymentMethod.upsert({
-          where: { tmsPaymentInstrumentId: facts.paymentInstrumentId },
-          create: {
-            userId: payment.userId,
-            tmsCustomerId: facts.customerId,
-            tmsPaymentInstrumentId: facts.paymentInstrumentId,
-            ...card,
-          },
-          update: { ...card, status: "ACTIVE", removedAt: null },
-        });
-        const sub = await tx.subscription.create({
-          data: {
-            userId: payment.userId,
-            kind: payment.purpose === "AGENCY_SEATS" ? "AGENCY" : "PERSONAL",
-            plan: payment.plan,
-            status: "ACTIVE",
-            provider: "CYBERSOURCE",
-            paymentMethodId: pm.id,
-            initialNetworkTransactionId: facts.networkTransactionId,
-            anchorAt: now,
-            amount: payment.amount, // сумма согласия — её и списываем ежемесячно
-            currency: payment.currency,
-            currentPeriodStart: now,
-            currentPeriodEnd: periodEnd,
-            nextChargeAt: chargeDueFor(periodEnd),
-          },
-        });
-        await tx.payment.update({ where: { id: payment.id }, data: { subscriptionId: sub.id } });
-        await tx.recurringConsent.updateMany({ where: { paymentId: payment.id }, data: { subscriptionId: sub.id } });
-      }
-    });
+    // Записи CyberSource (токен, подписка, согласие; при Basic → Pro — закрытие старой подписки)
+    // одной транзакцией БД. Повтор после сбоя продолжит с того же места.
+    const rec = await recordCitSuccess(payment.id, facts, now);
     if (!facts.customerId || !facts.paymentInstrumentId) {
       // Оплата прошла, но токен не создан — автопродление невозможно; план выдаём за оплаченный период.
       console.warn(JSON.stringify({ evt: "cs_cit_complete", paymentId: payment.id, csTransactionId: facts.id, warn: "NO_TMS_TOKEN" }));
     }
+    // Старый токен — только после того, как новая подписка записана (ошибка удаления не откатывает).
+    if (rec.retirePaymentMethodId) {
+      const r = await retirePaymentMethod({ paymentMethodId: rec.retirePaymentMethodId, paymentId: payment.id, now });
+      log({ paymentId: payment.id, replacedSubscriptionId: payment.replacesSubscriptionId, oldToken: r });
+    }
+    const periodEnd = rec.periodEnd;
 
     const fresh = await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
     if (!isAttributed(fresh)) return { status: "failed", code: "NO_ACCOUNT" };
     // Подписка CyberSource — календарный период; места агентства пока прежней логикой (30 дней).
-    const fulfilled = await fulfillPaidPayment(fresh, now, LOG_TAG, { periodEnd });
+    // Момент начала периода (при повторе — тот же, что у созданной подписки): planActivatedAt.
+    const fulfilled = await fulfillPaidPayment(fresh, rec.periodStart, LOG_TAG, { periodEnd });
     if (fresh.purpose === "AGENCY_SEATS" && fresh.subscriptionId) {
       const agency = await prisma.agency.findUnique({ where: { ownerId: fresh.userId }, select: { id: true } });
       if (agency) await prisma.subscription.update({ where: { id: fresh.subscriptionId }, data: { agencyId: agency.id } });

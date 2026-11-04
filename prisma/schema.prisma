@@ -244,6 +244,9 @@ model Payment {
   networkTransactionId String?   // id сети карты (Visa/MC) — нужен как previousTransactionId для MIT
   declineReason        String?   // причина отказа провайдера (errorInformation.reason)
   processorCode        String?   // код ответа процессора/банка-эмитента
+  // Переход Basic → Pro по подписке CyberSource: эта оплата (CIT) заменяет указанную подписку —
+  // после успеха старая закрывается (CANCELED) в той же транзакции БД, где создаётся новая.
+  replacesSubscriptionId String?
 
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
@@ -257,6 +260,7 @@ model Payment {
   // подписки поля NULL → в PostgreSQL NULL не конфликтуют, ограничение их не затрагивает.
   @@unique([subscriptionId, periodStart, attemptNo])
   @@index([userId])
+  @@index([replacesSubscriptionId])
   @@map("payments")
 }
 
@@ -311,6 +315,11 @@ model Subscription {
   reminderSentFor             DateTime?          // currentPeriodEnd, для которого уже ушло письмо «через 3 дня списание»
   graceEndsAt                 DateTime?          // до этого момента доступ сохраняется при PAST_DUE
   billingHold                 String?            // списание остановлено до решения админа (напр. PRICE_CHANGED, REVIEW)
+  // ── Запланированная смена плана (Pro → Basic со следующего периода) ──
+  pendingPlan                 SubscriptionPlan?  // план со следующего периода; null — смены нет
+  pendingAmount               String?            // сумма нового плана ("300.00") — её спишем за период с pendingFrom
+  pendingFrom                 DateTime?          // начало периода, с которого действует pendingPlan (= currentPeriodEnd на момент выбора)
+  pendingSetAt                DateTime?          // когда клиент выбрал смену
   createdAt                   DateTime           @default(now())
   updatedAt                   DateTime           @updatedAt
 

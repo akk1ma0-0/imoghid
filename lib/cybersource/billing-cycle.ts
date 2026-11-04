@@ -17,7 +17,8 @@ import { prisma } from "@/lib/prisma";
 import { PLAN_PRICING } from "@/lib/payments";
 import { chargeSavedCard } from "@/lib/cybersource/payments";
 import { findByReferenceCode } from "@/lib/cybersource/search";
-import { deleteCustomer } from "@/lib/cybersource/tms";
+import { retirePaymentMethod } from "@/lib/cybersource/token-retire";
+import { termsForPeriod } from "@/lib/plan-change-rules";
 import { classifyDecline, type DeclineClass } from "@/lib/cybersource/declines";
 import {
   attemptDueAt,
@@ -31,12 +32,14 @@ import {
 import {
   sendBillingFailedEmail,
   sendBillingReminderEmail,
+  sendPlanChangedAtRenewalEmail,
   sendReceiptEmail,
   sendSubscriptionEndedEmail,
 } from "@/lib/email";
 
 const IN_FLIGHT_MS = 15 * 60 * 1000; // PENDING-попытка моложе — её ещё обрабатывает другой запуск
 const NOT_FOUND_GIVE_UP_MS = 60 * 60 * 1000; // UNKNOWN, которого нет в CyberSource через час, — не прошёл
+const UPGRADE_WINDOW_MS = 60 * 60 * 1000; // клиент оплачивает переход Basic → Pro — старую подписку не списываем
 
 type Sub = Subscription & {
   paymentMethod: PaymentMethod | null;
@@ -120,6 +123,15 @@ async function consentedAmount(sub: Sub): Promise<string | null> {
   return c?.amount ?? null;
 }
 
+// План и сумма за период, начинающийся в periodStart. Запланированная смена (Pro → Basic) действует
+// с pendingFrom: списываем сумму нового плана — она меньше, нового согласия не нужно (в письме и
+// чеке — новая сумма). Без смены — сумма согласия, как раньше.
+async function periodTerms(sub: Sub, periodStart: Date): Promise<{ plan: string; amount: string | null; changedFrom: string | null }> {
+  const t = termsForPeriod(sub, periodStart);
+  if (t.changed) return { plan: t.plan, amount: t.amount, changedFrom: sub.plan };
+  return { plan: sub.plan, amount: await consentedAmount(sub), changedFrom: null };
+}
+
 async function remind(sub: Sub): Promise<string> {
   if (!sub.nextChargeAt) return "none";
   // Клейм письма на этот период — повторный запуск не отправит второе.
@@ -128,9 +140,16 @@ async function remind(sub: Sub): Promise<string> {
     data: { reminderSentFor: sub.currentPeriodEnd },
   });
   if (claim.count === 0) return "reminder_already_sent";
-  const amount = (await consentedAmount(sub)) ?? "";
+  const terms = await periodTerms(sub, sub.currentPeriodEnd);
   try {
-    await sendBillingReminderEmail(sub.user.email, { name: sub.user.name, plan: sub.plan, amount, currency: sub.currency ?? "MDL", chargeAt: sub.nextChargeAt });
+    await sendBillingReminderEmail(sub.user.email, {
+      name: sub.user.name,
+      plan: terms.plan,
+      amount: terms.amount ?? "",
+      currency: sub.currency ?? "MDL",
+      chargeAt: sub.nextChargeAt,
+      changedFrom: terms.changedFrom,
+    });
   } catch (e) {
     log({ subscriptionId: sub.id, warn: "reminder_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
   }
@@ -147,10 +166,26 @@ async function charge(sub: Sub, now: Date): Promise<string> {
   });
   if (pending) return reconcileAttempt(sub, pending, now);
 
-  // 2) Сумма — та, на которую клиент дал согласие. Цена в каталоге изменилась → не списываем.
-  const amount = await consentedAmount(sub);
+  // Клиент сейчас оплачивает переход Basic → Pro (новая подписка заменит эту) — не списываем,
+  // иначе была бы двойная оплата. Брошенная оплата перестаёт мешать через час.
+  const upgrading = await prisma.payment.findFirst({
+    where: {
+      replacesSubscriptionId: sub.id,
+      initiator: "CUSTOMER",
+      status: { in: ["PENDING", "UNKNOWN"] },
+      createdAt: { gt: new Date(now.getTime() - UPGRADE_WINDOW_MS) },
+    },
+    select: { id: true },
+  });
+  if (upgrading) return "upgrade_in_progress";
+
+  // 2) Сумма — та, на которую клиент дал согласие (или сумма запланированного плана, она меньше).
+  //    Цена в каталоге изменилась → не списываем.
+  const terms = await periodTerms(sub, periodStart);
+  const amount = terms.amount;
   if (!amount) return setHold(sub, "NO_AMOUNT", "CS_BILLING_NO_AMOUNT");
-  const catalog = sub.plan === "BASIC" || sub.plan === "PRO" ? PLAN_PRICING[sub.plan].amount : null;
+  const plan = terms.plan;
+  const catalog = plan === "BASIC" || plan === "PRO" ? PLAN_PRICING[plan].amount : null;
   if (catalog === null) return setHold(sub, "PLAN_NOT_IN_CATALOG", "CS_BILLING_PLAN");
   if (cents(amount) !== cents(catalog)) return setHold(sub, "PRICE_CHANGED", "CS_BILLING_PRICE_CHANGED");
   // Участник агентства (план HUB) — личную подписку не продлеваем, решает админ.
@@ -168,7 +203,7 @@ async function charge(sub: Sub, now: Date): Promise<string> {
     res = await chargeSavedCard({
       userId: sub.userId,
       payerEmail: sub.user.email,
-      plan: sub.plan,
+      plan: plan as "BASIC" | "PRO",
       subscriptionId: sub.id,
       periodStart,
       attemptNo,
@@ -229,6 +264,11 @@ async function reconcileAttempt(sub: Sub, payment: { id: string; order: string; 
 async function applySuccess(sub: Sub, paymentId: string, now: Date): Promise<string> {
   const anchor = sub.anchorAt ?? sub.currentPeriodStart;
   const newEnd = nextPeriodEnd(anchor, sub.currentPeriodEnd);
+  // План нового периода — тот, за который реально списали (Payment.plan / amount). Так смена плана
+  // применяется ровно вместе с оплатой, даже если клиент менял выбор, пока шло списание.
+  const p = await prisma.payment.findUnique({ where: { id: paymentId } });
+  const paidPlan = p?.plan ?? sub.plan;
+  const planChanged = paidPlan !== sub.plan;
   const done = await prisma.$transaction(async (tx) => {
     // Условие на currentPeriodEnd — продление ровно один раз.
     const upd = await tx.subscription.updateMany({
@@ -242,19 +282,23 @@ async function applySuccess(sub: Sub, paymentId: string, now: Date): Promise<str
         failedAttempts: 0,
         graceEndsAt: null,
         reminderSentFor: null,
+        ...(planChanged && p ? { plan: p.plan, amount: p.amount, currency: p.currency } : {}),
+        // Запланированная смена выполнена — сбрасываем. Иначе (другой план) оставляем как есть.
+        ...(sub.pendingPlan && sub.pendingPlan === paidPlan
+          ? { pendingPlan: null, pendingAmount: null, pendingFrom: null, pendingSetAt: null }
+          : {}),
       },
     });
     if (upd.count === 0) return false;
     // planActivatedAt (якорь лимитов) не трогаем; ставим только если план был сброшен.
     await tx.user.update({
       where: { id: sub.userId },
-      data: { plan: sub.plan, planExpiresAt: newEnd, ...(sub.user.planActivatedAt ? {} : { planActivatedAt: now }) },
+      data: { plan: paidPlan, planExpiresAt: newEnd, ...(sub.user.planActivatedAt ? {} : { planActivatedAt: now }) },
     });
     return true;
   });
   if (!done) return "already_extended";
 
-  const p = await prisma.payment.findUnique({ where: { id: paymentId } });
   if (p) {
     try {
       await sendReceiptEmail(sub.user.email, {
@@ -273,14 +317,29 @@ async function applySuccess(sub: Sub, paymentId: string, now: Date): Promise<str
     } catch (e) {
       log({ subscriptionId: sub.id, warn: "receipt_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
     }
+    if (planChanged) {
+      try {
+        await sendPlanChangedAtRenewalEmail(sub.user.email, {
+          name: sub.user.name,
+          fromPlan: sub.plan,
+          toPlan: p.plan,
+          amount: p.amount,
+          currency: p.currency,
+          paidUntil: newEnd,
+        });
+      } catch (e) {
+        log({ subscriptionId: sub.id, warn: "plan_changed_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
+      }
+    }
   }
-  return "charged";
+  return planChanged ? "charged_plan_changed" : "charged";
 }
 
 async function applyFailure(sub: Sub, cls: DeclineClass, now: Date, attemptNo: number, paymentId: string | null): Promise<string> {
   const periodEnd = sub.currentPeriodEnd;
   const grace = graceEndsFor(periodEnd);
-  const amount = (await consentedAmount(sub)) ?? "";
+  const terms = await periodTerms(sub, periodEnd);
+  const amount = terms.amount ?? "";
 
   if (cls === "config") {
     // Ошибка на нашей стороне — клиенту не пишем, доступ сохраняем на грейс, ждём админа.
@@ -300,7 +359,7 @@ async function applyFailure(sub: Sub, cls: DeclineClass, now: Date, attemptNo: n
   await prisma.user.update({ where: { id: sub.userId }, data: { planExpiresAt: grace } });
   log({ subscriptionId: sub.id, paymentId, attemptNo, class: cls, nextAttemptAt: next?.toISOString() ?? null }, "warn");
   try {
-    await sendBillingFailedEmail(sub.user.email, { name: sub.user.name, plan: sub.plan, amount, currency: sub.currency ?? "MDL", kind: cls, nextAttemptAt: next, accessUntil: grace });
+    await sendBillingFailedEmail(sub.user.email, { name: sub.user.name, plan: terms.plan, amount, currency: sub.currency ?? "MDL", kind: cls, nextAttemptAt: next, accessUntil: grace });
   } catch (e) {
     log({ subscriptionId: sub.id, warn: "failed_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
   }
@@ -320,16 +379,13 @@ async function expire(sub: Sub, reason: "canceled" | "payment_failed", now: Date
     data: { plan: null, planActivatedAt: null, planExpiresAt: null, sessionVersion: { increment: 1 } },
   });
 
-  // Токен в CyberSource больше не нужен.
+  // Токен в CyberSource больше не нужен (если его не использует другая живая подписка; общий
+  // TMS customer с другой активной картой — удаляется только эта карта).
   const pm = sub.paymentMethod;
   if (pm && pm.status === "ACTIVE") {
-    const del = await deleteCustomer(pm.tmsCustomerId);
     const lastPayment = await prisma.payment.findFirst({ where: { subscriptionId: sub.id }, orderBy: { createdAt: "desc" }, select: { id: true } });
-    await prisma.paymentOperation.create({
-      data: { paymentId: lastPayment?.id ?? null, type: "TOKEN_DELETE", outcome: del.ok ? (del.alreadyGone ? "already_gone" : "deleted") : "error", httpStatus: del.ok ? 204 : del.httpStatus },
-    });
-    if (del.ok) await prisma.paymentMethod.update({ where: { id: pm.id }, data: { status: "REMOVED", removedAt: now } });
-    else log({ subscriptionId: sub.id, alert: "CS_BILLING_TOKEN_DELETE_FAILED", httpStatus: del.httpStatus }, "error");
+    const r = await retirePaymentMethod({ paymentMethodId: pm.id, paymentId: lastPayment?.id ?? null, now });
+    if (r === "error") log({ subscriptionId: sub.id, alert: "CS_BILLING_TOKEN_DELETE_FAILED" }, "error");
   }
 
   try {

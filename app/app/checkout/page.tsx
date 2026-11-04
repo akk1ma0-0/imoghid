@@ -6,6 +6,8 @@ import { paymentCurrency } from "@/lib/payments";
 import { isCyberSourceEnabledFor } from "@/lib/payment-provider";
 import { resolvePaymentIntent } from "@/lib/payment-intent";
 import { RECURRING_CONSENT_VERSION } from "@/lib/recurring-consent";
+import { checkPersonalCheckout, hasOwnCsSubscription } from "@/lib/plan-change-service";
+import { fmtDateChisinau } from "@/lib/date-chisinau";
 import { CheckoutClient } from "./CheckoutClient";
 
 // /app/checkout — первая оплата с сохранением карты (CyberSource Unified Checkout).
@@ -21,7 +23,9 @@ export default async function CheckoutPage({
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true, role: true } });
-  if (!user || !isCyberSourceEnabledFor(user)) redirect("/app/pending");
+  if (!user) redirect("/app/pending");
+  // Владелец подписки CyberSource меняет план здесь же, даже если его нет в бета-списке.
+  if (!isCyberSourceEnabledFor(user) && !(await hasOwnCsSubscription(session.user.id))) redirect("/app/pending");
 
   const sp = await searchParams;
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
@@ -31,11 +35,32 @@ export default async function CheckoutPage({
     seats: one(sp.seats),
     takeOwnerSeat: one(sp.takeOwnerSeat),
   };
-  const resolved = await resolvePaymentIntent(session.user.id, input);
+  const intentRes = await resolvePaymentIntent(session.user.id, input);
+  // Личный план при подписке CyberSource: Basic → Pro — замена подписки; остальное — отказ сразу,
+  // а не после ввода карты (та же проверка, что в capture context).
+  const planCheck =
+    intentRes.ok && intentRes.intent.purpose === "SUBSCRIPTION" ? await checkPersonalCheckout(session.user.id, intentRes.intent.plan) : null;
+  const resolved = planCheck && !planCheck.ok ? planCheck : intentRes;
+  const upgradeFrom = planCheck?.ok ? planCheck.upgradeFrom : null;
 
   return (
     <div className="ig-page" style={{ maxWidth: 560, margin: "0 auto", padding: "32px 16px" }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>Plată cu cardul</h1>
+      {resolved.ok && upgradeFrom && (
+        <div className="notice amber" style={{ marginTop: 12, marginBottom: 4 }}>
+          <div className="notice-dot" />
+          <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+            <b>
+              Se va efectua acum o plată de {resolved.intent.amount} {paymentCurrency()}, iar perioada nouă începe astăzi.
+              Suma plătită pentru Basic nu se returnează.
+            </b>
+            <div style={{ marginTop: 4, color: "var(--ink2)" }}>
+              Abonamentul Basic (plătit până la {fmtDateChisinau(upgradeFrom.paidUntil.toISOString())}) se închide imediat
+              după plată, iar cardul nou introdus va fi folosit pentru plățile lunare următoare.
+            </div>
+          </div>
+        </div>
+      )}
       {resolved.ok ? (
         <CheckoutClient
           intent={{

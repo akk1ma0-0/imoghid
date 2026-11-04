@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         prisma.paymentMethod.update({ where: { id: pm.id }, data: { status: "REMOVED", removedAt: new Date() } }),
         prisma.subscription.update({
           where: { id: payment.subscription!.id },
-          data: { status: "CANCELED", cancelAtPeriodEnd: true, canceledAt: new Date(), nextChargeAt: null },
+          data: { status: "CANCELED", cancelAtPeriodEnd: true, canceledAt: new Date(), nextChargeAt: null, pendingPlan: null, pendingAmount: null, pendingFrom: null, pendingSetAt: null },
         }),
       ]);
     }
