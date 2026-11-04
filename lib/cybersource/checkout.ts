@@ -12,13 +12,16 @@
 //   clientVersion не передаём — сервер выбирает актуальную совместимую версию (рекомендация документации).
 import { csRequest, CsTransportError, safePathId } from "@/lib/cybersource/client";
 import { transactionFactsOf, type TxnFacts } from "@/lib/cybersource/cit-validation";
+import { buildTargetOrigins } from "@/lib/cybersource/target-origins";
 
-// Список origin'ов страницы оплаты (CS_UC_TARGET_ORIGINS, через запятую). Только https.
+// Список origin'ов страницы оплаты: CS_UC_TARGET_ORIGINS (через запятую, только https) и, в Vercel
+// Preview (и только там), origin текущей ветки https://<VERCEL_BRANCH_URL>. Правила — target-origins.ts.
 export function ucTargetOrigins(): string[] {
-  return (process.env.CS_UC_TARGET_ORIGINS ?? "")
-    .split(",")
-    .map((o) => o.trim().replace(/\/+$/, ""))
-    .filter((o) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(o));
+  return buildTargetOrigins({
+    explicit: process.env.CS_UC_TARGET_ORIGINS,
+    vercelEnv: process.env.VERCEL_ENV,
+    branchUrl: process.env.VERCEL_BRANCH_URL,
+  });
 }
 
 export type CaptureContextResult =
