@@ -1,10 +1,11 @@
-// Список targetOrigins для capture context Unified Checkout — чистая функция (без process.env),
-// чтобы её можно было тестировать. Правила:
-//   • явный список CS_UC_TARGET_ORIGINS (через запятую) — всегда;
-//   • в Vercel Preview (vercelEnv === "preview", и только там) к нему добавляется origin
-//     https://<VERCEL_BRANCH_URL> текущей ветки — иначе форма не открывается на алиасе ветки;
-//   • production и локально — только явный список;
-//   • формат строго: https, host[:port], без пути, без масок (*), без дублей.
+// targetOrigins для capture context Unified Checkout — чистые функции (без process.env), под тесты.
+// Unified Checkout принимает РОВНО ОДИН targetOrigin на сессию: с двумя и более форма падает с
+// UNUSED_TARGET_ORIGINS. Поэтому в UC всегда уходит один origin:
+//   • Vercel Preview (vercelEnv === "preview", и только там): https://<VERCEL_BRANCH_URL> текущей
+//     ветки; если VERCEL_BRANCH_URL нет или он некорректен — первый валидный из CS_UC_TARGET_ORIGINS;
+//   • production и локально: первый валидный из CS_UC_TARGET_ORIGINS (остальные игнорируются,
+//     предупреждение пишет вызывающий — см. extraExplicitOrigins).
+// Формат строго: https, host[:port], без пути, query и масок (*).
 const ORIGIN_RE = /^https:\/\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:\d{1,5})?$/i;
 
 export function normalizeOrigin(raw: string): string | null {
@@ -12,17 +13,35 @@ export function normalizeOrigin(raw: string): string | null {
   return ORIGIN_RE.test(o) ? o : null;
 }
 
-export function buildTargetOrigins(env: { explicit?: string; vercelEnv?: string; branchUrl?: string }): string[] {
+// Валидные origin'ы явного списка в порядке записи, без дублей.
+export function parseExplicitOrigins(explicit: string | undefined): string[] {
   const out: string[] = [];
-  const add = (raw: string) => {
-    const o = normalizeOrigin(raw);
+  for (const part of (explicit ?? "").split(",")) {
+    const o = normalizeOrigin(part);
     if (o && !out.includes(o)) out.push(o);
-  };
-  for (const part of (env.explicit ?? "").split(",")) add(part);
-  if (env.vercelEnv === "preview") {
-    const host = (env.branchUrl ?? "").trim();
-    // VERCEL_BRANCH_URL — только хост; значение со схемой или путём считаем некорректным.
-    if (host) add(`https://${host}`);
   }
   return out;
+}
+
+type Env = { explicit?: string; vercelEnv?: string; branchUrl?: string };
+
+// Origin ветки в Preview: VERCEL_BRANCH_URL — только хост; значение со схемой или путём некорректно.
+function previewBranchOrigin(env: Env): string | null {
+  if (env.vercelEnv !== "preview") return null;
+  const host = (env.branchUrl ?? "").trim();
+  return host ? normalizeOrigin(`https://${host}`) : null;
+}
+
+// Ровно один origin или пустой массив (нечего слать — вызывающий вернёт ошибку конфигурации).
+export function buildTargetOrigins(env: Env): string[] {
+  const origin = previewBranchOrigin(env) ?? parseExplicitOrigins(env.explicit)[0];
+  return origin ? [origin] : [];
+}
+
+// Лишние origin'ы явного списка (после первого), которые не попадут в UC — для предупреждения в
+// логе. В Preview с origin'ом ветки явный список не используется намеренно (он общий для веток),
+// поэтому предупреждать там не о чем.
+export function extraExplicitOrigins(env: Env): string[] {
+  if (previewBranchOrigin(env)) return [];
+  return parseExplicitOrigins(env.explicit).slice(1);
 }
