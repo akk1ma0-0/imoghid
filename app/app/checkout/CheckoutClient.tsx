@@ -9,7 +9,7 @@ import { recurringConsentText, TERMS_CONSENT_TEXT } from "@/lib/recurring-consen
 // сервер. Библиотека грузится по URL и SRI-хешу из capture context. С completeMandate
 // (autoProcessing по умолчанию) mount() возвращает JWT результата; сервер его не принимает на
 // веру — перечитывает транзакцию у CyberSource (/api/payments/cs/complete).
-type Intent = { purpose: "SUBSCRIPTION" | "AGENCY_SEATS"; plan: string; seats: number | null; takeOwnerSeat: boolean };
+type Intent = { purpose: "SUBSCRIPTION" | "AGENCY_SEATS" | "AGENCY_TOPUP"; plan: string; seats: number | null; takeOwnerSeat: boolean };
 
 type UcCheckout = { mount(target: string): Promise<string>; destroy?(): void };
 type UcClient = { createCheckout(opts: { autoProcessing: boolean }): Promise<UcCheckout>; destroy?(): void };
@@ -41,7 +41,12 @@ export function CheckoutClient(props: {
   amount: string;
   currency: string;
   consentVersion: string;
+  // Докупка мест: строка суммы и текст согласия (оплата сейчас + новая месячная сумма), ссылка назад.
+  priceLine?: string;
+  consentText?: string;
+  backHref?: string;
 }) {
+  const backHref = props.backHref ?? "/app/pending";
   const [terms, setTerms] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [phase, setPhase] = useState<"consent" | "loading" | "card" | "verifying" | "error">("consent");
@@ -97,6 +102,7 @@ export function CheckoutClient(props: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...props.intent,
+          expectedAmount: props.amount,
           agreedToTerms: true,
           agreedToRecurring: true,
           consentVersion: props.consentVersion,
@@ -132,7 +138,7 @@ export function CheckoutClient(props: {
   return (
     <div>
       <p style={{ fontSize: 14, color: "var(--ink3)", marginBottom: 18 }}>
-        {props.description} — <b style={{ color: "var(--ink)" }}>{props.amount} {props.currency} / lună</b>
+        {props.description} — <b style={{ color: "var(--ink)" }}>{props.priceLine ?? `${props.amount} ${props.currency} / lună`}</b>
       </p>
 
       <div className="card">
@@ -146,7 +152,7 @@ export function CheckoutClient(props: {
           </label>
           <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, marginBottom: 16, cursor: "pointer" }}>
             <input type="checkbox" checked={recurring} disabled={phase !== "consent"} onChange={(e) => setRecurring(e.target.checked)} style={{ marginTop: 2 }} />
-            <span>{recurringConsentText(props.amount, props.currency)}</span>
+            <span>{props.consentText ?? recurringConsentText(props.amount, props.currency)}</span>
           </label>
 
           {phase === "consent" && (
@@ -166,7 +172,7 @@ export function CheckoutClient(props: {
                 <b>{message}</b>
                 {phase === "error" && (
                   <p style={{ margin: "6px 0 0" }}>
-                    <a href="/app/pending">← Înapoi la abonament</a>
+                    <a href={backHref}>← Înapoi</a>
                   </p>
                 )}
               </div>

@@ -320,6 +320,9 @@ model Subscription {
   pendingAmount               String?            // сумма нового плана ("300.00") — её спишем за период с pendingFrom
   pendingFrom                 DateTime?          // начало периода, с которого действует pendingPlan (= currentPeriodEnd на момент выбора)
   pendingSetAt                DateTime?          // когда клиент выбрал смену
+  // ── Агентская подписка (kind=AGENCY): число мест периода и уменьшение со следующего ──
+  seats                       Int?               // места, за которые списываем каждый период; null — legacy → Payment.seats первой оплаты
+  pendingSeats                Int?               // уменьшение мест с pendingFrom (сумма — pendingAmount); null — нет
   createdAt                   DateTime           @default(now())
   updatedAt                   DateTime           @updatedAt
 
@@ -442,6 +445,7 @@ enum PaymentPurpose {
   SINGLE_ACCESS // «O accesare» (30 MDL) — пакет из 3 одноразовых грантов, без плана
   AGENCY_SEATS  // HUB/Agenție — покупка N мест (450 MDL/место, мин. 3), Этап D
   CARD_VERIFICATION // смена карты подписки CyberSource: проверка 0.00 (Account Verification), без списания
+  AGENCY_TOPUP  // докупка мест к агентской подписке CyberSource: пропорция остатка периода, период не меняется
 }
 
 enum AgencyRole {

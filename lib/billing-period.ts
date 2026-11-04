@@ -67,23 +67,22 @@ export type SubscriptionView = {
 
 export type SubscriptionAction =
   | "none"
-  | "skip_agency" // агентские подписки — отдельный шаг
   | "expire_canceled" // клиент отменил: оплаченный период закончился → EXPIRED
   | "expire_grace" // жёсткий отказ / повторы исчерпаны: грейс закончился → EXPIRED
   | "hold" // списание остановлено до решения админа
   | "charge"
   | "remind";
 
-// Что делать с подпиской сейчас. Порядок важен: отмена и конец грейса — раньше списания.
+// Что делать с подпиской сейчас — одинаково для личных и агентских (kind AGENCY) подписок.
+// Порядок важен: отмена и конец грейса — раньше списания.
 export function decideSubscriptionAction(s: SubscriptionView, now: Date): SubscriptionAction {
   const t = now.getTime();
   // Отменённая клиентом (CANCELED или ACTIVE с cancelAtPeriodEnd): списаний нет; в конце
   // оплаченного периода → EXPIRED (план сбрасывается, токен удаляется).
   if (s.status === "CANCELED") {
-    return s.cancelAtPeriodEnd && s.kind !== "AGENCY" && t >= s.currentPeriodEnd.getTime() ? "expire_canceled" : "none";
+    return s.cancelAtPeriodEnd && t >= s.currentPeriodEnd.getTime() ? "expire_canceled" : "none";
   }
   if (s.status !== "ACTIVE" && s.status !== "PAST_DUE") return "none";
-  if (s.kind === "AGENCY") return "skip_agency";
   if (s.cancelAtPeriodEnd) return t >= s.currentPeriodEnd.getTime() ? "expire_canceled" : "none";
   if (s.status === "PAST_DUE" && s.nextChargeAt === null && s.graceEndsAt && t >= s.graceEndsAt.getTime()) {
     return "expire_grace";

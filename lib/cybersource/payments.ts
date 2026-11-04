@@ -49,6 +49,9 @@ export type MitChargeInput = {
   customerId: string; // TMS customer
   paymentInstrumentId?: string; // TMS paymentInstrument (если не дефолтный у customer)
   previousTransactionId?: string; // networkTransactionId первого платежа (CIT)
+  // Агентская подписка: purpose AGENCY_SEATS и число оплачиваемых мест. По умолчанию — SUBSCRIPTION.
+  purpose?: "SUBSCRIPTION" | "AGENCY_SEATS";
+  seats?: number;
 };
 
 export type MitChargeResult =
@@ -88,7 +91,8 @@ export async function claimChargeAttempt(
         plan: input.plan,
         amount,
         currency,
-        purpose: "SUBSCRIPTION",
+        purpose: input.purpose ?? "SUBSCRIPTION",
+        seats: input.purpose === "AGENCY_SEATS" ? input.seats ?? null : null,
         provider: "CYBERSOURCE",
         initiator: "MERCHANT",
         subscriptionId: input.subscriptionId,

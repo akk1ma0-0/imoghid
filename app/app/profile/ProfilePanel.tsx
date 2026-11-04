@@ -23,6 +23,8 @@ type Initial = {
   // Только при plan = null: неиспользованные разовые доступы и признак waitlist.
   singleAccess: SingleAccessSummary;
   waitlisted: boolean;
+  // Владелец агентства с абонементом агентства (автопродление) — ссылка на управление местами.
+  agencyAutoRenew?: boolean;
 };
 
 function Notice({ kind, text }: { kind: "red" | "green"; text: string }) {
@@ -353,6 +355,14 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
                   У остальных пользователей блок пустой. */}
               <CsSubscriptionBlock />
             </>
+          )}
+          {initial.agencyAutoRenew && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line, #eef0f2)", fontSize: 12.5, color: "var(--ink2)", lineHeight: 1.55 }}>
+              <b>Abonament agenție</b> — plata lunară pentru locurile agenției, numărul locurilor și cardul se gestionează pe pagina agenției.
+              <div style={{ marginTop: 8 }}>
+                <Link className="btn" href="/app/agency">Abonament agenție →</Link>
+              </div>
+            </div>
           )}
         </div>
       </div>

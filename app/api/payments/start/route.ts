@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { isCyberSourceEnabledFor } from "@/lib/payment-provider";
 import { hasOwnCsSubscription } from "@/lib/plan-change-service";
+import { hasOwnAgencyCsSubscription } from "@/lib/agency-subscription-service";
 import { POST as vbInitiate } from "@/app/api/payments/vb-initiate/route";
 import { POST as vbAgencyInitiate } from "@/app/api/payments/vb-agency-initiate/route";
 
@@ -12,7 +13,9 @@ import { POST as vbAgencyInitiate } from "@/app/api/payments/vb-agency-initiate/
 // CyberSource (PAYMENT_PROVIDER=cybersource и пользователь в CS_BETA_EMAILS или ADMIN) →
 // 303 на /app/checkout. Иначе — прежний поток VictoriaBank: форма передаётся как есть в
 // существующие обработчики vb-initiate / vb-agency-initiate (их код не меняется).
-// Докупка мест к существующему агентству на этом шаге всегда идёт через VictoriaBank.
+// Докупка мест к существующему агентству: есть агентская подписка CyberSource → /app/checkout
+// (purpose AGENCY_TOPUP, пропорция остатка периода); нет (агентство VictoriaBank или созданное
+// админом) → VictoriaBank, как раньше.
 export async function POST(request: Request) {
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
@@ -32,13 +35,18 @@ export async function POST(request: Request) {
   // Basic → Pro — оплата с заменой подписки; Pro → Basic / тот же план — пояснение). Иначе оплата
   // через VictoriaBank создала бы второй план поверх подписки, которая продолжает списываться.
   if (purpose === "SUBSCRIPTION" && !cyberSource && (await hasOwnCsSubscription(sess.userId))) cyberSource = true;
-  if (cyberSource && purpose === "AGENCY_SEATS") {
+  let checkoutPurpose: string = purpose;
+  if (purpose === "AGENCY_SEATS") {
     const existing = await prisma.agency.findUnique({ where: { ownerId: sess.userId }, select: { id: true } });
-    if (existing) cyberSource = false;
+    if (existing) {
+      const csAgency = await hasOwnAgencyCsSubscription(sess.userId);
+      cyberSource = csAgency;
+      if (csAgency) checkoutPurpose = "AGENCY_TOPUP";
+    }
   }
 
   if (cyberSource) {
-    const q = new URLSearchParams({ purpose });
+    const q = new URLSearchParams({ purpose: checkoutPurpose });
     for (const k of ["plan", "seats", "takeOwnerSeat"]) {
       const v = form.get(k);
       if (typeof v === "string" && v) q.set(k, v);

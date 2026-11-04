@@ -27,7 +27,8 @@ function loadLibrary(src: string, integrity: string): Promise<void> {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function CardChangeClient(props: { amount: string; currency: string; consentVersion: string }) {
+// captureUrl / backHref — для агентской подписки (/app/agency/card); по умолчанию — личная.
+export function CardChangeClient(props: { amount: string; currency: string; consentVersion: string; captureUrl?: string; backHref?: string }) {
   const [recurring, setRecurring] = useState(false);
   const [phase, setPhase] = useState<"consent" | "loading" | "card" | "verifying" | "error">("consent");
   const [message, setMessage] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function CardChangeClient(props: { amount: string; currency: string; cons
       }).catch(() => null);
       const data = (await r?.json().catch(() => null)) as { status?: string } | null;
       if (data?.status === "updated" || data?.status === "already_done") {
-        window.location.assign("/app/profile?card=updated");
+        window.location.assign(props.backHref ? `${props.backHref}?card=updated` : "/app/profile?card=updated");
         return;
       }
       if (data?.status === "declined") {
@@ -75,7 +76,7 @@ export function CardChangeClient(props: { amount: string; currency: string; cons
     setPhase("loading");
     setMessage(null);
     try {
-      const r = await fetch("/api/subscription/card/capture-context", {
+      const r = await fetch(props.captureUrl ?? "/api/subscription/card/capture-context", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agreedToRecurring: true, consentVersion: props.consentVersion }),
@@ -128,7 +129,7 @@ export function CardChangeClient(props: { amount: string; currency: string; cons
               <div>
                 <b>{message}</b>
                 <p style={{ margin: "6px 0 0" }}>
-                  <a href="/app/profile">← Înapoi la profil</a>
+                  <a href={props.backHref ?? "/app/profile"}>← Înapoi</a>
                 </p>
               </div>
             </div>

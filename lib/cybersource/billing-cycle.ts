@@ -10,7 +10,9 @@
 // (payments.ts → claimChargeAttempt); переходы подписки — условными updateMany (повторный/
 // параллельный запуск не продлевает период дважды). Таймаут/5xx → Payment UNKNOWN, повторного
 // списания нет, пока исход не прояснит сверка (search.ts).
-// Агентские подписки (kind AGENCY) пока пропускаются.
+// Агентские подписки (kind AGENCY): сумма = места периода × цена места агентства, сверяется с
+// последним согласием (иначе удержание PRICE_CHANGED); продление двигает Agency.planExpiresAt
+// (доступ участников), а не личный план владельца. См. ветки *Agency ниже.
 import type { PaymentMethod, Subscription } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -19,6 +21,7 @@ import { chargeSavedCard } from "@/lib/cybersource/payments";
 import { findByReferenceCode } from "@/lib/cybersource/search";
 import { retirePaymentMethod } from "@/lib/cybersource/token-retire";
 import { termsForPeriod } from "@/lib/plan-change-rules";
+import { agencyChargeTerms, effectiveSeats, type AgencySub } from "@/lib/agency-subscription-rules";
 import { classifyDecline, type DeclineClass } from "@/lib/cybersource/declines";
 import {
   attemptDueAt,
@@ -30,6 +33,11 @@ import {
   REMINDER_LEAD_MS,
 } from "@/lib/billing-period";
 import {
+  agencyReceiptInfo,
+  sendAgencyBillingFailedEmail,
+  sendAgencyBillingReminderEmail,
+  sendAgencySeatsChangedAtRenewalEmail,
+  sendAgencySubscriptionEndedEmail,
   sendBillingFailedEmail,
   sendBillingReminderEmail,
   sendPlanChangedAtRenewalEmail,
@@ -44,7 +52,14 @@ const UPGRADE_WINDOW_MS = 60 * 60 * 1000; // клиент оплачивает �
 type Sub = Subscription & {
   paymentMethod: PaymentMethod | null;
   user: { id: string; email: string; name: string; plan: string | null; planActivatedAt: Date | null };
+  agency: { id: string; pricePerSeatMdl: number; seatsPaid: number } | null;
 };
+
+const SUB_INCLUDE = {
+  paymentMethod: true,
+  user: { select: { id: true, email: true, name: true, plan: true, planActivatedAt: true } },
+  agency: { select: { id: true, pricePerSeatMdl: true, seatsPaid: true } },
+} as const;
 
 export type BillingResult = { subscriptionId: string; action: string; result: string };
 
@@ -70,7 +85,7 @@ export async function runBillingCycle(opts: { now?: Date; subscriptionId?: strin
             { status: "PAST_DUE", graceEndsAt: { lte: now } },
           ],
         },
-    include: { paymentMethod: true, user: { select: { id: true, email: true, name: true, plan: true, planActivatedAt: true } } },
+    include: SUB_INCLUDE,
     orderBy: { nextChargeAt: "asc" },
     take: opts.limit ?? 25,
   })) as Sub[];
@@ -94,12 +109,10 @@ async function processSubscription(sub: Sub, action: string, now: Date): Promise
   switch (action) {
     case "none":
       return "none";
-    case "skip_agency":
-      return "skipped_agency";
     case "hold":
       return `hold:${sub.billingHold}`;
     case "remind":
-      return remind(sub);
+      return sub.kind === "AGENCY" ? remindAgency(sub) : remind(sub);
     case "expire_canceled":
       return expire(sub, "canceled", now);
     case "expire_grace":
@@ -178,6 +191,8 @@ async function charge(sub: Sub, now: Date): Promise<string> {
     select: { id: true },
   });
   if (upgrading) return "upgrade_in_progress";
+
+  if (sub.kind === "AGENCY") return chargeAgency(sub, now, periodStart);
 
   // 2) Сумма — та, на которую клиент дал согласие (или сумма запланированного плана, она меньше).
   //    Цена в каталоге изменилась → не списываем.
@@ -262,6 +277,7 @@ async function reconcileAttempt(sub: Sub, payment: { id: string; order: string; 
 }
 
 async function applySuccess(sub: Sub, paymentId: string, now: Date): Promise<string> {
+  if (sub.kind === "AGENCY") return applyAgencySuccess(sub, paymentId, now);
   const anchor = sub.anchorAt ?? sub.currentPeriodStart;
   const newEnd = nextPeriodEnd(anchor, sub.currentPeriodEnd);
   // План нового периода — тот, за который реально списали (Payment.plan / amount). Так смена плана
@@ -336,6 +352,7 @@ async function applySuccess(sub: Sub, paymentId: string, now: Date): Promise<str
 }
 
 async function applyFailure(sub: Sub, cls: DeclineClass, now: Date, attemptNo: number, paymentId: string | null): Promise<string> {
+  if (sub.kind === "AGENCY") return applyAgencyFailure(sub, cls, now, attemptNo, paymentId);
   const periodEnd = sub.currentPeriodEnd;
   const grace = graceEndsFor(periodEnd);
   const terms = await periodTerms(sub, periodEnd);
@@ -373,11 +390,16 @@ async function expire(sub: Sub, reason: "canceled" | "payment_failed", now: Date
   });
   if (upd.count === 0) return "already_expired";
 
-  // План сбрасываем, только если он от этой подписки; разлогин — как в check-expired-plans.
-  await prisma.user.updateMany({
-    where: { id: sub.userId, plan: sub.plan },
-    data: { plan: null, planActivatedAt: null, planExpiresAt: null, sessionVersion: { increment: 1 } },
-  });
+  if (sub.kind === "AGENCY") {
+    await prisma.subscription.update({ where: { id: sub.id }, data: { pendingSeats: null, pendingAmount: null, pendingFrom: null, pendingSetAt: null } });
+    await endAgencyAccess(sub, now);
+  } else {
+    // План сбрасываем, только если он от этой подписки; разлогин — как в check-expired-plans.
+    await prisma.user.updateMany({
+      where: { id: sub.userId, plan: sub.plan },
+      data: { plan: null, planActivatedAt: null, planExpiresAt: null, sessionVersion: { increment: 1 } },
+    });
+  }
 
   // Токен в CyberSource больше не нужен (если его не использует другая живая подписка; общий
   // TMS customer с другой активной картой — удаляется только эта карта).
@@ -389,7 +411,8 @@ async function expire(sub: Sub, reason: "canceled" | "payment_failed", now: Date
   }
 
   try {
-    await sendSubscriptionEndedEmail(sub.user.email, { name: sub.user.name, plan: sub.plan, reason });
+    if (sub.kind === "AGENCY") await sendAgencySubscriptionEndedEmail(sub.user.email, { name: sub.user.name, reason });
+    else await sendSubscriptionEndedEmail(sub.user.email, { name: sub.user.name, plan: sub.plan, reason });
   } catch (e) {
     log({ subscriptionId: sub.id, warn: "ended_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
   }
@@ -403,7 +426,7 @@ async function expire(sub: Sub, reason: "canceled" | "payment_failed", now: Date
 export async function chargeSubscriptionNow(subscriptionId: string, now: Date = new Date()): Promise<string> {
   const sub = (await prisma.subscription.findUnique({
     where: { id: subscriptionId },
-    include: { paymentMethod: true, user: { select: { id: true, email: true, name: true, plan: true, planActivatedAt: true } } },
+    include: SUB_INCLUDE,
   })) as Sub | null;
   if (!sub || sub.status !== "PAST_DUE" || sub.cancelAtPeriodEnd || sub.billingHold) return "not_allowed";
   if (sub.failedAttempts >= MAX_ATTEMPTS) return "not_allowed";
@@ -416,3 +439,258 @@ export async function chargeSubscriptionNow(subscriptionId: string, now: Date = 
 export function billingEnabled(): boolean {
   return (process.env.CS_BILLING_ENABLED ?? "").trim().toLowerCase() === "true";
 }
+
+// ── Агентская подписка (kind AGENCY) ──────────────────────────────────────────
+
+// Места подписки, цена места и сумма последнего согласия (согласие записывается при каждом
+// изменении мест, поэтому сверяем именно с последним, а не с полем amount).
+async function agencyState(sub: Sub): Promise<{ s: AgencySub; price: number; consent: string | null } | null> {
+  if (!sub.agency) return null;
+  const first = sub.seats
+    ? null
+    : await prisma.payment.findFirst({
+        where: { subscriptionId: sub.id, purpose: "AGENCY_SEATS", initiator: "CUSTOMER", status: "PAID" },
+        orderBy: { createdAt: "asc" },
+        select: { seats: true },
+      });
+  const seats = effectiveSeats(sub.seats, first?.seats ?? sub.agency.seatsPaid);
+  if (!seats) return null;
+  const c = await prisma.recurringConsent.findFirst({ where: { subscriptionId: sub.id }, orderBy: { acceptedAt: "desc" }, select: { amount: true } });
+  return { s: { ...sub, seats }, price: sub.agency.pricePerSeatMdl, consent: c?.amount ?? null };
+}
+
+async function remindAgency(sub: Sub): Promise<string> {
+  if (!sub.nextChargeAt) return "none";
+  const st = await agencyState(sub);
+  if (!st) return "none";
+  const claim = await prisma.subscription.updateMany({
+    where: { id: sub.id, OR: [{ reminderSentFor: null }, { NOT: { reminderSentFor: sub.currentPeriodEnd } }] },
+    data: { reminderSentFor: sub.currentPeriodEnd },
+  });
+  if (claim.count === 0) return "reminder_already_sent";
+  const t = agencyChargeTerms(st.s, sub.currentPeriodEnd, st.price, st.consent);
+  try {
+    await sendAgencyBillingReminderEmail(sub.user.email, {
+      name: sub.user.name,
+      seats: t.seats,
+      amount: t.amount,
+      currency: sub.currency ?? "MDL",
+      chargeAt: sub.nextChargeAt,
+      fromSeats: t.changed ? st.s.seats : null,
+    });
+  } catch (e) {
+    log({ subscriptionId: sub.id, warn: "reminder_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
+  }
+  return "reminder_sent";
+}
+
+async function chargeAgency(sub: Sub, now: Date, periodStart: Date): Promise<string> {
+  // Владелец сейчас оплачивает докупку мест — ждём её исхода (иначе новый период списался бы со
+  // старым числом мест). Брошенная оплата перестаёт мешать через час.
+  const topup = await prisma.payment.findFirst({
+    where: {
+      subscriptionId: sub.id,
+      purpose: "AGENCY_TOPUP",
+      initiator: "CUSTOMER",
+      status: { in: ["PENDING", "UNKNOWN"] },
+      createdAt: { gt: new Date(now.getTime() - UPGRADE_WINDOW_MS) },
+    },
+    select: { id: true },
+  });
+  if (topup) return "topup_in_progress";
+
+  const st = await agencyState(sub);
+  if (!st) return setHold(sub, "NO_SEATS", "CS_BILLING_AGENCY_NO_SEATS");
+  const t = agencyChargeTerms(st.s, periodStart, st.price, st.consent);
+  if (!st.consent) return setHold(sub, "NO_AMOUNT", "CS_BILLING_NO_AMOUNT");
+  // Цена места изменилась (или согласие на другую сумму) — не списываем, решает админ.
+  if (!t.consentOk) return setHold(sub, "PRICE_CHANGED", "CS_BILLING_PRICE_CHANGED");
+
+  const attemptNo = sub.failedAttempts + 1;
+  if (attemptNo > MAX_ATTEMPTS) return expire(sub, "payment_failed", now);
+  const pm = sub.paymentMethod;
+  if (!pm || pm.status !== "ACTIVE") return applyFailure(sub, "hard", now, attemptNo, null);
+
+  let res;
+  try {
+    res = await chargeSavedCard({
+      userId: sub.userId,
+      payerEmail: sub.user.email,
+      plan: "HUB",
+      purpose: "AGENCY_SEATS",
+      seats: t.seats,
+      subscriptionId: sub.id,
+      periodStart,
+      attemptNo,
+      amount: Number(t.amount),
+      customerId: pm.tmsCustomerId,
+      paymentInstrumentId: pm.tmsPaymentInstrumentId,
+      previousTransactionId: sub.initialNetworkTransactionId ?? undefined,
+    });
+  } catch (e) {
+    log({ subscriptionId: sub.id, error: e instanceof Error ? e.message : String(e) }, "error");
+    return setHold(sub, "CHARGE_REJECTED_LOCALLY", "CS_BILLING_LOCAL");
+  }
+  if (res.kind === "duplicate") return `duplicate:${res.status}`;
+
+  const o = res.outcome;
+  log({ subscriptionId: sub.id, paymentId: res.paymentId, attemptNo, seats: t.seats, outcome: o.kind, csTransactionId: "requestId" in o ? o.requestId : null });
+  switch (o.kind) {
+    case "approved":
+      return applySuccess(sub, res.paymentId, now);
+    case "declined":
+      return applyFailure(sub, classifyDecline({ reason: o.details.reason ?? o.status, merchantAdviceCode: o.details.merchantAdviceCode }), now, attemptNo, res.paymentId);
+    case "review":
+      return setHold(sub, "REVIEW", "CS_BILLING_REVIEW");
+    case "unknown":
+      return "unknown";
+    default:
+      return applyFailure(sub, "config", now, attemptNo, res.paymentId);
+  }
+}
+
+// Успешное списание: новый период, места = оплаченные (Payment.seats), сумма = оплаченная;
+// запланированное уменьшение выполнено. Доступ участников — Agency.planExpiresAt = конец периода.
+// Личный план владельца не трогаем (у владельца может не быть места в агентстве).
+async function applyAgencySuccess(sub: Sub, paymentId: string, now: Date): Promise<string> {
+  const anchor = sub.anchorAt ?? sub.currentPeriodStart;
+  const newEnd = nextPeriodEnd(anchor, sub.currentPeriodEnd);
+  const p = await prisma.payment.findUnique({ where: { id: paymentId } });
+  const st = await agencyState(sub);
+  const prevSeats = st?.s.seats ?? null;
+  const paidSeats = p?.seats ?? prevSeats;
+  const seatsChanged = paidSeats != null && prevSeats != null && paidSeats !== prevSeats;
+  const done = await prisma.$transaction(async (tx) => {
+    const upd = await tx.subscription.updateMany({
+      where: { id: sub.id, currentPeriodEnd: sub.currentPeriodEnd },
+      data: {
+        status: "ACTIVE",
+        anchorAt: anchor,
+        currentPeriodStart: sub.currentPeriodEnd,
+        currentPeriodEnd: newEnd,
+        nextChargeAt: chargeDueFor(newEnd),
+        failedAttempts: 0,
+        graceEndsAt: null,
+        reminderSentFor: null,
+        ...(paidSeats != null ? { seats: paidSeats } : {}),
+        ...(p ? { amount: p.amount, currency: p.currency } : {}),
+        ...(sub.pendingSeats != null && sub.pendingSeats === paidSeats
+          ? { pendingSeats: null, pendingAmount: null, pendingFrom: null, pendingSetAt: null }
+          : {}),
+      },
+    });
+    if (upd.count === 0) return null;
+    if (!sub.agencyId) return null;
+    const ag = await tx.agency.update({
+      where: { id: sub.agencyId },
+      data: { planExpiresAt: newEnd, ...(paidSeats != null ? { seatsPaid: paidSeats } : {}) },
+      select: { seatsPaid: true, planExpiresAt: true, _count: { select: { memberships: true } } },
+    });
+    return ag;
+  });
+  if (!done) return "already_extended";
+  if (done._count.memberships > done.seatsPaid) {
+    log({ subscriptionId: sub.id, warn: "AGENCY_MEMBERS_OVER_SEATS", members: done._count.memberships, seats: done.seatsPaid }, "warn");
+  }
+
+  if (p) {
+    try {
+      await sendReceiptEmail(sub.user.email, {
+        order: p.order,
+        amount: p.amount,
+        currency: p.currency,
+        customerName: sub.user.name,
+        plan: p.plan,
+        purpose: "AGENCY_SEATS",
+        seats: p.seats,
+        agency: agencyReceiptInfo(p, done),
+        rrn: null,
+        approval: p.approval,
+        cardLast4: sub.paymentMethod?.cardLast4 ?? null,
+        cardNetwork: sub.paymentMethod?.cardBrand ?? null,
+        paidAt: now,
+      });
+    } catch (e) {
+      log({ subscriptionId: sub.id, warn: "receipt_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
+    }
+    if (seatsChanged && prevSeats != null && paidSeats != null) {
+      try {
+        await sendAgencySeatsChangedAtRenewalEmail(sub.user.email, {
+          name: sub.user.name,
+          fromSeats: prevSeats,
+          toSeats: paidSeats,
+          amount: p.amount,
+          currency: p.currency,
+          paidUntil: newEnd,
+        });
+      } catch (e) {
+        log({ subscriptionId: sub.id, warn: "seats_changed_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
+      }
+    }
+  }
+  return seatsChanged ? "charged_seats_changed" : "charged";
+}
+
+async function setAgencyAccessUntil(sub: Sub, until: Date) {
+  if (sub.agencyId) await prisma.agency.update({ where: { id: sub.agencyId }, data: { planExpiresAt: until } });
+}
+
+async function applyAgencyFailure(sub: Sub, cls: DeclineClass, now: Date, attemptNo: number, paymentId: string | null): Promise<string> {
+  const periodEnd = sub.currentPeriodEnd;
+  const grace = graceEndsFor(periodEnd);
+  if (cls === "config") {
+    await setAgencyAccessUntil(sub, grace);
+    return setHold(sub, "CONFIG_ERROR", "CS_BILLING_CONFIG");
+  }
+  const next = cls === "soft" ? attemptDueAt(periodEnd, attemptNo + 1) : null;
+  if (cls === "soft" && next === null) return expire(sub, "payment_failed", now);
+
+  const upd = await prisma.subscription.updateMany({
+    where: { id: sub.id, failedAttempts: attemptNo - 1 },
+    data: { status: "PAST_DUE", failedAttempts: attemptNo, nextChargeAt: next, graceEndsAt: grace },
+  });
+  if (upd.count === 0) return "failure_already_applied";
+  // Владелец и участники сохраняют доступ до конца грейса.
+  await setAgencyAccessUntil(sub, grace);
+  log({ subscriptionId: sub.id, paymentId, attemptNo, class: cls, nextAttemptAt: next?.toISOString() ?? null }, "warn");
+  const st = await agencyState(sub);
+  const t = st ? agencyChargeTerms(st.s, periodEnd, st.price, st.consent) : null;
+  try {
+    await sendAgencyBillingFailedEmail(sub.user.email, {
+      name: sub.user.name,
+      seats: t?.seats ?? 0,
+      amount: t?.amount ?? "",
+      currency: sub.currency ?? "MDL",
+      kind: cls,
+      nextAttemptAt: next,
+      accessUntil: grace,
+    });
+  } catch (e) {
+    log({ subscriptionId: sub.id, warn: "failed_email_failed", message: e instanceof Error ? e.message : String(e) }, "warn");
+  }
+  return cls === "soft" ? "soft_failed_retry_scheduled" : "hard_failed";
+}
+
+// Конец агентской подписки: срок агентства = сейчас, HUB снимается у всех участников сразу
+// (как revokeExpiredAgencies: plan=null + sessionVersion++). Агентство и участники остаются —
+// доступ вернётся при новой покупке.
+async function endAgencyAccess(sub: Sub, now: Date) {
+  if (!sub.agencyId) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.agency.update({ where: { id: sub.agencyId! }, data: { planExpiresAt: now } });
+    const members = await tx.agencyMembership.findMany({ where: { agencyId: sub.agencyId! }, select: { userId: true } });
+    if (members.length) {
+      await tx.user.updateMany({
+        where: { id: { in: members.map((m) => m.userId) }, plan: "HUB" },
+        data: { plan: null, planActivatedAt: null, planExpiresAt: null, sessionVersion: { increment: 1 } },
+      });
+    }
+  });
+}
+
+// Только для тестов на реальной БД (без сети): переходы после исхода списания.
+export const billingTestHooks = {
+  loadSub: (id: string) => prisma.subscription.findUniqueOrThrow({ where: { id }, include: SUB_INCLUDE }) as Promise<Sub>,
+  applySuccess: (sub: Sub, paymentId: string, now: Date) => applySuccess(sub, paymentId, now),
+  applyFailure: (sub: Sub, cls: DeclineClass, now: Date, attemptNo: number) => applyFailure(sub, cls, now, attemptNo, null),
+};

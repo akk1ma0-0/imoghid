@@ -174,6 +174,8 @@ export function buildReceipt(r: ReceiptData): {
   const service =
     r.purpose === "AGENCY_SEATS"
       ? `HUB/Agenție — ${r.seats ?? 0} locuri`
+      : r.purpose === "AGENCY_TOPUP"
+        ? `HUB/Agenție — ${r.seats ?? 0} ${r.seats === 1 ? "loc adăugat" : "locuri adăugate"} (perioada rămasă)`
       : r.purpose === "SINGLE_ACCESS"
         ? "O accesare — acces unic (1 verificare + 1 dosar + 1 obiect)"
         : r.purpose === "OVERAGE" && r.overageFeature
@@ -209,7 +211,13 @@ export function buildReceipt(r: ReceiptData): {
   if (r.agency) {
     const a = r.agency;
     const cur = r.currency;
-    seatRows = [
+    if (r.purpose === "AGENCY_TOPUP") {
+      // Докупка: оплачены только оставшиеся дни периода — цену «за место» не показываем.
+      seatRows = [
+        ["Locuri adăugate", String(a.seats)],
+        ["Plată pentru zilele rămase", `${fmtMdl(a.total)} ${cur}`],
+      ];
+    } else seatRows = [
       ["Locuri cumpărate", String(a.seats)],
       ["Preț per loc", `${fmtMdl(a.pricePerSeat)} ${cur}`],
       ["Total", `${a.seats} × ${fmtMdl(a.pricePerSeat)} = ${fmtMdl(a.total)} ${cur}`],
@@ -435,4 +443,84 @@ export function sendSubscriptionEndedEmail(email: string, r: { name: string; pla
       ? [intro, `Abonamentul ImoGhid ${PLAN_LABEL[r.plan] ?? r.plan} s-a încheiat, așa cum ați solicitat. Nu vor mai avea loc debitări, iar cardul salvat a fost șters.`, `Puteți reveni oricând alegând un plan nou.`]
       : [intro, `Nu am reușit să încasăm plata pentru abonamentul ${PLAN_LABEL[r.plan] ?? r.plan}, așa că abonamentul a fost oprit, iar cardul salvat a fost șters.`, `Puteți reactiva oricând abonamentul cu un card valid.`];
   return sendSimpleEmail(email, "Abonamentul s-a încheiat", body, { label: "Alegeți un plan", url: ACCOUNT_URL });
+}
+
+// ── Письма агентской подписки (места HUB/Agenție, CyberSource) ─────────────────
+const AGENCY_URL = "https://imoghid.md/app/agency";
+const seatsWord = (n: number) => (n === 1 ? "1 loc" : `${n} locuri`);
+
+// За 3 дня до списания. fromSeats — места текущего периода, если со следующего действует уменьшение.
+export function sendAgencyBillingReminderEmail(
+  email: string,
+  r: { name: string; seats: number; amount: string; currency: string; chargeAt: Date; fromSeats?: number | null },
+) {
+  const date = fmtDateChisinau(r.chargeAt.toISOString());
+  return sendSimpleEmail(email, "Abonamentul agenției se reînnoiește în curând", [
+    `Bună ziua${r.name ? `, ${r.name}` : ""}!`,
+    r.fromSeats
+      ? `Așa cum ați ales, de luna viitoare agenția are ${seatsWord(r.seats)} în loc de ${r.fromSeats}. În data de ${date} vom debita noua sumă — ${r.amount} ${r.currency} — de pe cardul salvat.`
+      : `Abonamentul agenției (${seatsWord(r.seats)}) se reînnoiește automat. În data de ${date} vom debita ${r.amount} ${r.currency} de pe cardul salvat.`,
+    `Dacă nu doriți reînnoirea, puteți anula abonamentul din pagina agenției înainte de această dată.`,
+  ], { label: "Pagina agenției", url: AGENCY_URL });
+}
+
+// Владелец уменьшил число мест — со следующего периода, без списания сейчас.
+export function sendAgencySeatsReductionEmail(
+  email: string,
+  r: { name: string; fromSeats: number; toSeats: number; amount: string; currency: string; effectiveAt: Date },
+) {
+  const date = fmtDateChisinau(r.effectiveAt.toISOString());
+  return sendSimpleEmail(email, "Reducerea locurilor a fost programată", [
+    `Bună ziua${r.name ? `, ${r.name}` : ""}!`,
+    `Până la ${date} agenția păstrează ${seatsWord(r.fromSeats)}.`,
+    `Începând cu ${date}, agenția va avea ${seatsWord(r.toSeats)}, iar plata lunară va fi de ${r.amount} ${r.currency}.`,
+    `Dacă v-ați răzgândit, puteți anula reducerea din pagina agenției până la această dată.`,
+  ], { label: "Pagina agenției", url: AGENCY_URL });
+}
+
+// Списание за новый период прошло с меньшим числом мест.
+export function sendAgencySeatsChangedAtRenewalEmail(
+  email: string,
+  r: { name: string; fromSeats: number; toSeats: number; amount: string; currency: string; paidUntil: Date },
+) {
+  return sendSimpleEmail(email, `Agenția continuă cu ${seatsWord(r.toSeats)}`, [
+    `Bună ziua${r.name ? `, ${r.name}` : ""}!`,
+    `Așa cum ați ales, agenția a trecut de la ${seatsWord(r.fromSeats)} la ${seatsWord(r.toSeats)}. Am debitat ${r.amount} ${r.currency} pentru luna următoare.`,
+    `Abonamentul este activ până la ${fmtDateChisinau(r.paidUntil.toISOString())}, apoi se reînnoiește automat cu aceeași sumă.`,
+  ], { label: "Pagina agenției", url: AGENCY_URL });
+}
+
+// Списание не прошло. soft — попробуем ещё раз; hard — нужна другая карта.
+export function sendAgencyBillingFailedEmail(
+  email: string,
+  r: { name: string; seats: number; amount: string; currency: string; kind: "soft" | "hard"; nextAttemptAt: Date | null; accessUntil: Date },
+) {
+  const intro = `Bună ziua${r.name ? `, ${r.name}` : ""}!`;
+  const until = fmtDateChisinau(r.accessUntil.toISOString());
+  const body =
+    r.kind === "soft"
+      ? [
+          intro,
+          `Nu am reușit să debităm ${r.amount} ${r.currency} pentru abonamentul agenției (${seatsWord(r.seats)}).${r.nextAttemptAt ? ` Vom încerca din nou în data de ${fmtDateChisinau(r.nextAttemptAt.toISOString())}.` : ""}`,
+          `Dumneavoastră și colegii păstrați accesul până la ${until}. Verificați, vă rugăm, dacă pe card sunt fonduri suficiente.`,
+        ]
+      : [
+          intro,
+          `Plata de ${r.amount} ${r.currency} pentru abonamentul agenției a fost refuzată de banca emitentă, iar cardul salvat nu mai poate fi folosit.`,
+          `Actualizați cardul pentru a păstra abonamentul. Dumneavoastră și colegii păstrați accesul până la ${until}.`,
+        ];
+  return sendSimpleEmail(email, r.kind === "soft" ? "Plata abonamentului agenției nu a reușit" : "Actualizați cardul agenției", body, {
+    label: r.kind === "soft" ? "Pagina agenției" : "Actualizați cardul",
+    url: AGENCY_URL,
+  });
+}
+
+// Агентская подписка закончилась: отмена владельцем или неудачные списания.
+export function sendAgencySubscriptionEndedEmail(email: string, r: { name: string; reason: "canceled" | "payment_failed" }) {
+  const intro = `Bună ziua${r.name ? `, ${r.name}` : ""}!`;
+  const body =
+    r.reason === "canceled"
+      ? [intro, `Abonamentul agenției s-a încheiat, așa cum ați solicitat. Colegii nu mai au acces la planul HUB, nu vor mai avea loc debitări, iar cardul salvat a fost șters.`, `Puteți reveni oricând cumpărând din nou locurile.`]
+      : [intro, `Nu am reușit să încasăm plata pentru abonamentul agenției, așa că abonamentul a fost oprit, iar cardul salvat a fost șters. Colegii nu mai au acces la planul HUB.`, `Puteți reactiva oricând abonamentul cu un card valid.`];
+  return sendSimpleEmail(email, "Abonamentul agenției s-a încheiat", body, { label: "Pagina agenției", url: AGENCY_URL });
 }

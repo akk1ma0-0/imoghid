@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { hasOwnAgencyCsSubscription } from "@/lib/agency-subscription-service";
 import { getPlanDisplay } from "@/lib/plan-display";
 import { getSingleAccessSummary } from "@/lib/usage";
 import { emptySingleAccess } from "@/lib/single-access";
@@ -51,6 +52,7 @@ export default async function ProfilePage() {
         agencyExpiresAt: display.agencyExpiresAt,
         singleAccess,
         waitlisted,
+        agencyAutoRenew: session.user.isAgencyOwner ? await hasOwnAgencyCsSubscription(session.user.id) : false,
       }}
     />
   );

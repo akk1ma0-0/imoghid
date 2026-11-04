@@ -4,18 +4,21 @@ import { prisma } from "@/lib/prisma";
 import { isPayablePlan, PLAN_PRICING } from "@/lib/payments";
 import { AGENCY_MIN_SEATS, AGENCY_SEAT_FEE_MDL } from "@/lib/plan-limits";
 import { personalPlanPurchaseBlock } from "@/lib/agency";
+import { checkAgencyTopup } from "@/lib/agency-subscription-service";
 
 // Что покупает пользователь и за сколько — только сервер решает сумму. Правила те же, что в
 // vb-initiate / vb-agency-initiate (сами VB-роуты не меняются). Для CyberSource на этом шаге —
-// только платежи с автопродлением: подписка Basic/Pro и НОВОЕ агентство (докупка мест к
-// существующему агентству пока идёт через VictoriaBank).
+// только платежи с автопродлением: подписка Basic/Pro, НОВОЕ агентство и докупка мест к агентской
+// подписке CyberSource (AGENCY_TOPUP). Докупка к агентству VictoriaBank идёт через VictoriaBank.
 export type PaymentIntent = {
-  purpose: Extract<PaymentPurpose, "SUBSCRIPTION" | "AGENCY_SEATS">;
+  purpose: Extract<PaymentPurpose, "SUBSCRIPTION" | "AGENCY_SEATS" | "AGENCY_TOPUP">;
   plan: SubscriptionPlan;
   seats: number | null;
   ownerTakesSeat: boolean;
-  amount: number; // MDL
+  amount: number; // MDL — к оплате сейчас
   description: string;
+  // Только AGENCY_TOPUP: подписка, к которой докупаются места, и согласие на новую месячную сумму.
+  topup?: { subscriptionId: string; newSeats: number; monthlyAmount: string; paidUntil: Date };
 };
 
 export type IntentResult = { ok: true; intent: PaymentIntent } | { ok: false; status: number; message: string };
@@ -58,6 +61,22 @@ export async function resolvePaymentIntent(
         ownerTakesSeat: input.takeOwnerSeat === true || input.takeOwnerSeat === "true",
         amount: seats * AGENCY_SEAT_FEE_MDL,
         description: `HUB/Agenție — ${seats} locuri (ImoGhid)`,
+      },
+    };
+  }
+  if (input.purpose === "AGENCY_TOPUP") {
+    const t = await checkAgencyTopup(userId, Number(input.seats));
+    if (!t.ok) return { ok: false, status: t.status, message: t.message };
+    return {
+      ok: true,
+      intent: {
+        purpose: "AGENCY_TOPUP",
+        plan: "HUB",
+        seats: t.seatsToAdd,
+        ownerTakesSeat: false,
+        amount: Number(t.amountNow),
+        description: `HUB/Agenție — ${t.seatsToAdd} ${t.seatsToAdd === 1 ? "loc nou" : "locuri noi"} (ImoGhid)`,
+        topup: { subscriptionId: t.subscriptionId, newSeats: t.newSeats, monthlyAmount: t.monthlyAmount, paidUntil: t.paidUntil },
       },
     };
   }

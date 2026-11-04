@@ -24,7 +24,7 @@ export class AgencyError extends Error {
 // usedCount<maxUses эквивалентно usedCount===0 для этого подмножества кодов (без cross-column
 // фильтра Prisma/raw SQL). Без agencyId — для вложенного relation-фильтра (agencyId там уже
 // подразумевается связью); для верхнеуровневого tx.inviteCode.count добавляем agencyId отдельно.
-function activeInviteCodeFilter(now: Date = new Date()): Prisma.InviteCodeWhereInput {
+export function activeInviteCodeFilter(now: Date = new Date()): Prisma.InviteCodeWhereInput {
   return {
     isActive: true,
     usedCount: 0,
@@ -103,9 +103,10 @@ export async function dematerializeAgencyPlan(userId: string, client: Db = prism
 // → создать с seatsPaid=N (дефолтная цена); есть → seatsPaid += N. В обоих случаях продлеваем
 // planExpiresAt = now + 30 дней (тот же цикл, что у обычной подписки). Возвращает агентство.
 // Раздача мест участникам — отдельно (Чекпоинт 2), здесь только лицензии владельцу.
-export async function creditAgencySeats(ownerId: string, seats: number, client: Db = prisma) {
+// periodEnd — только CyberSource (конец календарного периода подписки); VictoriaBank не передаёт.
+export async function creditAgencySeats(ownerId: string, seats: number, client: Db = prisma, periodEnd?: Date) {
   const now = new Date();
-  const planExpiresAt = new Date(now.getTime() + AGENCY_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+  const planExpiresAt = periodEnd ?? new Date(now.getTime() + AGENCY_PERIOD_DAYS * 24 * 60 * 60 * 1000);
   const existing = await client.agency.findUnique({ where: { ownerId } });
   if (existing) {
     return client.agency.update({
@@ -142,6 +143,18 @@ export async function revokeExpiredAgencies(now: Date = new Date()): Promise<num
   return res.count;
 }
 
+// Сколько мест можно раздать: seatsPaid, а при запланированном уменьшении агентской подписки
+// CyberSource — не больше нового числа мест (иначе со следующего периода мест не хватило бы).
+// У агентств VictoriaBank подписки нет — всегда seatsPaid.
+export async function agencySeatCapacity(tx: Db, agencyId: string, seatsPaid: number): Promise<number> {
+  const sub = await tx.subscription.findFirst({
+    where: { agencyId, kind: "AGENCY", provider: "CYBERSOURCE", status: { in: ["ACTIVE", "PAST_DUE"] }, pendingSeats: { not: null } },
+    orderBy: { createdAt: "desc" },
+    select: { pendingSeats: true },
+  });
+  return sub?.pendingSeats != null ? Math.min(seatsPaid, sub.pendingSeats) : seatsPaid;
+}
+
 // Присоединение пользователя к агентству по коду-инвайту (вызывается ВНУТРИ транзакции из
 // /api/subscribe, чтобы вместе с погашением InviteCode быть атомарным). Проверяет: агентство
 // активно, есть свободное место, пользователь ещё не в агентстве → создаёт membership + HUB.
@@ -160,7 +173,7 @@ export async function joinAgencyByInvite(
   }
   const existing = await tx.agencyMembership.findUnique({ where: { userId } });
   if (existing) throw new AgencyError("Sunteți deja membru al unei agenții.");
-  if (agency._count.memberships >= agency.seatsPaid) {
+  if (agency._count.memberships >= (await agencySeatCapacity(tx, agencyId, agency.seatsPaid))) {
     throw new AgencyError("Nu mai sunt locuri disponibile în agenție.");
   }
   await tx.agencyMembership.create({ data: { agencyId, userId, role: "MEMBER" } });
@@ -202,7 +215,7 @@ export async function generateAgencyInviteCode(
       tx.agencyMembership.count({ where: { agencyId: agency.id } }),
       tx.inviteCode.count({ where: { agencyId: agency.id, ...activeInviteCodeFilter() } }),
     ]);
-    const free = agency.seatsPaid - occupied - reserved;
+    const free = (await agencySeatCapacity(tx, agency.id, agency.seatsPaid)) - occupied - reserved;
     if (free <= 0) {
       throw new AgencyError(
         "Nu mai sunt locuri libere. Toate locurile sunt ocupate sau rezervate prin coduri active. " +

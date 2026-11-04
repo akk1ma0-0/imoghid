@@ -96,8 +96,17 @@ describe("выбор действия по подписке", () => {
     assert.equal(decideSubscriptionAction(base, at("2026-12-02T15:00:00Z")), "charge");
     assert.equal(decideSubscriptionAction({ ...base, status: "PAST_DUE", nextChargeAt: at("2026-12-05T15:00:00Z") }, at("2026-12-05T16:00:00Z")), "charge");
   });
-  it("агентская подписка — пропуск", () => {
-    assert.equal(decideSubscriptionAction({ ...base, kind: "AGENCY" }, at("2026-12-02T16:00:00Z")), "skip_agency");
+  it("агентская подписка — те же решения, что у личной (письмо, списание, удержание, окончание)", () => {
+    const ag = { ...base, kind: "AGENCY" as const };
+    assert.equal(decideSubscriptionAction(ag, at("2026-11-29T16:00:00Z")), "remind");
+    assert.equal(decideSubscriptionAction(ag, at("2026-12-02T16:00:00Z")), "charge");
+    assert.equal(decideSubscriptionAction({ ...ag, billingHold: "PRICE_CHANGED" }, at("2026-12-02T16:00:00Z")), "hold");
+    assert.equal(decideSubscriptionAction({ ...ag, cancelAtPeriodEnd: true }, at("2026-12-03T15:00:00Z")), "expire_canceled");
+    assert.equal(decideSubscriptionAction({ ...ag, status: "CANCELED", cancelAtPeriodEnd: true }, at("2026-12-03T16:00:00Z")), "expire_canceled");
+    assert.equal(
+      decideSubscriptionAction({ ...ag, status: "PAST_DUE", nextChargeAt: null, graceEndsAt: at("2026-12-08T15:00:00Z") }, at("2026-12-08T15:00:00Z")),
+      "expire_grace",
+    );
   });
   it("удержание админом — не списываем", () => {
     assert.equal(decideSubscriptionAction({ ...base, billingHold: "PRICE_CHANGED" }, at("2026-12-02T16:00:00Z")), "hold");

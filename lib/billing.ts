@@ -71,9 +71,11 @@ export async function fulfillSingleAccess(
 // (seatsPaid += N, planExpiresAt = now+30д) в ОДНОЙ транзакции — без рассинхрона «PAID без
 // агентства». Личные планы участников НЕ трогаем. При сбое транзакция откатывается целиком и
 // ошибка пробрасывается: решение о повторе (сброс клейма) — за вызывающим.
+// periodEnd — CyberSource: конец календарного периода подписки (VictoriaBank — 30 дней, как раньше).
 export async function fulfillAgencySeats(
   payment: AttributedPayment,
   logTag: string,
+  periodEnd?: Date,
 ): Promise<FulfillmentResult> {
   const paidUser = await prisma.user.findUnique({
     where: { id: payment.userId },
@@ -84,7 +86,7 @@ export async function fulfillAgencySeats(
       where: { id: payment.id },
       data: { status: "PAID", rc: "00" },
     });
-    const ag = await creditAgencySeats(payment.userId, payment.seats ?? 0, tx);
+    const ag = await creditAgencySeats(payment.userId, payment.seats ?? 0, tx, periodEnd);
     // Владелец отметил «беру место себе»: создаём self-membership (role=OWNER) и
     // материализуем plan=HUB — в ТОЙ ЖЕ транзакции. Идемпотентно: если membership уже
     // есть (напр. докупка), пропускаем (userId в AgencyMembership @unique). Занятое место
@@ -146,7 +148,11 @@ export async function fulfillPaidPayment(
     case "SINGLE_ACCESS":
       return fulfillSingleAccess(payment, logTag);
     case "AGENCY_SEATS":
-      return fulfillAgencySeats(payment, logTag);
+      return fulfillAgencySeats(payment, logTag, opts.periodEnd);
+    case "AGENCY_TOPUP":
+      // Докупка мест к подписке CyberSource выдаётся в lib/cybersource/cit.ts (одна транзакция
+      // с изменением подписки и согласия) — сюда не попадает.
+      throw new Error("AGENCY_TOPUP payments are fulfilled in cit.ts");
     case "SUBSCRIPTION":
       return fulfillSubscription(payment, now, logTag, opts.periodEnd);
     case "CARD_VERIFICATION":

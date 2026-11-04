@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import type { AgencySubscriptionView } from "@/lib/agency-subscription-rules";
+import { AgencySubscriptionBlock } from "./AgencySubscriptionBlock";
+
 type Member = {
   userId: string;
   email: string;
@@ -34,11 +37,17 @@ export function AgencyClient({
   feePerSeat,
   minSeats,
   currentUserId,
+  subscription = null,
+  seatsConsentVersion = "",
+  cardUpdated = false,
 }: {
   agency: Agency | null;
   feePerSeat: number;
   minSeats: number;
   currentUserId: string;
+  subscription?: AgencySubscriptionView | null;
+  seatsConsentVersion?: string;
+  cardUpdated?: boolean;
 }) {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
@@ -74,6 +83,9 @@ export function AgencyClient({
             <div style={{ fontSize: 13, color: "var(--ink2)", margin: "10px 0 16px" }}>
               Total: <b>{buySeats * feePerSeat} MDL</b> / lună
             </div>
+            <p style={{ fontSize: 12, color: "var(--ink3)", margin: "-8px 0 14px", lineHeight: 1.5 }}>
+              Mai târziu puteți adăuga locuri oricând sau reduce numărul lor de luna următoare.
+            </p>
             {/* Владелец может сразу занять одно из купленных мест (self-membership + plan=HUB). */}
             <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12.5, marginBottom: 12, cursor: "pointer" }}>
               <input type="checkbox" checked={takeSeat} onChange={(e) => setTakeSeat(e.target.checked)} style={{ marginTop: 2 }} />
@@ -113,7 +125,9 @@ export function AgencyClient({
   // ── Есть агентство: управление ──
   const occupied = agency.members.length;
   const reserved = agency.activeCodes.length; // активные коды резервируют место до погашения/отмены
-  const free = Math.max(0, agency.seatsPaid - occupied - reserved);
+  // При запланированном уменьшении раздать можно не больше нового числа мест.
+  const capacity = subscription?.pendingReduction ? Math.min(agency.seatsPaid, subscription.pendingReduction.seats) : agency.seatsPaid;
+  const free = Math.max(0, capacity - occupied - reserved);
   const FREE_SEATS_MSG =
     "Nu mai sunt locuri libere. Toate locurile sunt ocupate sau rezervate prin coduri active. " +
     "Cumpărați locuri suplimentare sau anulați un cod neutilizat.";
@@ -189,13 +203,18 @@ export function AgencyClient({
             <div style={{ fontSize: 12.5, color: "var(--ink3)" }}>{free} locuri libere</div>
           </div>
           <div style={{ marginLeft: "auto", fontSize: 12.5, color: "var(--ink3)", textAlign: "right" }}>
-            Se reînnoiește: {fmtDate(agency.planExpiresAt)}
+            {subscription ? (subscription.status === "CANCELED" ? "Acces până la: " : "Plătit până la: ") : "Se reînnoiește: "}
+            {fmtDate(subscription ? subscription.accessUntil : agency.planExpiresAt)}
             {agency.negotiated && (
               <div style={{ color: "var(--blue, #2563eb)", fontWeight: 600 }}>tarif negociat ({agency.pricePerSeatMdl} MDL/loc)</div>
             )}
           </div>
         </div>
       </div>
+
+      {subscription && (
+        <AgencySubscriptionBlock sub={subscription} seatsConsentVersion={seatsConsentVersion} cardUpdated={cardUpdated} />
+      )}
 
       {error && (
         <div className="notice red" style={{ marginTop: 12 }}>
@@ -215,12 +234,15 @@ export function AgencyClient({
         <button className="btn solid" disabled={busy || free <= 0} onClick={generateCode}>
           Generează cod de invitație
         </button>
-        <form method="POST" action="/api/payments/start" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="hidden" name="purpose" value="AGENCY_SEATS" />
-          <input type="hidden" name="agreedToTerms" value="true" />
-          <input type="number" name="seats" min={1} defaultValue={1} style={{ width: 72, height: 38, padding: "0 10px" }} title="Locuri suplimentare" />
-          <button type="submit" className="btn">Cumpără locuri suplimentare</button>
-        </form>
+        {/* Агентство VictoriaBank — прежняя докупка; при подписке с автопродлением — блок выше. */}
+        {!subscription && (
+          <form method="POST" action="/api/payments/start" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="hidden" name="purpose" value="AGENCY_SEATS" />
+            <input type="hidden" name="agreedToTerms" value="true" />
+            <input type="number" name="seats" min={1} defaultValue={1} style={{ width: 72, height: 38, padding: "0 10px" }} title="Locuri suplimentare" />
+            <button type="submit" className="btn">Cumpără locuri suplimentare</button>
+          </form>
+        )}
       </div>
       {free <= 0 && (
         <p style={{ fontSize: 12, color: "var(--ink3)", marginTop: 6 }}>{FREE_SEATS_MSG}</p>

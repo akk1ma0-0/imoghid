@@ -12,11 +12,12 @@
 //      (план / места; planActivatedAt = дата оплаты) и чек.
 // Неясный исход (сеть, 5xx, транзакция ещё не найдена, статус не финальный) → UNKNOWN,
 // клейм снимается — повторный вызов/сверка продолжит с того же места.
-import type { Payment } from "@prisma/client";
+import type { Payment, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { fulfillPaidPayment, isAttributed } from "@/lib/billing";
-import { sendReceiptEmail } from "@/lib/email";
+import { agencyReceiptInfo, sendReceiptEmail } from "@/lib/email";
+import { effectiveSeats, seatsAmount } from "@/lib/agency-subscription-rules";
 import { getTransactionDetails } from "@/lib/cybersource/checkout";
 import { findByReferenceCode } from "@/lib/cybersource/search";
 import { addMonthsAnchored, chargeDueFor } from "@/lib/billing-period";
@@ -85,7 +86,71 @@ export type CitRecords = {
   periodEnd: Date;
   replacedSubscription: boolean; // старая подписка закрыта этим вызовом
   retirePaymentMethodId: string | null; // токен старой подписки — удалить ПОСЛЕ транзакции
+  // Только AGENCY_TOPUP: места после докупки и агентство (для чека); applied=false — подписка уже
+  // закончилась к моменту оплаты, места не добавлены (нужен ручной возврат).
+  topup?: { applied: boolean; newSeats: number; agency: { seatsPaid: number; planExpiresAt: Date | null } | null };
 };
+
+// Докупка мест (AGENCY_TOPUP) к агентской подписке — внутри транзакции recordCitSuccess.
+// Период подписки не меняется; места = прежние + N, месячная сумма = места × цена; карта, введённая
+// при докупке, становится картой подписки (старый токен удаляется после транзакции); согласие на новую
+// сумму привязывается к подписке. Признак «уже применено» — Payment.status PAID (та же транзакция).
+async function applyAgencyTopup(tx: Prisma.TransactionClient, payment: Payment, facts: TxnFacts, now: Date): Promise<CitRecords> {
+  const sub = payment.subscriptionId
+    ? await tx.subscription.findUnique({ where: { id: payment.subscriptionId }, include: { agency: true } })
+    : null;
+  if (!sub || sub.userId !== payment.userId || sub.kind !== "AGENCY" || !sub.agency) throw new Error("AGENCY_TOPUP without agency subscription");
+  const base = { subscriptionId: sub.id, periodStart: sub.currentPeriodStart, periodEnd: sub.currentPeriodEnd, replacedSubscription: false };
+  if (payment.status === "PAID") {
+    return { ...base, retirePaymentMethodId: null, topup: { applied: true, newSeats: sub.seats ?? sub.agency.seatsPaid, agency: sub.agency } };
+  }
+  const alive =
+    sub.status === "ACTIVE" || sub.status === "PAST_DUE" || (sub.status === "CANCELED" && sub.cancelAtPeriodEnd && sub.currentPeriodEnd > now);
+  if (!alive) {
+    await tx.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } });
+    console.error(JSON.stringify({ evt: "cs_cit_complete", paymentId: payment.id, subscriptionId: sub.id, alert: "CS_TOPUP_SUBSCRIPTION_ENDED" }));
+    return { ...base, retirePaymentMethodId: null, topup: { applied: false, newSeats: sub.seats ?? 0, agency: sub.agency } };
+  }
+  let seatsNow = effectiveSeats(sub.seats, null);
+  if (!seatsNow) {
+    const first = await tx.payment.findFirst({
+      where: { subscriptionId: sub.id, purpose: "AGENCY_SEATS", initiator: "CUSTOMER", status: "PAID" },
+      orderBy: { createdAt: "asc" },
+      select: { seats: true },
+    });
+    seatsNow = effectiveSeats(first?.seats, sub.agency.seatsPaid) ?? 0;
+  }
+  const newSeats = seatsNow + (payment.seats ?? 0);
+
+  let newPmId: string | null = null;
+  if (facts.customerId && facts.paymentInstrumentId) {
+    const card = { cardLast4: facts.cardLast4, cardBrand: facts.cardBrand, expMonth: facts.expMonth, expYear: facts.expYear };
+    const pm = await tx.paymentMethod.upsert({
+      where: { tmsPaymentInstrumentId: facts.paymentInstrumentId },
+      create: { userId: payment.userId!, tmsCustomerId: facts.customerId, tmsPaymentInstrumentId: facts.paymentInstrumentId, ...card },
+      update: { ...card, status: "ACTIVE", removedAt: null },
+    });
+    newPmId = pm.id;
+  }
+  await tx.subscription.update({
+    where: { id: sub.id },
+    data: {
+      seats: newSeats,
+      amount: seatsAmount(newSeats, sub.agency.pricePerSeatMdl),
+      ...(newPmId ? { paymentMethodId: newPmId } : {}),
+      ...(newPmId && facts.networkTransactionId ? { initialNetworkTransactionId: facts.networkTransactionId } : {}),
+    },
+  });
+  const agency = await tx.agency.update({ where: { id: sub.agency.id }, data: { seatsPaid: newSeats }, select: { seatsPaid: true, planExpiresAt: true } });
+  await tx.recurringConsent.updateMany({ where: { paymentId: payment.id }, data: { subscriptionId: sub.id } });
+  await tx.payment.update({ where: { id: payment.id }, data: { status: "PAID", rc: "00" } });
+  const oldPmId = sub.paymentMethodId;
+  return {
+    ...base,
+    retirePaymentMethodId: newPmId && oldPmId && oldPmId !== newPmId ? oldPmId : null,
+    topup: { applied: true, newSeats, agency },
+  };
+}
 
 // Записи после подтверждённой оплаты (CIT) — одна транзакция БД:
 //   данные транзакции в Payment → (Basic → Pro) закрытие старой подписки → PaymentMethod →
@@ -113,6 +178,8 @@ export async function recordCitSuccess(
         cardLast4: facts.cardLast4,
       },
     });
+
+    if (payment.purpose === "AGENCY_TOPUP") return applyAgencyTopup(tx, payment, facts, now);
 
     // Старая подписка (Basic → Pro): её токен удалим после транзакции, если он не нужен новой.
     const old = payment.replacesSubscriptionId
@@ -281,6 +348,33 @@ export async function completeCitPayment(args: {
 
     const fresh = await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
     if (!isAttributed(fresh)) return { status: "failed", code: "NO_ACCOUNT" };
+    if (fresh.purpose === "AGENCY_TOPUP") {
+      // Места уже выданы в recordCitSuccess (той же транзакцией, что PAID) — только чек.
+      const owner = await prisma.user.findUnique({ where: { id: fresh.userId }, select: { email: true, name: true } });
+      if (owner && rec.topup) {
+        try {
+          await sendReceiptEmail(owner.email, {
+            order: fresh.order,
+            amount: fresh.amount,
+            currency: fresh.currency,
+            customerName: owner.name,
+            agency: rec.topup.agency ? agencyReceiptInfo(fresh, rec.topup.agency) : undefined,
+            plan: fresh.plan,
+            purpose: fresh.purpose,
+            seats: fresh.seats,
+            rrn: null,
+            approval: facts.approvalCode,
+            cardLast4: facts.cardLast4,
+            cardNetwork: facts.cardBrand,
+            paidAt: now,
+          });
+        } catch (e) {
+          console.error(`${LOG_TAG} receipt email error ORDER=${fresh.order}`, e);
+        }
+      }
+      log({ paymentId: payment.id, csTransactionId: facts.id, result: "paid", topup: rec.topup?.applied ?? false, ms: Date.now() - started });
+      return { status: "paid" };
+    }
     // Подписка CyberSource — календарный период; места агентства пока прежней логикой (30 дней).
     // Момент начала периода (при повторе — тот же, что у созданной подписки): planActivatedAt.
     const fulfilled = await fulfillPaidPayment(fresh, rec.periodStart, LOG_TAG, { periodEnd });
