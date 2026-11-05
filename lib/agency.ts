@@ -84,10 +84,50 @@ export async function materializeAgencyPlan(userId: string, client: Db = prisma)
   });
 }
 
+// Возвращает пользователю план его личной подписки CyberSource после потери HUB.
+// Пока человек в агентстве, HUB «перекрывает» его личный план (User.plan один). Личная подписка
+// (kind PERSONAL, provider CYBERSOURCE) даёт доступ, если она ACTIVE (в т.ч. отменённая до конца
+// периода) и период не закончился, либо PAST_DUE и ещё идёт grace. Тогда: plan = план подписки,
+// planExpiresAt = конец доступа (конец периода; у PAST_DUE — конец grace, как в billing-cycle),
+// planActivatedAt и счётчики лимитов не трогаем, sessionVersion++ (если bumpSession). Удержание
+// AGENCY_MEMBER, поставленное биллингом, пока человек был в агентстве, снимается — списание
+// продолжится. Возвращает true, если план возвращён; false — личной подписки с доступом нет
+// (вызывающий сам обнуляет план). Подписки VictoriaBank (без Subscription) сюда не попадают.
+export async function restorePersonalPlan(
+  userId: string,
+  client: Db = prisma,
+  opts: { now?: Date; bumpSession?: boolean } = {},
+): Promise<boolean> {
+  const now = opts.now ?? new Date();
+  const subs = await client.subscription.findMany({
+    where: { userId, kind: "PERSONAL", provider: "CYBERSOURCE", status: { in: ["ACTIVE", "PAST_DUE"] } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, plan: true, status: true, currentPeriodEnd: true, graceEndsAt: true, billingHold: true },
+  });
+  const alive = subs
+    .map((sub) => ({ sub, until: sub.status === "PAST_DUE" && sub.graceEndsAt ? sub.graceEndsAt : sub.currentPeriodEnd }))
+    .find((x) => x.until.getTime() > now.getTime() && (x.sub.plan === "BASIC" || x.sub.plan === "PRO"));
+  if (!alive) return false;
+  await client.user.update({
+    where: { id: userId },
+    data: {
+      plan: alive.sub.plan,
+      planExpiresAt: alive.until,
+      ...(opts.bumpSession === false ? {} : { sessionVersion: { increment: 1 } }),
+    },
+  });
+  if (alive.sub.billingHold === "AGENCY_MEMBER") {
+    await client.subscription.update({ where: { id: alive.sub.id }, data: { billingHold: null } });
+  }
+  return true;
+}
+
 // Снимает HUB при выходе из агентства / удалении места / истечении подписки агентства:
-// User.plan = null + sessionVersion++ (мгновенный разлогин на всех устройствах). Данные
-// пользователя (досье и пр.) НЕ трогаем — только доступ.
-export async function dematerializeAgencyPlan(userId: string, client: Db = prisma): Promise<void> {
+// возвращает план личной подписки CyberSource, если она действует (restorePersonalPlan), иначе
+// User.plan = null. В обоих случаях sessionVersion++ (мгновенный разлогин на всех устройствах).
+// Данные пользователя (досье и пр.) НЕ трогаем — только доступ.
+export async function dematerializeAgencyPlan(userId: string, client: Db = prisma, now: Date = new Date()): Promise<void> {
+  if (await restorePersonalPlan(userId, client, { now })) return;
   await client.user.update({
     where: { id: userId },
     data: {
@@ -97,6 +137,15 @@ export async function dematerializeAgencyPlan(userId: string, client: Db = prism
       sessionVersion: { increment: 1 },
     },
   });
+}
+
+// Массовое снятие HUB (истечение агентства): только у тех, у кого сейчас plan = HUB. Каждому —
+// личный план, если есть (restorePersonalPlan), иначе null. Возвращает число затронутых.
+export async function releaseHubUsers(userIds: string[], client: Db = prisma, now: Date = new Date()): Promise<number> {
+  if (userIds.length === 0) return 0;
+  const hub = await client.user.findMany({ where: { id: { in: userIds }, plan: "HUB" }, select: { id: true } });
+  for (const u of hub) await dematerializeAgencyPlan(u.id, client, now);
+  return hub.length;
 }
 
 // Зачисление купленных мест владельцу (из vb-callback при PAID AGENCY_SEATS). Нет агентства
@@ -131,16 +180,17 @@ export async function revokeExpiredAgencies(now: Date = new Date()): Promise<num
   });
   const userIds = expired.flatMap((a) => a.memberships.map((m) => m.userId));
   if (userIds.length === 0) return 0;
-  const res = await prisma.user.updateMany({
-    where: { id: { in: userIds }, plan: "HUB" },
-    data: {
-      plan: null,
-      planActivatedAt: null,
-      planExpiresAt: null,
-      sessionVersion: { increment: 1 },
-    },
-  });
-  return res.count;
+  // Каждый — в своей транзакции: сбой у одного не откатывает остальных; повтор идемпотентен
+  // (берём только тех, у кого ещё plan = HUB).
+  const hub = await prisma.user.findMany({ where: { id: { in: userIds }, plan: "HUB" }, select: { id: true } });
+  let count = 0;
+  for (const u of hub) {
+    await prisma.$transaction(async (tx) => {
+      await dematerializeAgencyPlan(u.id, tx, now);
+    });
+    count++;
+  }
+  return count;
 }
 
 // Сколько мест можно раздать: seatsPaid, а при запланированном уменьшении агентской подписки
@@ -274,10 +324,11 @@ export async function leaveAgency(userId: string): Promise<{ left: boolean }> {
     const del = await tx.agencyMembership.deleteMany({ where: { userId } });
     if (del.count === 0) return { left: false };
 
-    await tx.user.updateMany({
-      where: { id: userId, plan: "HUB" },
-      data: { plan: null, planActivatedAt: null, planExpiresAt: null },
-    });
+    // План личной подписки возвращаем, иначе — null. Без sessionVersion++ (см. комментарий выше).
+    const me = await tx.user.findUnique({ where: { id: userId }, select: { plan: true } });
+    if (me?.plan === "HUB" && !(await restorePersonalPlan(userId, tx, { bumpSession: false }))) {
+      await tx.user.update({ where: { id: userId }, data: { plan: null, planActivatedAt: null, planExpiresAt: null } });
+    }
     return { left: true };
   });
 }

@@ -16,6 +16,7 @@
 import type { PaymentMethod, Subscription } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { releaseHubUsers } from "@/lib/agency";
 import { PLAN_PRICING } from "@/lib/payments";
 import { chargeSavedCard } from "@/lib/cybersource/payments";
 import { findByReferenceCode } from "@/lib/cybersource/search";
@@ -307,8 +308,10 @@ async function applySuccess(sub: Sub, paymentId: string, now: Date): Promise<str
     });
     if (upd.count === 0) return false;
     // planActivatedAt (якорь лимитов) не трогаем; ставим только если план был сброшен.
-    await tx.user.update({
-      where: { id: sub.userId },
+    // Участника/владельца агентства с HUB не понижаем до Basic/Pro: личный план хранит сама
+    // подписка и вернётся при потере HUB (restorePersonalPlan в lib/agency.ts).
+    await tx.user.updateMany({
+      where: { id: sub.userId, OR: [{ plan: null }, { plan: { in: ["BASIC", "PRO"] } }] },
       data: { plan: paidPlan, planExpiresAt: newEnd, ...(sub.user.planActivatedAt ? {} : { planActivatedAt: now }) },
     });
     return true;
@@ -672,19 +675,15 @@ async function applyAgencyFailure(sub: Sub, cls: DeclineClass, now: Date, attemp
 }
 
 // Конец агентской подписки: срок агентства = сейчас, HUB снимается у всех участников сразу
-// (как revokeExpiredAgencies: plan=null + sessionVersion++). Агентство и участники остаются —
-// доступ вернётся при новой покупке.
+// (sessionVersion++). Тем, у кого действует личная подписка CyberSource, возвращается её план
+// (restorePersonalPlan), остальным plan = null. Агентство и участники остаются — доступ вернётся
+// при новой покупке.
 async function endAgencyAccess(sub: Sub, now: Date) {
   if (!sub.agencyId) return;
   await prisma.$transaction(async (tx) => {
     await tx.agency.update({ where: { id: sub.agencyId! }, data: { planExpiresAt: now } });
     const members = await tx.agencyMembership.findMany({ where: { agencyId: sub.agencyId! }, select: { userId: true } });
-    if (members.length) {
-      await tx.user.updateMany({
-        where: { id: { in: members.map((m) => m.userId) }, plan: "HUB" },
-        data: { plan: null, planActivatedAt: null, planExpiresAt: null, sessionVersion: { increment: 1 } },
-      });
-    }
+    await releaseHubUsers(members.map((m) => m.userId), tx, now);
   });
 }
 
