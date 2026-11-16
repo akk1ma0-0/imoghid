@@ -149,6 +149,7 @@ export async function DELETE(request: Request, { params }: Params) {
     );
   }
 
-  await deleteUserCompletely(id);
+  const r = await deleteUserCompletely(id);
+  if (!r.ok) return NextResponse.json({ error: r.message }, { status: r.status });
   return NextResponse.json({ ok: true });
 }

@@ -7,17 +7,26 @@
 //   • иначе — customer целиком.
 // Ошибка удаления ничего не откатывает: пишем операцию и алерт, разбор — админом.
 import { prisma } from "@/lib/prisma";
-import { deleteCustomer, deletePaymentInstrument } from "@/lib/cybersource/tms";
+import { deleteCustomer, deletePaymentInstrument, type TmsResult } from "@/lib/cybersource/tms";
 
 export type RetireResult = "deleted" | "already_gone" | "in_use" | "not_active" | "error";
+
+// Вызовы TMS — подменяемы в тестах (по умолчанию — реальные запросы к CyberSource).
+export type TmsDeleter = {
+  deleteCustomer: (customerId: string) => Promise<TmsResult>;
+  deletePaymentInstrument: (customerId: string, paymentInstrumentId: string) => Promise<TmsResult>;
+};
+const realTms: TmsDeleter = { deleteCustomer, deletePaymentInstrument };
 
 export async function retirePaymentMethod(args: {
   paymentMethodId: string;
   paymentId: string | null; // к какой операции привязать запись PaymentOperation
   actorUserId?: string | null;
   now?: Date;
+  tms?: TmsDeleter;
 }): Promise<RetireResult> {
   const now = args.now ?? new Date();
+  const tms = args.tms ?? realTms;
   const pm = await prisma.paymentMethod.findUnique({ where: { id: args.paymentMethodId } });
   if (!pm || pm.status !== "ACTIVE") return "not_active";
 
@@ -36,15 +45,15 @@ export async function retirePaymentMethod(args: {
     where: { tmsCustomerId: pm.tmsCustomerId, status: "ACTIVE", id: { not: pm.id } },
   });
   const del = sharedCustomer > 0
-    ? await deletePaymentInstrument(pm.tmsCustomerId, pm.tmsPaymentInstrumentId)
-    : await deleteCustomer(pm.tmsCustomerId);
+    ? await tms.deletePaymentInstrument(pm.tmsCustomerId, pm.tmsPaymentInstrumentId)
+    : await tms.deleteCustomer(pm.tmsCustomerId);
   const outcome = del.ok ? (del.alreadyGone ? "already_gone" : "deleted") : "error";
   await prisma.paymentOperation.create({
     data: {
       paymentId: args.paymentId,
       type: "TOKEN_DELETE",
       outcome,
-      httpStatus: del.ok ? (del.alreadyGone ? 404 : 204) : del.httpStatus,
+      httpStatus: del.ok ? (del.httpStatus ?? (del.alreadyGone ? 404 : 204)) : del.httpStatus,
       actorUserId: args.actorUserId ?? null,
     },
   });

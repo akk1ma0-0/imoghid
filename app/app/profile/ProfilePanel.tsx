@@ -168,7 +168,12 @@ export function ProfilePanel({ initial }: { initial: Initial }) {
     setDelBusy(true);
     try {
       const r = await fetch("/api/user", { method: "DELETE" });
-      if (!r.ok) throw new Error();
+      if (!r.ok) {
+        const d = await r.json().catch(() => null);
+        setDelBusy(false);
+        window.alert(typeof d?.error === "string" ? d.error : "Eroare la ștergerea contului. Încercați din nou.");
+        return;
+      }
       await signOut({ callbackUrl: "/login" });
     } catch {
       setDelBusy(false);

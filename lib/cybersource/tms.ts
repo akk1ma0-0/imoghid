@@ -3,21 +3,27 @@
 //   GET    /tms/v2/customers/{customerId}/payment-instruments/{paymentInstrumentId}
 //   DELETE /tms/v2/customers/{customerId}/payment-instruments/{paymentInstrumentId}  → 204
 //   DELETE /tms/v2/customers/{customerId}                                             → 204
+// 404/410 на DELETE — токена уже нет (ok, alreadyGone).
 // Наружу отдаём только последние 4 цифры, бренд и срок карты — номер (даже маскированный) не храним.
 import { csRequest, CsTransportError, safePathId } from "@/lib/cybersource/client";
 import { cardSummaryOf, type CardSummary } from "@/lib/cybersource/responses";
 
 export type TmsResult =
-  | { ok: true; alreadyGone: boolean }
+  | { ok: true; alreadyGone: boolean; httpStatus?: number }
   | { ok: false; httpStatus: number; reason: string | null }; // httpStatus 0 — сеть/таймаут
+
+// Разбор ответа DELETE. 204/200 — удалено; 404 и 410 (Gone) — токена уже нет, цель достигнута.
+export function tmsDeleteOutcome(httpStatus: number, json: { reason?: unknown } | null | undefined): TmsResult {
+  if (httpStatus === 204 || httpStatus === 200) return { ok: true, alreadyGone: false, httpStatus };
+  if (httpStatus === 404 || httpStatus === 410) return { ok: true, alreadyGone: true, httpStatus };
+  const reason = typeof json?.reason === "string" ? json.reason : null;
+  return { ok: false, httpStatus, reason };
+}
 
 async function del(op: string, path: string): Promise<TmsResult> {
   try {
     const res = await csRequest({ op, method: "DELETE", path });
-    if (res.httpStatus === 204 || res.httpStatus === 200) return { ok: true, alreadyGone: false };
-    if (res.httpStatus === 404) return { ok: true, alreadyGone: true }; // токена уже нет — цель достигнута
-    const reason = typeof res.json?.reason === "string" ? res.json.reason : null;
-    return { ok: false, httpStatus: res.httpStatus, reason };
+    return tmsDeleteOutcome(res.httpStatus, res.json);
   } catch (e) {
     if (e instanceof CsTransportError) return { ok: false, httpStatus: 0, reason: e.kind };
     throw e;

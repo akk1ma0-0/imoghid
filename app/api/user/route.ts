@@ -9,6 +9,7 @@ export async function DELETE() {
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
 
-  await deleteUserCompletely(sess.userId);
+  const r = await deleteUserCompletely(sess.userId);
+  if (!r.ok) return NextResponse.json({ error: r.message }, { status: r.status });
   return NextResponse.json({ ok: true });
 }
