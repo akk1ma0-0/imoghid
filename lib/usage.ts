@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { UsageFeature, SubscriptionPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { markUsageEventReleased, recordUsageEvent, type UsageEventKind } from "@/lib/audit";
 import {
   planFeatureLimit,
   currentPeriod,
@@ -12,7 +13,7 @@ import {
 import { summarizeSingleAccess, type SingleAccessSummary } from "@/lib/single-access";
 
 export type UsageResult =
-  | { ok: true; viaOverage?: boolean; viaSingleAccess?: boolean }
+  | { ok: true; viaOverage?: boolean; viaSingleAccess?: boolean; kind?: UsageEventKind }
   | {
       ok: false;
       reason: "unavailable" | "limit";
@@ -98,7 +99,18 @@ export async function hasUnconsumedSingleAccess(userId: string): Promise<boolean
 // План отсутствует / фича недоступна (limit 0) → { ok:false, reason:"unavailable" }.
 // Достигнут лимит → { ok:false, reason:"limit", used, limit }. Само-сброс при истёкшем
 // периоде (cron reset-usage — подстраховка). НЕ атомарно (паритет с прежним analyze-роутом).
+// Каждое успешное использование пишется в UsageEvent (расход по дням/функциям; включая ADMIN и
+// безлимит — kind "none"). Запись best-effort: сбой не блокирует действие.
 export async function consumeUsage(
+  userId: string,
+  feature: UsageFeature,
+): Promise<UsageResult> {
+  const r = await consumeUsageInner(userId, feature);
+  if (r.ok) await recordUsageEvent(userId, feature, r.kind ?? "counter");
+  return r;
+}
+
+async function consumeUsageInner(
   userId: string,
   feature: UsageFeature,
 ): Promise<UsageResult> {
@@ -107,18 +119,18 @@ export async function consumeUsage(
     select: { plan: true, planActivatedAt: true, role: true, createdAt: true },
   });
   if (!user) return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
-  if (user.role === "ADMIN") return { ok: true };
+  if (user.role === "ADMIN") return { ok: true, kind: "none" };
 
   const limit = planFeatureLimit(user.plan, feature as LimitedFeature);
   if (limit === 0) {
     // plan=null покупатель «O accesare»: непотраченный грант на эту фичу пропускает одно
     // действие (CADASTRU_CHECK / DOSAR_ANALYSIS). Для ANUNT_999 грантов нет → останется unavailable.
     if (await consumeSingleAccessGrant(userId, feature)) {
-      return { ok: true, viaSingleAccess: true };
+      return { ok: true, viaSingleAccess: true, kind: "single" };
     }
     return { ok: false, reason: "unavailable", used: 0, limit: 0, overageFeeMdl: null };
   }
-  if (!Number.isFinite(limit)) return { ok: true }; // безлимит — не считаем
+  if (!Number.isFinite(limit)) return { ok: true, kind: "none" }; // безлимит — не считаем
 
   const now = new Date();
   const anchor = user.planActivatedAt ?? user.createdAt;
@@ -133,7 +145,7 @@ export async function consumeUsage(
     // Лимит исчерпан. Сначала — оплаченный одноразовый грант sobre-limit (если есть):
     // тратим его и пропускаем действие (счётчик НЕ инкрементируем — он уже на лимите).
     if (await consumeOverageGrant(userId, feature)) {
-      return { ok: true, viaOverage: true };
+      return { ok: true, viaOverage: true, kind: "overage" };
     }
     // Гранта нет → блок. overageFeeMdl != null → роут предложит доплату (402); иначе — 429.
     return {
@@ -153,7 +165,7 @@ export async function consumeUsage(
       ? { count: { increment: 1 } }
       : { count: 1, periodStart: start, periodEnd: end },
   });
-  return { ok: true };
+  return { ok: true, kind: "counter" };
 }
 
 // ── Резерв/возврат единицы лимита (для действий, которые могут не удаться) ──────
@@ -167,11 +179,13 @@ export async function consumeUsage(
 // Каждая операция — один условный UPDATE: в Postgres параллельный UPDATE той же строки
 // ждёт коммита и заново проверяет WHERE, поэтому при исчерпанном лимите параллельные
 // запросы не проскакивают (count < limit перепроверяется), а один грант не тратится дважды.
-export type UsageReservation =
+// eventId — строка UsageEvent этого резерва: при возврате резерва она помечается releasedAt.
+export type UsageReservation = (
   | { kind: "none" }
   | { kind: "counter"; userId: string; feature: UsageFeature; periodStart: Date }
   | { kind: "single"; grantId: string }
-  | { kind: "overage"; paymentId: string };
+  | { kind: "overage"; paymentId: string }
+) & { eventId?: string };
 
 export type ReserveResult =
   | { ok: true; reservation: UsageReservation }
@@ -215,6 +229,13 @@ async function takeOverageGrant(userId: string, feature: UsageFeature): Promise<
 }
 
 export async function reserveUsage(userId: string, feature: UsageFeature): Promise<ReserveResult> {
+  const r = await reserveUsageInner(userId, feature);
+  if (!r.ok) return r;
+  const eventId = await recordUsageEvent(userId, feature, r.reservation.kind);
+  return { ok: true, reservation: eventId ? { ...r.reservation, eventId } : r.reservation };
+}
+
+async function reserveUsageInner(userId: string, feature: UsageFeature): Promise<ReserveResult> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { plan: true, planActivatedAt: true, role: true, createdAt: true },
@@ -273,6 +294,12 @@ export async function reserveUsage(userId: string, feature: UsageFeature): Promi
 // в тот же период, в котором был взят (если период сменился во время вызова — не трогаем
 // новый). Вызывать из finally при неудаче действия.
 export async function releaseUsage(r: UsageReservation): Promise<void> {
+  await releaseUsageInner(r);
+  // Действие не состоялось → событие не должно попасть в отчёт о расходе.
+  await markUsageEventReleased(r.eventId);
+}
+
+async function releaseUsageInner(r: UsageReservation): Promise<void> {
   switch (r.kind) {
     case "none":
       return;

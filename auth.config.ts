@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextAuthConfig } from "next-auth";
 import type { SubscriptionPlan } from "@prisma/client";
 
+import { decideAppAccess } from "@/lib/auth-access";
+
 // 30 дней — сессия живёт после закрытия браузера.
 const THIRTY_DAYS = 30 * 24 * 60 * 60;
 // secure-cookie только в проде (на localhost по http secure-cookie не передаётся → логин сломался бы).
@@ -35,69 +37,44 @@ export const authConfig = {
     // Защита маршрутов. Срабатывает только на путях из matcher (middleware.ts).
     authorized({ auth, request }) {
       const { nextUrl } = request;
-      const isLoggedIn = !!auth?.user;
-      const isOnApp = nextUrl.pathname.startsWith("/app");
-
-      if (!isOnApp) return true;
-
       // Mod Demo — интерактивный тур (моковые данные, без реальных API). Доступ к /app/*
       // без сессии, если установлен cookie demo (или ?demo=true при первом переходе).
       const isDemo =
         request.cookies.get("imo_demo")?.value === "1" ||
         nextUrl.searchParams.get("demo") === "true";
-      if (isDemo) return true;
-
-      // Публичная страница тарифов (SIP: банк требует публичную страницу цен).
-      // /app/pending открыта и анонимным посетителям. Путь пробрасываем в заголовок,
-      // чтобы серверный гейт /app-лейаута (auth() → redirect /login) тоже её пропустил.
-      // Все проверки для залогиненных (verify-email / plan / waitlist) остаются в самой
-      // странице (серверный компонент), а не здесь.
-      if (nextUrl.pathname.startsWith("/app/pending")) {
-        const headers = new Headers(request.headers);
-        headers.set("x-pathname", nextUrl.pathname);
-        return NextResponse.next({ request: { headers } });
+      const u = auth?.user;
+      // Само решение — чистая функция lib/auth-access.ts (покрыта тестами): verify-email → план/
+      // грант/агентство → /app/pending; AUDITOR без плана → только журнал. Флаг WAITLIST_MODE здесь
+      // НЕ читается (edge инлайнит env на билде) — решает Node-слой страницы /app/pending.
+      const d = decideAppAccess({
+        pathname: nextUrl.pathname,
+        isDemo,
+        user: u
+          ? {
+              emailConfirmed: !!u.emailConfirmed,
+              plan: u.plan,
+              hasSingleAccess: !!u.hasSingleAccess,
+              isAgencyOwner: !!u.isAgencyOwner,
+              role: u.role,
+            }
+          : null,
+      });
+      switch (d.kind) {
+        case "allow":
+          return true;
+        case "login":
+          // false → NextAuth редиректит на pages.signIn (/login)
+          return false;
+        case "redirect":
+          return Response.redirect(new URL(d.to, nextUrl));
+        case "allow-pending": {
+          // /app/pending открыта и анонимным (SIP: публичная страница цен). Путь пробрасываем в
+          // заголовок, чтобы серверный гейт /app-лейаута тоже её пропустил.
+          const headers = new Headers(request.headers);
+          headers.set("x-pathname", nextUrl.pathname);
+          return NextResponse.next({ request: { headers } });
+        }
       }
-
-      // Нет сессии → false → NextAuth редиректит на pages.signIn (/login)
-      if (!isLoggedIn) return false;
-
-      // Шаг 1 — подтверждение e-mail. До него не пускаем дальше (в т.ч. на pending-plan).
-      const isVerifyPending = nextUrl.pathname.startsWith("/app/verify-email-pending");
-      if (!auth!.user.emailConfirmed) {
-        return isVerifyPending ? true : Response.redirect(new URL("/app/verify-email-pending", nextUrl));
-      }
-      // E-mail подтверждён → на странице подтверждения делать нечего.
-      if (isVerifyPending) {
-        return Response.redirect(new URL("/app", nextUrl));
-      }
-
-      const isPending = nextUrl.pathname.startsWith("/app/pending");
-      const isWaitlist = nextUrl.pathname.startsWith("/app/waitlist");
-      // Страница оплаты картой (CyberSource): покупает первый план тот, у кого плана ещё нет.
-      // Доступ к самой оплате проверяет страница (PAYMENT_PROVIDER / CS_BETA_EMAILS).
-      const isCheckout = nextUrl.pathname.startsWith("/app/checkout");
-
-      // Доступ в приложение даёт: активный план, непотраченный «O accesare»-грант (Этап C),
-      // либо владение агентством (Этап D — владелец без своего места всё равно заходит в
-      // /app/agency управлять). JWT-claims освежаются в auth.ts на каждом запросе.
-      const hasAccess =
-        !!auth!.user.plan || !!auth!.user.hasSingleAccess || !!auth!.user.isAgencyOwner;
-
-      // Без доступа (plan = null и нет single-access) → /app/pending. Там серверный компонент
-      // (Node runtime) читает WAITLIST_MODE на каждом запросе и решает: тарифы или /app/waitlist.
-      // Флаг НЕ читается здесь (edge-middleware инлайнит env на билде) — только в Node-слое.
-      // /app/waitlist допускаем (это цель редиректа со страницы pending).
-      if (!hasAccess) {
-        return isPending || isWaitlist || isCheckout ? true : Response.redirect(new URL("/app/pending", nextUrl));
-      }
-
-      // /app/pending доступна и подписчикам (статус плана/лимитов, докупить «O accesare»,
-      // апгрейд) — не бросаем. А /app/waitlist для пользователя с доступом бессмысленна.
-      if (isWaitlist) {
-        return Response.redirect(new URL("/app", nextUrl));
-      }
-
-      return true;
     },
 
     // Кладём id/plan/planActive в JWT при логине и обновляем при update().

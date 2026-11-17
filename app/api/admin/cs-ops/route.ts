@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { recordAdminAction } from "@/lib/audit";
 import { csConfig, CsConfigError } from "@/lib/cybersource/client";
 import { refundPayment, voidTransaction } from "@/lib/cybersource/payments";
 import { deleteCustomer } from "@/lib/cybersource/tms";
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as { action?: unknown; paymentId?: unknown; amount?: unknown } | null;
   const action = body?.action;
+  // Журнал: фиксируем вызов администратора (какая операция), без сумм, карт и результата.
+  await recordAdminAction({ actorId: guard.userId, action: "CS_OPERATION", meta: { op: typeof action === "string" ? action : "?" } });
   const paymentId = typeof body?.paymentId === "string" ? body.paymentId : "";
   const payment = paymentId
     ? await prisma.payment.findUnique({

@@ -37,6 +37,7 @@ describe("журнал кадастровых проверок", { skip: !enable
     globalThis.fetch = realFetch;
     await prisma.cadastruCheck.deleteMany({ where: { userId } });
     await prisma.usageCounter.deleteMany({ where: { userId } });
+    await prisma.usageEvent.deleteMany({ where: { userId } });
     await prisma.user.deleteMany({ where: { id: userId } });
     await prisma.$disconnect();
   });
@@ -83,6 +84,9 @@ describe("журнал кадастровых проверок", { skip: !enable
     assert.equal(r.attempts, 1);
     assert.equal(fetchCalls, 1);
     assert.equal(await used(), u0); // резерв возвращён
+    // событие расхода помечено возвращённым → в отчёт «Consum» не попадёт
+    const ue = await prisma.usageEvent.findFirst({ where: { userId, feature: "CADASTRU_CHECK" }, orderBy: { createdAt: "desc" } });
+    assert.ok(ue?.releasedAt instanceof Date);
   });
 
   it("временный сбой + успех: attempts=2, лимит списан один раз", async () => {

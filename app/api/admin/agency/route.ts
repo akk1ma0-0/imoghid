@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { recordAdminAction } from "@/lib/audit";
 import { AGENCY_MIN_SEATS } from "@/lib/plan-limits";
 
 const AGENCY_PERIOD_DAYS = 30;
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
     select: { id: true, seatsPaid: true, pricePerSeatMdl: true, planExpiresAt: true },
   });
 
+  await recordAdminAction({ actorId: guard.userId, userId: owner.id, action: "AGENCY_CREATE", meta: { seats: seatsPaid, pricePerSeatMdl } });
   console.log(
     `[admin] agency upsert owner=${owner.id} seats=${seatsPaid} price=${pricePerSeatMdl} (negotiated)`,
   );

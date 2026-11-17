@@ -34,6 +34,7 @@ enum SubscriptionPlan {
 enum UserRole {
   AGENT
   ADMIN  // acces la panoul de administrare
+  AUDITOR // doar citire: jurnalul (/app/admin/jurnal) și exporturile; nimic altceva
 }
 
 enum DealType {
@@ -516,6 +517,49 @@ enum UsageFeature {
   CREATOR_HUB     // Creator Hub (соцсети)
   ANUNT_999       // Anunțuri 999 (platform=999 в Creator Hub) — считается отдельно
   OBIECTE_CREATE  // Этап C: право создать 1 досье (грант «O accesare»); не UsageCounter-фича
+}
+
+// Журнал событий аудита: входы и действия администраторов. Без IP и user-agent. Без FK на users:
+// журнал переживает удаление аккаунта (как cadastru_checks); хранится AUDIT_RETENTION_MONTHS (12 мес.),
+// старше — удаляет cron reset-usage. В meta — только технические поля (from→to, число строк, период):
+// никаких паролей, токенов и введённых email.
+enum AuditEventType {
+  LOGIN
+  LOGIN_FAILED
+  ADMIN_ACTION
+  EXPORT
+}
+
+model AuditEvent {
+  id        String         @id @default(cuid())
+  type      AuditEventType
+  userId    String? // субъект: кто вошёл / над кем выполнено действие
+  actorId   String? // кто совершил действие (ADMIN_ACTION / EXPORT)
+  action    String? // CHANGE_PLAN | BLOCK | UNBLOCK | CHANGE_ROLE | DELETE_USER | EXPORT:<тип> | …
+  meta      Json?
+  createdAt DateTime       @default(now())
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("audit_events")
+}
+
+// Каждое успешное использование функции (расход по дням и функциям). Пишется в consumeUsage /
+// reserveUsage, включая безлимит и ADMIN (kind "none"). releasedAt — резерв возвращён (действие не
+// состоялось): в отчёты такие строки не входят. Без FK; хранится 12 мес. (cron reset-usage).
+model UsageEvent {
+  id         String       @id @default(cuid())
+  userId     String
+  feature    UsageFeature
+  kind       String // counter | single | overage | none
+  releasedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([feature, createdAt])
+  @@map("usage_events")
 }
 
 // Журнал кадастровых проверок: прослеживаемость requestId (он же rid в логе коннектора) ↔ пользователь ↔

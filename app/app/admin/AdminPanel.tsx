@@ -8,7 +8,7 @@ type AdminUser = {
   email: string;
   name: string;
   plan: "BASIC" | "PRO" | "HUB" | null;
-  role: "AGENT" | "ADMIN";
+  role: "AGENT" | "ADMIN" | "AUDITOR";
   isBlocked: boolean;
   createdAt: string;
   transactionCount: number;
@@ -248,6 +248,9 @@ export function AdminPanel({
         >
           Statistică
         </button>
+        <a className="obj-tab" href="/app/admin/jurnal" style={{ textDecoration: "none" }}>
+          Jurnal ↗
+        </a>
       </div>
 
       {/* ── 1. UTILIZATORI ── */}
@@ -276,6 +279,11 @@ export function AdminPanel({
                       {u.role === "ADMIN" && (
                         <span className="badge b-purple" style={{ marginLeft: 6 }}>
                           ADMIN
+                        </span>
+                      )}
+                      {u.role === "AUDITOR" && (
+                        <span className="badge b-blue" style={{ marginLeft: 6 }}>
+                          AUDITOR
                         </span>
                       )}
                     </td>
@@ -321,6 +329,22 @@ export function AdminPanel({
                             <option value="">În așteptare</option>
                             <option value="BASIC">BASIC</option>
                             <option value="PRO">PRO</option>
+                          </select>
+                        )}
+                        {/* Роль из интерфейса: только AGENT ↔ AUDITOR; ADMIN — через БД; себе и ADMIN-у нельзя. */}
+                        {u.role !== "ADMIN" && !isSelf && (
+                          <select
+                            className="adm-plan-select"
+                            value={u.role}
+                            disabled={busy}
+                            title="Rol (AUDITOR = doar citire: Jurnal)"
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if ((v === "AGENT" || v === "AUDITOR") && v !== u.role) patchUser(u.id, { role: v });
+                            }}
+                          >
+                            <option value="AGENT">AGENT</option>
+                            <option value="AUDITOR">AUDITOR</option>
                           </select>
                         )}
                         <button

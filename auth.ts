@@ -5,9 +5,17 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { isPlanActive } from "@/lib/plan";
 import { authConfig } from "@/auth.config";
+import { recordLogin, recordLoginFailed } from "@/lib/audit";
+import { applyDbUserToToken } from "@/lib/auth-token";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  events: {
+    // Успешный вход (не обновление сессии): журнал пишет только userId и время. Сбой записи вход не ломает.
+    async signIn({ user }) {
+      if (user?.id) await recordLogin(user.id);
+    },
+  },
   providers: [
     Credentials({
       credentials: {
@@ -27,10 +35,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user) return null;
 
         // Заблокированный администратором аккаунт не может войти.
-        if (user.isBlocked) return null;
+        if (user.isBlocked) {
+          await recordLoginFailed(user.id, "BLOCKED");
+          return null;
+        }
 
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          // Только для СУЩЕСТВУЮЩЕГО пользователя; без пароля и без введённого email.
+          await recordLoginFailed(user.id, "BAD_PASSWORD");
+          return null;
+        }
 
         // Доступ в приложение (WAITLIST-гейт) при plan=null: непотраченный single-access
         // грант (Этап C) ИЛИ владение агентством (Этап D — чтобы владелец мог зайти в
@@ -70,6 +85,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           select: {
             sessionVersion: true,
             email: true,
+            // Роль и блокировка — из БД на каждом запросе: понижение админа и блокировка действуют
+            // сразу (без ожидания истечения JWT / перелогина).
+            role: true,
+            isBlocked: true,
             // Освежаем план из БД на каждом запросе: после подписочной оплаты (callback
             // активирует план) сессия сразу отражает его — без релогина; истечение/смена
             // плана тоже применяются немедленно.
@@ -83,20 +102,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             ownedAgency: { select: { id: true } },
           },
         });
-        // Токены, выпущенные до появления sessionVersion, не имеют claim → трактуем как 0
-        // (значение по умолчанию), чтобы деплой не разлогинил всех разом. Инкремент
-        // (кнопка «выйти со всех устройств») инвалидирует такие токены.
-        const tokenVer = typeof token.sessionVersion === "number" ? token.sessionVersion : 0;
-        if (!dbUser || dbUser.sessionVersion !== tokenVer) {
-          return null;
-        }
-        // Держим e-mail в токене актуальным — после смены e-mail сессия остаётся рабочей
-        // и подхватывает новый адрес без повторного входа.
-        if (token.email !== dbUser.email) token.email = dbUser.email;
-        token.plan = dbUser.plan;
-        token.planActive = isPlanActive(dbUser);
-        token.hasSingleAccess = dbUser._count.singleAccessGrants > 0;
-        token.isAgencyOwner = !!dbUser.ownedAgency;
+        // Чистая функция (lib/auth-token.ts, покрыта тестами): null → сессия аннулируется
+        // (рассинхрон sessionVersion / заблокирован / удалён); иначе освежает email, роль и план.
+        return applyDbUserToToken(token, dbUser && {
+          sessionVersion: dbUser.sessionVersion,
+          email: dbUser.email,
+          role: dbUser.role,
+          isBlocked: dbUser.isBlocked,
+          plan: dbUser.plan,
+          planActive: isPlanActive(dbUser),
+          singleAccessCount: dbUser._count.singleAccessGrants,
+          ownsAgency: !!dbUser.ownedAgency,
+        });
       }
       return token;
     },

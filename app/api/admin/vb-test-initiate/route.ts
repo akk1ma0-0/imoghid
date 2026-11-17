@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { recordAdminAction } from "@/lib/audit";
 import { isPayablePlan, planAmount, generateOrder, PLAN_PRICING } from "@/lib/payments";
 import { buildPaymentFormHtml, formatAmount, vbConfig } from "@/lib/vb-egateway";
 
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
   if (!isPayablePlan(planRaw)) {
     return NextResponse.json({ error: "Plan invalid." }, { status: 400 });
   }
+  await recordAdminAction({ actorId: guard.userId, action: "VB_TEST_INITIATE", meta: { plan: planRaw } });
 
   const user = await prisma.user.findUnique({
     where: { id: guard.userId },

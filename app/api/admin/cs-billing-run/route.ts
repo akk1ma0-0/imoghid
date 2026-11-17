@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { recordAdminAction } from "@/lib/audit";
 import { csConfig, CsConfigError } from "@/lib/cybersource/client";
 import { runBillingCycle } from "@/lib/cybersource/billing-cycle";
 
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
   }
   const body = (await request.json().catch(() => ({}))) as { subscriptionId?: unknown; forceNow?: unknown };
   const subscriptionId = typeof body.subscriptionId === "string" ? body.subscriptionId : undefined;
+  await recordAdminAction({ actorId: guard.userId, action: "CS_BILLING_RUN", meta: { forceNow: body.forceNow === true, single: !!subscriptionId } });
   if (body.forceNow === true) {
     if (!subscriptionId) return NextResponse.json({ error: "forceNow cere subscriptionId." }, { status: 400 });
     const upd = await prisma.subscription.updateMany({

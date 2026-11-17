@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
+import { recordAdminAction } from "@/lib/audit";
 import { vbRefund, vbCompletion, formatAmount, vbConfig } from "@/lib/vb-egateway";
 
 // POST /api/admin/vb-test-refund — ВРЕМЕННЫЙ admin-only инструмент для сертификации с банком.
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
   const order = typeof body?.order === "string" ? body.order.trim() : "";
   const action = body?.action === "complete" ? "complete" : "refund";
   if (!order) return NextResponse.json({ error: "order este obligatoriu." }, { status: 400 });
+  await recordAdminAction({ actorId: guard.userId, action: "VB_TEST_REFUND", meta: { op: action } });
 
   const payment = await prisma.payment.findUnique({ where: { order } });
   if (!payment && !(body?.rrn && body?.intRef)) {
