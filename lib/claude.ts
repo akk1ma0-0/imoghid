@@ -76,6 +76,8 @@ export type VerificareImobilData = {
   alteDrepturiReale?: boolean | null;
   notari?: boolean | null;
   interdictii?: boolean | null;
+  // true — registrul nu a returnat date despre drepturi (Rights gol): null = „nu există date”, ≠ „nu există grevări”.
+  drepturiFaraDate?: boolean;
   suprafata?: string;
   destinatie?: string;
   valoare?: string;

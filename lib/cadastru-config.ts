@@ -11,6 +11,21 @@ export const ENABLE_ADDRESS_SEARCH = false;
 export const CAD_NUMBER_RE = /^\d{7}(\.\d{3}(\.\d{2}(\.\d{3})?)?)?$/;
 export const CAD_FORMAT_EXAMPLE = "0100109.159.02.001";
 
+// ── Повторные попытки к коннектору (рекомендация AGE: умеренный темп, растущие паузы) ──
+// До 2 повторов с паузами 1 с и 3 с — только при временных сбоях (TIMEOUT / UNREACHABLE / 5xx без
+// кода коннектора). NOT_FOUND, INVALID_INPUT, WSSEC, UNAUTHORIZED и SOAP_FAULT с кодом не повторяем.
+export const CAD_RETRY_PAUSES_MS: readonly number[] = [1000, 3000];
+// Общий бюджет времени на проверку (роут: maxDuration = 30 с). Повтор делается, только если
+// пауза + таймаут попытки укладываются в остаток бюджета.
+export const CAD_TOTAL_BUDGET_MS = 25_000;
+
+// Журнал проверок (CadastruCheck): срок хранения; старше — удаляет ежедневный cron.
+export const CAD_CHECK_RETENTION_MONTHS = 12;
+
+// Пустой Rights (или у Right нет части признаков) = AGE: «нет данных о правах», а НЕ «нет обременений».
+export const CAD_NO_RIGHTS_DATA_TEXT =
+  "Nu există date privind drepturile patrimoniale; comandați extrasul oficial";
+
 export function normalizeCadastralNumber(s: string): string {
   return (s ?? "").replace(/\s/g, "");
 }

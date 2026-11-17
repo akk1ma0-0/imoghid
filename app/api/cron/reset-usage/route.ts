@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
 import { currentPeriod } from "@/lib/plan-limits";
+import { CAD_CHECK_RETENTION_MONTHS } from "@/lib/cadastru-config";
 
 // GET /api/cron/reset-usage — ежедневный сброс истёкших счётчиков использования (Vercel Cron).
 // Периоды у пользователей индивидуальны (откатной месяц от planActivatedAt), поэтому сброс —
@@ -46,6 +47,17 @@ export async function GET(request: Request) {
     reset++;
   }
 
-  console.log(`[cron] reset-usage: reset ${reset} expired usage counter(s)`);
-  return NextResponse.json({ ok: true, reset, at: now.toISOString() });
+  // Очистка журнала кадастровых проверок: строки старше срока хранения (12 мес.).
+  // Отдельный try — сбой очистки не должен ломать сброс счётчиков.
+  let purgedChecks = 0;
+  try {
+    const cutoff = new Date(now);
+    cutoff.setMonth(cutoff.getMonth() - CAD_CHECK_RETENTION_MONTHS);
+    purgedChecks = (await prisma.cadastruCheck.deleteMany({ where: { createdAt: { lt: cutoff } } })).count;
+  } catch (e) {
+    console.error("[cron] reset-usage: cadastru_checks purge failed", e instanceof Error ? e.message : e);
+  }
+
+  console.log(`[cron] reset-usage: reset ${reset} expired usage counter(s), purged ${purgedChecks} old cadastru check(s)`);
+  return NextResponse.json({ ok: true, reset, purgedChecks, at: now.toISOString() });
 }

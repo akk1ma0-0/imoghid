@@ -14,6 +14,9 @@ import { runCadastruLookup } from "@/lib/cadastru-lookup";
 //   402 / 403 / 429 — лимит тарифа (usageBlockResponse).
 // Лимит резервируется только перед реальным вызовом кадастра и возвращается при неудаче
 // (lib/cadastru-lookup.ts). Невалидное тело/ввод ничего не списывает.
+// Бюджет с повторами (lib/cadastru-config.ts: CAD_TOTAL_BUDGET_MS = 25 с) должен укладываться сюда.
+export const maxDuration = 30;
+
 export async function POST(request: Request) {
   const sess = await requireSession();
   if ("response" in sess) return sess.response;

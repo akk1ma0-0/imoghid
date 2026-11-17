@@ -7,6 +7,7 @@ import { DEMO_CADASTRU_RESULT } from "@/lib/demo-data";
 import {
   CAD_ERROR_TEXT,
   CAD_FORMAT_EXAMPLE,
+  CAD_NO_RIGHTS_DATA_TEXT,
   ENABLE_ADDRESS_SEARCH,
   isValidCadastralNumber,
 } from "@/lib/cadastru-config";
@@ -134,6 +135,7 @@ type CadRecord = {
   not: string;
   int: string;
   titulari?: string | null; // «N titulari de drepturi, cote: …» — без персональных данных
+  rightsNoData?: boolean; // в ответе нет данных о правах (≠ «нет обременений»)
 };
 type Building = { bcad: string; addr: string; teren: string; apts: number[] };
 
@@ -452,6 +454,8 @@ export default function CadastruPage() {
       alteDrepturiReale: flagToTri(record.record.dr),
       notari: flagToTri(record.record.not),
       interdictii: flagToTri(record.record.int),
+      // true — реестр не вернул данных о правах: null в флагах = «нет данных», а не «не смогли проверить».
+      ...(record.record.rightsNoData ? { drepturiFaraDate: true } : {}),
       suprafata: obj.suprafata,
       destinatie: obj.destinatie,
       valoare: obj.valoare,
@@ -693,11 +697,27 @@ export default function CadastruPage() {
                   <input type="text" value={record.record.dest} onChange={(e) => updateRec("dest", e.target.value)} />
                 </div>
 
-                <div className="cad-flags" style={{ marginTop: 4 }}>
-                  <FlagBox k="Alte drepturi reale" v={record.record.dr} />
-                  <FlagBox k="Notări" v={record.record.not} />
-                  <FlagBox k="Interdicții" v={record.record.int} critical />
-                </div>
+                {record.record.rightsNoData &&
+                [record.record.dr, record.record.not, record.record.int].every((v) => v !== "Există") ? (
+                  // Нет данных о правах: НЕ показываем «Nu există» по трём пунктам (это было бы ложным
+                  // «нет обременений») — один жёлтый блок с отсылкой к официальной выписке.
+                  <div className="note note-warn" style={{ marginTop: 4 }}>
+                    <strong>{CAD_NO_RIGHTS_DATA_TEXT}.</strong>
+                  </div>
+                ) : (
+                  <>
+                    <div className="cad-flags" style={{ marginTop: 4 }}>
+                      <FlagBox k="Alte drepturi reale" v={record.record.dr} />
+                      <FlagBox k="Notări" v={record.record.not} />
+                      <FlagBox k="Interdicții" v={record.record.int} critical />
+                    </div>
+                    {record.record.rightsNoData && (
+                      <div className="note note-warn" style={{ marginTop: 10 }}>
+                        Datele privind drepturile patrimoniale sunt incomplete; comandați extrasul oficial.
+                      </div>
+                    )}
+                  </>
+                )}
                 {record.record.titulari && (
                   <div className="note" style={{ marginTop: 10 }}>
                     {record.record.titulari}

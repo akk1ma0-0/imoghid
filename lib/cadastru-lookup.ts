@@ -10,6 +10,7 @@ import {
   type TraceStep,
 } from "@/lib/cadastru-service";
 import { DEMO_CADASTRU_RESULT } from "@/lib/demo-data";
+import { prisma } from "@/lib/prisma";
 import { releaseUsage, reserveUsage, type UsageResult } from "@/lib/usage";
 
 // Оркестрация кадастровой проверки (роут /api/cadastru/lookup — тонкая обёртка над ней).
@@ -20,6 +21,10 @@ import { releaseUsage, reserveUsage, type UsageResult } from "@/lib/usage";
 //   4) успех = получена запись → резерв остаётся списанием; иначе — возврат резерва в finally.
 // Demo: только мок, без коннектора, без резерва и без записей в БД.
 // requestId уходит в коннектор и в наш лог — по нему сопоставляются логи двух сторон.
+// Прослеживаемость: после реального вызова коннектора пишется строка CadastruCheck
+// (requestId ↔ userId ↔ кадастровый номер ↔ время ↔ исход). Запись best-effort: сбой БД ответ
+// не ломает (только громкий лог). Для demo / picker / отказа по лимиту / невалидного ввода — не пишется.
+// Повторы (временные сбои) делает lookupCadastru внутри; резерв лимита — один на всю проверку.
 
 export type CadastruOutcome =
   | { kind: "record"; cadastralNo: string; record: CadRecord; trace: TraceStep[]; source: CadSource | "demo" }
@@ -27,12 +32,12 @@ export type CadastruOutcome =
   | { kind: "blocked"; usage: Extract<UsageResult, { ok: false }> }
   | { kind: "error"; code: CadErrorCode; title: string; text: string };
 
-type LogCode = CadErrorCode | "OK" | "PICKER" | "BLOCKED" | "DEMO" | "RELEASE_FAILED";
+type LogCode = CadErrorCode | "OK" | "PICKER" | "BLOCKED" | "DEMO" | "RELEASE_FAILED" | "AUDIT_FAILED";
 
 // Лог без персональных данных: только requestId, код и длительность — ни кадастрового
 // номера, ни тела ответа, ни идентификатора пользователя.
 // WSSEC / UNAUTHORIZED — сломана наша конфигурация (сертификат, токен): error + маркер алерта.
-const ALERT_CODES: ReadonlySet<LogCode> = new Set(["WSSEC", "UNAUTHORIZED", "RELEASE_FAILED"]);
+const ALERT_CODES: ReadonlySet<LogCode> = new Set(["WSSEC", "UNAUTHORIZED", "RELEASE_FAILED", "AUDIT_FAILED"]);
 
 function logLookup(requestId: string, code: LogCode, ms: number) {
   if (ALERT_CODES.has(code)) {
@@ -42,6 +47,20 @@ function logLookup(requestId: string, code: LogCode, ms: number) {
   const line = JSON.stringify({ evt: "cadastru_lookup", requestId, code, ms });
   if (code === "OK" || code === "PICKER" || code === "DEMO") console.info(line);
   else console.warn(line);
+}
+
+export type CadastruCheckRow = {
+  requestId: string;
+  userId: string;
+  cadastralNo: string;
+  outcome: string; // "OK" | код ошибки
+  source: string | null;
+  attempts: number;
+  ms: number;
+};
+
+async function writeCadastruCheck(row: CadastruCheckRow): Promise<void> {
+  await prisma.cadastruCheck.create({ data: row });
 }
 
 function errorOutcome(code: CadErrorCode, title?: string, text?: string): CadastruOutcome {
@@ -58,6 +77,7 @@ export async function runCadastruLookup(args: {
   query: string;
   isDemo: boolean;
   addressSearch?: boolean; // переопределение ENABLE_ADDRESS_SEARCH (тесты)
+  recordCheck?: (row: CadastruCheckRow) => Promise<void>; // запись журнала (тесты подменяют)
 }): Promise<CadastruOutcome> {
   const requestId = randomUUID();
   const started = Date.now();
@@ -101,6 +121,19 @@ export async function runCadastruLookup(args: {
   let success = false;
   try {
     const result = await lookupCadastru(resolved.cad, requestId);
+    try {
+      await (args.recordCheck ?? writeCadastruCheck)({
+        requestId,
+        userId: args.userId,
+        cadastralNo: resolved.cad,
+        outcome: result.ok ? "OK" : result.code,
+        source: result.ok ? result.source : null,
+        attempts: result.attempts,
+        ms: Date.now() - started,
+      });
+    } catch {
+      logLookup(requestId, "AUDIT_FAILED", Date.now() - started);
+    }
     if (!result.ok) {
       done(result.code);
       return errorOutcome(result.code);

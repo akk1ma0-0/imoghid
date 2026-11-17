@@ -210,6 +210,10 @@ Reguli de semnalizare pe baza acestor date:
   marchează „necesită verificare” în extrasul RBI (flag AMBER), cu excepția cazului în care
   extrasul RBI încărcat confirmă explicit starea.
 - Doar `false` înseamnă „nu există” conform verificării.
+- Dacă în datele din Verificare imobil apare `drepturiFaraDate = true`, registrul **nu a returnat date despre
+  drepturi** (elementul Rights gol sau fără Right) — conform AGE asta înseamnă „nu există date privind
+  drepturile patrimoniale”, **NU** „nu există grevări”. Tratează cele trei valori `null` ca „fără date” și
+  recomandă comandarea extrasului oficial; nu concluziona absența grevărilor.
 
 Dacă tranzacția a fost creată direct din „Crează Dosar” (fără Verificare imobil) **și** lipsesc
 documentele RBI → pune liniuță (`–`), nu „necunoscut”.

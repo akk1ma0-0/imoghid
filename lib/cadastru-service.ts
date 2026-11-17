@@ -14,6 +14,8 @@
 import {
   CAD_ERROR_CODES,
   CAD_NUMBER_RE,
+  CAD_RETRY_PAUSES_MS,
+  CAD_TOTAL_BUDGET_MS,
   ENABLE_ADDRESS_SEARCH,
   normalizeCadastralNumber,
   type CadErrorCode,
@@ -31,6 +33,9 @@ export type CadRecord = {
   not: string; // Notări
   int: string; // Interdicții
   titulari?: string | null; // агрегат по правообладателям (без персональных данных)
+  // true — в ответе нет данных о правах (Rights пуст/отсутствует либо у Right нет части признаков).
+  // По AGE это «нет данных о правах», а НЕ «нет обременений»: карточка показывает отдельный блок.
+  rightsNoData?: boolean;
 };
 
 export type CadSource = "live" | "mock";
@@ -44,9 +49,10 @@ export type CadResolveResult =
   | { kind: "picker"; building: CadBuilding; note: string; trace: TraceStep[] }
   | { kind: "error"; code: CadErrorCode; title?: string; text?: string };
 
+// attempts — сколько обращений к коннектору сделано (1 + повторы).
 export type CadLookupResult =
-  | { ok: true; cadastralNo: string; record: CadRecord; source: CadSource }
-  | { ok: false; code: CadErrorCode };
+  | { ok: true; cadastralNo: string; record: CadRecord; source: CadSource; attempts: number }
+  | { ok: false; code: CadErrorCode; attempts: number };
 
 export const FLAG_EXISTS = "Există";
 export const FLAG_NONE = "Nu există";
@@ -68,10 +74,11 @@ type ConnectorAddress = {
   Block?: string | null;
   Flat?: string | null;
 };
+// Признак: true / false; null или отсутствие = коннектор не получил элемент (данных нет).
 type ConnectorRight = {
-  HasInterdictions?: boolean;
-  HasNotations?: boolean;
-  HasOtherRights?: boolean;
+  HasInterdictions?: boolean | null;
+  HasNotations?: boolean | null;
+  HasOtherRights?: boolean | null;
   Quota?: string;
 };
 type ConnectorRealEstate = {
@@ -88,7 +95,7 @@ type ConnectorError = { error?: { code?: unknown } };
 
 type FetchOutcome =
   | { ok: true; data: ConnectorRealEstate; source: CadSource }
-  | { ok: false; code: CadErrorCode };
+  | { ok: false; code: CadErrorCode; retryable: boolean };
 
 const isCadErrorCode = (v: unknown): v is CadErrorCode =>
   typeof v === "string" && (CAD_ERROR_CODES as readonly string[]).includes(v);
@@ -103,11 +110,19 @@ function codeFromHttpStatus(status: number): CadErrorCode {
   return "SOAP_FAULT";
 }
 
-// Запрос к коннектору. Не бросает: любой исход → типизированный результат.
+// Временный сбой, который имеет смысл повторить: TIMEOUT / UNREACHABLE (от коннектора), сетевой
+// отказ до коннектора, 5xx без распознаваемого кода (прокси/nginx). Всё остальное — окончательно:
+// NOT_FOUND («Nu există date»), INVALID_INPUT, WSSEC, UNAUTHORIZED, SOAP_FAULT с кодом.
+function isRetryableFailure(code: CadErrorCode, knownCode: boolean, httpStatus: number): boolean {
+  if (knownCode) return code === "TIMEOUT" || code === "UNREACHABLE";
+  return httpStatus >= 500;
+}
+
+// Один запрос к коннектору. Не бросает: любой исход → типизированный результат.
 // Ошибка классифицируется по { error: { code } } коннектора, при его отсутствии — по HTTP-статусу.
-async function fetchRealEstate(cad: string, requestId: string): Promise<FetchOutcome> {
+async function fetchRealEstate(cad: string, requestId: string, timeoutMs: number): Promise<FetchOutcome> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), connectorTimeoutMs());
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     let res: Response;
     try {
@@ -124,7 +139,7 @@ async function fetchRealEstate(cad: string, requestId: string): Promise<FetchOut
       });
     } catch {
       // Таймаут — наш abort; иначе сеть/DNS/TLS/отказ соединения до коннектора.
-      return { ok: false, code: ctrl.signal.aborted ? "TIMEOUT" : "UNREACHABLE" };
+      return { ok: false, code: ctrl.signal.aborted ? "TIMEOUT" : "UNREACHABLE", retryable: true };
     }
 
     let json: (ConnectorSuccess & ConnectorError) | null;
@@ -132,16 +147,18 @@ async function fetchRealEstate(cad: string, requestId: string): Promise<FetchOut
       json = await res.json();
     } catch {
       // Тело не JSON (или оборвалось по нашему таймауту).
-      if (ctrl.signal.aborted) return { ok: false, code: "TIMEOUT" };
+      if (ctrl.signal.aborted) return { ok: false, code: "TIMEOUT", retryable: true };
       json = null;
     }
 
     if (!res.ok) {
-      const code = json?.error?.code;
-      return { ok: false, code: isCadErrorCode(code) ? code : codeFromHttpStatus(res.status) };
+      const raw = json?.error?.code;
+      const known = isCadErrorCode(raw);
+      const code = known ? raw : codeFromHttpStatus(res.status);
+      return { ok: false, code, retryable: isRetryableFailure(code, known, res.status) };
     }
-    // 200 без записи — нарушение контракта (NOT_FOUND приходит 404-м) → ошибка реестра.
-    if (!json?.data?.CadastralNumber) return { ok: false, code: "SOAP_FAULT" };
+    // 200 без записи — нарушение контракта (NOT_FOUND приходит 404-м) → ошибка реестра, без повтора.
+    if (!json?.data?.CadastralNumber) return { ok: false, code: "SOAP_FAULT", retryable: false };
     return { ok: true, data: json.data, source: json.mode === "live" ? "live" : "mock" };
   } finally {
     clearTimeout(timer);
@@ -169,9 +186,18 @@ function summarizeHolders(rights: ConnectorRight[] | undefined): string | null {
   return `${rights.length} titulari de drepturi, cote: ${quotas.join(", ")}`;
 }
 
+const RIGHT_KEYS = ["HasInterdictions", "HasNotations", "HasOtherRights"] as const;
+
+// AGE: если элемент Rights есть, но без Right — это «нет данных о правах», а не «нет обременений».
+// Так же трактуем Right, в котором нет какого-то из трёх признаков (новый коннектор отдаёт null;
+// старый превращал отсутствие в false — для него различить нельзя, см. патч коннектора).
+export function rightsHaveNoData(rights: ConnectorRight[] | undefined): boolean {
+  if (!Array.isArray(rights) || rights.length === 0) return true;
+  return rights.some((r) => RIGHT_KEYS.some((k) => typeof r?.[k] !== "boolean"));
+}
+
 // Свод одного булева признака по всем Right: есть хоть одно true → «există»; все записи
-// явно false → «nu există»; иначе (поле не пришло / Rights пуст) → неизвестно.
-// Пустой Rights = «не удалось определить», а не «нет»: TODO(AGE) — подтвердить семантику.
+// явно false → «nu există»; иначе (признак не пришёл / Rights пуст) → неизвестно (≠ «нет»).
 function aggregateRightFlag(
   rights: ConnectorRight[] | undefined,
   key: "HasInterdictions" | "HasNotations" | "HasOtherRights",
@@ -185,7 +211,7 @@ function aggregateRightFlag(
 // Маппинг RealEstate → CadRecord (модель отображения).
 // «valoare estimată» и «tip proprietate» в структуре GetRealEstate отсутствуют → «—»
 // (в UI для результатов MConnect эти поля скрыты).
-function mapRealEstate(d: ConnectorRealEstate): CadRecord {
+export function mapRealEstate(d: ConnectorRealEstate): CadRecord {
   const a = d.Address ?? {};
   const addr =
     [
@@ -198,6 +224,13 @@ function mapRealEstate(d: ConnectorRealEstate): CadRecord {
       .filter(Boolean)
       .join(", ") || d.CadastralNumber;
   const suprM2 = parseAreaM2(d.Area);
+  const rightsNoData = rightsHaveNoData(d.Rights);
+  // Нет данных о правах → «Nu există» не выводим ни по одному пункту (иначе выглядит как «нет обременений»);
+  // «Există» (явное true) сохраняем — это предупреждение, его скрывать нельзя.
+  const flag = (k: (typeof RIGHT_KEYS)[number]) => {
+    const f = aggregateRightFlag(d.Rights, k);
+    return rightsNoData && f === FLAG_NONE ? FLAG_UNKNOWN : f;
+  };
   return {
     addr,
     supr: suprM2 !== null ? `${suprM2} m²` : d.Area || "—",
@@ -205,25 +238,60 @@ function mapRealEstate(d: ConnectorRealEstate): CadRecord {
     dest: d.Enjoyment || d.Type || "—",
     val: "—", // nu este în structura GetRealEstate
     prop: "—", // nu este în structura GetRealEstate
-    dr: aggregateRightFlag(d.Rights, "HasOtherRights"),
-    not: aggregateRightFlag(d.Rights, "HasNotations"),
-    int: aggregateRightFlag(d.Rights, "HasInterdictions"),
+    dr: flag("HasOtherRights"),
+    not: flag("HasNotations"),
+    int: flag("HasInterdictions"),
     titulari: summarizeHolders(d.Rights),
+    rightsNoData,
   };
 }
 
+// Тонкая подстановка для тестов (паузы и часы).
+export type LookupOpts = {
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+  pausesMs?: readonly number[];
+  budgetMs?: number;
+};
+
+const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 // Сетевой шаг: запись по кадастровому номеру. Не бросает.
 // Формат проверяется ещё раз (defense in depth) — невалидный номер в сеть не уходит.
-export async function lookupCadastru(rawCad: string, requestId: string): Promise<CadLookupResult> {
+// Повторы: до len(pausesMs) раз, только при временных сбоях и пока пауза + таймаут попытки
+// укладываются в бюджет. requestId повторов — `<id>`, `<id>-2`, `<id>-3` (проходит RID_RE коннектора),
+// так в логе коннектора одна проверка читается как одна цепочка.
+export async function lookupCadastru(
+  rawCad: string,
+  requestId: string,
+  opts: LookupOpts = {},
+): Promise<CadLookupResult> {
   const cad = normalizeCadastralNumber(rawCad);
-  if (!CAD_NUMBER_RE.test(cad)) return { ok: false, code: "INVALID_INPUT" };
+  if (!CAD_NUMBER_RE.test(cad)) return { ok: false, code: "INVALID_INPUT", attempts: 0 };
+  const sleep = opts.sleep ?? realSleep;
+  const now = opts.now ?? Date.now;
+  const pauses = opts.pausesMs ?? CAD_RETRY_PAUSES_MS;
+  const budget = opts.budgetMs ?? CAD_TOTAL_BUDGET_MS;
+  const started = now();
+  let attempt = 0;
   try {
-    const r = await fetchRealEstate(cad, requestId);
-    if (!r.ok) return r;
-    return { ok: true, cadastralNo: cad, record: mapRealEstate(r.data), source: r.source };
+    for (;;) {
+      attempt++;
+      const timeout = connectorTimeoutMs();
+      const rid = attempt === 1 ? requestId : `${requestId}-${attempt}`;
+      const r = await fetchRealEstate(cad, rid, timeout);
+      if (r.ok) {
+        return { ok: true, cadastralNo: cad, record: mapRealEstate(r.data), source: r.source, attempts: attempt };
+      }
+      const pause = pauses[attempt - 1];
+      if (!r.retryable || pause === undefined || now() - started + pause + timeout > budget) {
+        return { ok: false, code: r.code, attempts: attempt };
+      }
+      await sleep(pause);
+    }
   } catch {
     // Неожиданное исключение (например, в маппинге) — не глотаем молча, а типизируем.
-    return { ok: false, code: "SOAP_FAULT" };
+    return { ok: false, code: "SOAP_FAULT", attempts: Math.max(attempt, 1) };
   }
 }
 

@@ -48,7 +48,7 @@ export function buildInitialReport(tx: FlowTx, agentName: string): ReportData {
   const owners = tx.owners.filter((o) => o.objectIndex === 1);
 
   // Флаги Verificare imobil: true | false | null (null = nu s-a putut verifica).
-  let verI: { alteDrepturiReale?: boolean | null; notari?: boolean | null; interdictii?: boolean | null; suprafata?: string; destinatie?: string; valoare?: string } | null = null;
+  let verI: { alteDrepturiReale?: boolean | null; notari?: boolean | null; interdictii?: boolean | null; drepturiFaraDate?: boolean; suprafata?: string; destinatie?: string; valoare?: string } | null = null;
   if (tx.verificareImobil) {
     try {
       verI = JSON.parse(tx.verificareImobil);
@@ -66,7 +66,10 @@ export function buildInitialReport(tx: FlowTx, agentName: string): ReportData {
       : "Conform verificării, tranzacția poate continua.";
 
   // «Există» > «Necesită verificare» (null / флаг *_NEVERIFICAT) > пусто. null ≠ «нет».
-  const NEEDS_CHECK = "Necesită verificare";
+  // Реестр не вернул данных о правах (пустой Rights) — «нет данных; закажите официальную выписку», а не «нет обременений».
+  const NEEDS_CHECK = verI?.drepturiFaraDate
+    ? "Nu există date; comandați extrasul oficial"
+    : "Necesită verificare";
   const signal = (ver: boolean | null | undefined, code: string): string =>
     hasCode(code) || ver === true
       ? "Există"

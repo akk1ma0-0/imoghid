@@ -518,6 +518,26 @@ enum UsageFeature {
   OBIECTE_CREATE  // Этап C: право создать 1 досье (грант «O accesare»); не UsageCounter-фича
 }
 
+// Журнал кадастровых проверок: прослеживаемость requestId (он же rid в логе коннектора) ↔ пользователь ↔
+// кадастровый номер ↔ время. Без FK на users — журнал переживает удаление аккаунта (как actorUserId
+// в payment_operations). Только реальные вызовы коннектора (не demo/picker/отказ по лимиту).
+// Хранится CAD_CHECK_RETENTION_MONTHS (12 мес.); старше — удаляет cron reset-usage.
+model CadastruCheck {
+  id          String   @id @default(cuid())
+  requestId   String   @unique // базовый requestId; повторы уходят как `<id>-2`, `<id>-3`
+  userId      String
+  cadastralNo String
+  outcome     String // OK | код ошибки (NOT_FOUND, TIMEOUT, …)
+  source      String? // live | mock (только для OK)
+  attempts    Int      @default(1)
+  ms          Int
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("cadastru_checks")
+}
+
 model UsageCounter {
   id          String       @id @default(cuid())
   userId      String
