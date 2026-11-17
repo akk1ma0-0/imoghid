@@ -1,0 +1,132 @@
+diff -ruN -x node_modules -x certs -x *.mock-backup -x ws-test.js -x package-lock.json -x logs a/mconnect.js b/mconnect.js
+--- a/mconnect.js	2026-10-23 15:05:49
++++ b/mconnect.js	2026-11-17 15:32:55
+@@ -150,12 +150,21 @@
+   if (!re) throw new McError("SOAP_FAULT", "raspuns fara RealEstate", { faultcode: "NO_REALESTATE" });
+   const g = (ctx, n) => text(sel(`${lname(n)}`, ctx)[0]);
+   const addr = sel(`${lname("Address")}`, re)[0];
+-  const bool = (v) => String(v).toLowerCase() === "true";
++  // Признак права: true / false; null — элемента нет или значение нераспознано («нет данных»).
++  // Раньше отсутствующий элемент превращался в false → приложение показывало «Nu există».
++  // По разъяснению AGE: Rights без Right (или Right без признака) = «нет данных о правах», а не «нет обременений».
++  const optBool = (ctx, n) => {
++    const el = sel(`${lname(n)}`, ctx)[0];
++    if (!el) return null;
++    const t = text(el).toLowerCase();
++    return t === "true" ? true : t === "false" ? false : null;
++  };
++  const rightsEl = sel(`${lname("Rights")}`, re)[0];
+   const rights = sel(`${lname("Rights")}/${lname("Right")}`, re).map((r) => ({
+-    HasInterdictions: bool(g(r, "HasInterdictions")),
++    HasInterdictions: optBool(r, "HasInterdictions"),
+     Quota: g(r, "Quota"),
+-    HasNotations: bool(g(r, "HasNotations")),
+-    HasOtherRights: bool(g(r, "HasOtherRights")),
++    HasNotations: optBool(r, "HasNotations"),
++    HasOtherRights: optBool(r, "HasOtherRights"),
+   }));
+   return {
+     CadastralNumber: g(re, "CadastralNumber"),
+@@ -166,6 +175,7 @@
+       ? { Region: g(addr, "Region"), Locality: g(addr, "Locality"), Zone: g(addr, "Zone"), Street: g(addr, "Street"), House: g(addr, "House"), Block: g(addr, "Block"), Flat: g(addr, "Flat") }
+       : {},
+     Rights: rights,
++    RightsPresent: Boolean(rightsEl), // false — в ответе AGE вообще нет элемента Rights
+   };
+ }
+ 
+diff -ruN -x node_modules -x certs -x *.mock-backup -x ws-test.js -x package-lock.json -x logs a/server.js b/server.js
+--- a/server.js	2026-10-23 15:06:14
++++ b/server.js	2026-11-17 15:32:55
+@@ -11,7 +11,32 @@
+ const LOG_FILE = path.join(__dirname, "logs", "requests.log");
+ const CAD_RE = /^\d{7}(\.\d{3}(\.\d{2}(\.\d{3})?)?)?$/;
+ const RID_RE = /^[0-9a-fA-F-]{8,64}$/;
++// Умеренный темп к AGE: не более MC_MAX_PARALLEL (по умолчанию 2) одновременных запросов, остальные ждут в очереди.
++const MAX_PARALLEL = Math.max(1, Number(process.env.MC_MAX_PARALLEL) || 2);
+ 
++function createLimiter(max) {
++  let active = 0;
++  const queue = [];
++  const next = () => {
++    if (active >= max || queue.length === 0) return;
++    active++;
++    const { fn, resolve, reject } = queue.shift();
++    Promise.resolve()
++      .then(fn)
++      .then(resolve, reject)
++      .finally(() => {
++        active--;
++        next();
++      });
++  };
++  return (fn) =>
++    new Promise((resolve, reject) => {
++      queue.push({ fn, resolve, reject });
++      next();
++    });
++}
++const limitAge = createLimiter(MAX_PARALLEL);
++
+ let cfg = null;
+ let certExpires = null;
+ if (MODE === "live") {
+@@ -71,6 +96,7 @@
+     Area: "58.40",
+     Address: { Region: "mun. Chișinău", Locality: "mun. Chișinău", Zone: "Centru", Street: "bd. Ștefan cel Mare și Sfânt", House: "124", Block: "", Flat: "12" },
+     Rights: [{ HasInterdictions: hasInterdictions, Quota: "1/1", HasNotations: false, HasOtherRights: false }],
++    RightsPresent: true,
+   };
+ }
+ 
+@@ -90,7 +116,7 @@
+   }
+   const t0 = Date.now();
+   try {
+-    const data = await mc.getRealEstate(cfg, cad);
++    const data = await limitAge(() => mc.getRealEstate(cfg, cad));
+     auditLog(cad, 200, `live ms=${Date.now() - t0}` + (rid ? ` rid=${rid}` : ""));
+     return res.json({ mode: "live", data });
+   } catch (e) {
+diff -ruN -x node_modules -x certs -x *.mock-backup -x ws-test.js -x package-lock.json -x logs a/test/parse-body.test.js b/test/parse-body.test.js
+--- a/test/parse-body.test.js	1970-01-01 03:00:00
++++ b/test/parse-body.test.js	2026-11-17 15:33:05
+@@ -0,0 +1,38 @@
++"use strict";
++// node --test test/   (без сети и без сертификатов: проверяется только разбор ответа и очередь)
++const test = require("node:test");
++const assert = require("node:assert/strict");
++const { DOMParser } = require("@xmldom/xmldom");
++const { parseBody } = require("../mconnect");
++
++const wrap = (inner) =>
++  `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><RealEstate><CadastralNumber>0100109.159.02.001</CadastralNumber><Area>58.40</Area>${inner}</RealEstate></s:Body></s:Envelope>`;
++const parse = (inner) => parseBody(new DOMParser().parseFromString(wrap(inner), "text/xml"));
++
++test("Rights отсутствует → Rights [], RightsPresent false", () => {
++  const r = parse("");
++  assert.deepEqual(r.Rights, []);
++  assert.equal(r.RightsPresent, false);
++});
++test("Rights есть, но без Right → Rights [], RightsPresent true", () => {
++  const r = parse("<Rights/>");
++  assert.deepEqual(r.Rights, []);
++  assert.equal(r.RightsPresent, true);
++});
++test("Right без признака → null (а не false)", () => {
++  const r = parse("<Rights><Right><HasInterdictions>false</HasInterdictions><Quota>1/1</Quota></Right></Rights>");
++  assert.equal(r.Rights[0].HasInterdictions, false);
++  assert.equal(r.Rights[0].HasNotations, null);
++  assert.equal(r.Rights[0].HasOtherRights, null);
++});
++test("пустой/нераспознанный элемент признака → null", () => {
++  const r = parse("<Rights><Right><HasInterdictions/><HasNotations>?</HasNotations><HasOtherRights>true</HasOtherRights></Right></Rights>");
++  assert.equal(r.Rights[0].HasInterdictions, null);
++  assert.equal(r.Rights[0].HasNotations, null);
++  assert.equal(r.Rights[0].HasOtherRights, true);
++});
++test("полный Right → true/false как есть", () => {
++  const r = parse("<Rights><Right><HasInterdictions>true</HasInterdictions><HasNotations>false</HasNotations><HasOtherRights>False</HasOtherRights><Quota>1/2</Quota></Right></Rights>");
++  assert.deepEqual(r.Rights[0], { HasInterdictions: true, Quota: "1/2", HasNotations: false, HasOtherRights: false });
++  assert.equal(r.RightsPresent, true);
++});
