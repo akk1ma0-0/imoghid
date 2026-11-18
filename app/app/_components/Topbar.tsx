@@ -22,11 +22,6 @@ export function Topbar() {
   const onAdmin = pathname.startsWith("/app/admin");
 
   const isAdmin = session?.user?.role === "ADMIN";
-  // AUDITOR (только чтение): журнал. Без плана/гранта/агентства основная навигация ему не нужна.
-  const isAuditor = session?.user?.role === "AUDITOR";
-  const auditorOnly =
-    isAuditor && !session?.user?.plan && !session?.user?.hasSingleAccess && !session?.user?.isAgencyOwner;
-  const onJurnal = pathname.startsWith("/app/admin/jurnal");
   const isAgencyOwner = session?.user?.isAgencyOwner;
 
   const displayName = session?.user?.name || session?.user?.email || "";
@@ -49,14 +44,6 @@ export function Topbar() {
         </div>
       </div>
       <nav className="nav">
-        {isAuditor && (
-          <Link href="/app/admin/jurnal" className={`nav-btn${onJurnal ? " active" : ""}`}>
-            <span className="nav-ic" aria-hidden>📋</span>
-            <span className="nav-lb">Jurnal</span>
-            <span className="nav-lb-short" aria-hidden>Jurnal</span>
-          </Link>
-        )}
-        {!auditorOnly && (<>
         <Link href="/app/cadastru" className={`nav-btn${onCadastru ? " active" : ""}`}>
           <span className="nav-ic" aria-hidden>🔍</span>
           <span className="nav-lb">Verificare imobil</span>
@@ -103,7 +90,6 @@ export function Topbar() {
             <span className="nav-lb-short" aria-hidden>Agenție</span>
           </Link>
         )}
-        </>)}
       </nav>
       <div className="topbar-r">
         {/* Служебная кнопка админ-панели — рендерится ТОЛЬКО для ADMIN (не скрыта через CSS). */}

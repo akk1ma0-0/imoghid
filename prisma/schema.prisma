@@ -34,7 +34,7 @@ enum SubscriptionPlan {
 enum UserRole {
   AGENT
   ADMIN  // acces la panoul de administrare
-  AUDITOR // doar citire: jurnalul (/app/admin/jurnal) și exporturile; nimic altceva
+  AUDITOR // reserved, unused (valoarea există în baza de date; nu se atribuie și nu dă niciun drept)
 }
 
 enum DealType {
@@ -535,7 +535,7 @@ model AuditEvent {
   type      AuditEventType
   userId    String? // субъект: кто вошёл / над кем выполнено действие
   actorId   String? // кто совершил действие (ADMIN_ACTION / EXPORT)
-  action    String? // CHANGE_PLAN | BLOCK | UNBLOCK | CHANGE_ROLE | DELETE_USER | EXPORT:<тип> | …
+  action    String? // CHANGE_PLAN | BLOCK | UNBLOCK | DELETE_USER | EXPORT:<тип> | …
   meta      Json?
   createdAt DateTime       @default(now())
 

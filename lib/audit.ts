@@ -76,7 +76,6 @@ export type AdminAction =
   | "CHANGE_PLAN"
   | "BLOCK"
   | "UNBLOCK"
-  | "CHANGE_ROLE"
   | "DELETE_USER"
   | "AGENCY_CREATE"
   | "CS_OPERATION"

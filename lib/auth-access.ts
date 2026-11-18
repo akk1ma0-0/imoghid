@@ -1,10 +1,10 @@
 // Решение о доступе к /app/* — чистая функция (без Next/Prisma; edge-safe), чтобы покрыть тестами.
 // auth.config.ts → authorized() лишь переводит решение в NextResponse.
 //
-// Порядок проверок = прежнему поведению (рефакторинг без изменения логики), плюс одно новое:
-// AUDITOR без плана/гранта/агентства попадает только в журнал (/app/admin/jurnal) и профиль,
-// а не на /app/pending. Заблокированный пользователь в edge не виден (там нет БД): его токен
-// аннулирует jwt-колбэк в Node (lib/auth-token.ts) → сессии нет → тут это «login».
+// Порядок проверок = прежнему поведению (рефакторинг без изменения логики). Роль на доступ к /app/*
+// не влияет (журнал и админ-панель закрывают серверные проверки роли ADMIN). Заблокированный
+// пользователь в edge не виден (там нет БД): его токен аннулирует jwt-колбэк в Node
+// (lib/auth-token.ts) → сессии нет → тут это «login».
 
 export type AccessUser = {
   emailConfirmed: boolean;
@@ -26,10 +26,6 @@ export type AccessDecision =
   | { kind: "login" }
   | { kind: "redirect"; to: string };
 
-export const JURNAL_PATH = "/app/admin/jurnal";
-// Куда можно AUDITOR-у без плана (кроме журнала): профиль (смена пароля).
-const AUDITOR_ALLOWED_PREFIXES = [JURNAL_PATH, "/app/profile"];
-
 export function decideAppAccess(input: AccessInput): AccessDecision {
   const { pathname, isDemo, user } = input;
   if (!pathname.startsWith("/app")) return { kind: "allow" };
@@ -48,11 +44,6 @@ export function decideAppAccess(input: AccessInput): AccessDecision {
   const hasAccess = !!user.plan || user.hasSingleAccess || user.isAgencyOwner;
 
   if (!hasAccess) {
-    if (user.role === "AUDITOR") {
-      return AUDITOR_ALLOWED_PREFIXES.some((p) => pathname.startsWith(p))
-        ? { kind: "allow" }
-        : { kind: "redirect", to: JURNAL_PATH };
-    }
     return isWaitlist || isCheckout ? { kind: "allow" } : { kind: "redirect", to: "/app/pending" };
   }
 

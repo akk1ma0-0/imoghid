@@ -19,9 +19,9 @@ describe("applyDbUserToToken", () => {
     assert.equal(t.isAgencyOwner, true);
     assert.equal(t.email, "new@x.test");
   });
-  it("назначение AUDITOR подхватывается без перелогина", () => {
-    const t = applyDbUserToToken({ id: "u", sessionVersion: 3, role: "AGENT" }, { ...db, role: "AUDITOR" })!;
-    assert.equal(t.role, "AUDITOR");
+  it("назначение роли ADMIN подхватывается без перелогина", () => {
+    const t = applyDbUserToToken<Record<string, unknown>>({ id: "u", sessionVersion: 3, role: "AGENT" }, { ...db, role: "ADMIN" })!;
+    assert.equal(t.role, "ADMIN");
   });
   it("пользователь удалён → null", () => {
     assert.equal(applyDbUserToToken({ id: "u", sessionVersion: 0 }, null), null);

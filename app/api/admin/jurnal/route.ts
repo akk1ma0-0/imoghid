@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAuditAccess } from "@/lib/audit-auth";
+import { requireAdmin } from "@/lib/admin-auth";
 import {
   defaultPage,
   parseJurnalParams,
@@ -13,9 +13,9 @@ import {
 import { JURNAL_PAGE_SIZE } from "@/lib/audit-config";
 
 // GET /api/admin/jurnal?type=login|cadastru|consum|admin&from=YYYY-MM-DD&to=YYYY-MM-DD&q=<e-mail>&page=N
-// Доступ: ADMIN и AUDITOR (роль из БД). Только чтение.
+// Доступ: только ADMIN (requireAdmin: роль и блокировка освежаются из БД в jwt-колбэке). Только чтение.
 export async function GET(request: Request) {
-  const guard = await requireAuditAccess();
+  const guard = await requireAdmin();
   if ("response" in guard) return guard.response;
 
   const p = await parseJurnalParams(new URL(request.url).searchParams);

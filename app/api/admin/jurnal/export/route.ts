@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { recordExport } from "@/lib/audit";
-import { requireAuditAccess } from "@/lib/audit-auth";
+import { requireAdmin } from "@/lib/admin-auth";
 import { EXPORT_MAX_ROWS } from "@/lib/audit-config";
 import {
   adminSheet,
@@ -24,11 +24,11 @@ import {
 
 export const maxDuration = 30;
 
-// GET /api/admin/jurnal/export?type=…&from=…&to=…&q=… → .xlsx. Доступ: ADMIN и AUDITOR (роль из БД).
+// GET /api/admin/jurnal/export?type=…&from=…&to=…&q=… → .xlsx. Доступ: только ADMIN (requireAdmin).
 // Лимит строк EXPORT_MAX_ROWS (больше → 413: сузьте период). Каждая выгрузка пишется в AuditEvent (EXPORT);
 // если запись не удалась — файл НЕ отдаётся (выгрузка без следа недопустима).
 export async function GET(request: Request) {
-  const guard = await requireAuditAccess();
+  const guard = await requireAdmin();
   if ("response" in guard) return guard.response;
 
   const p = await parseJurnalParams(new URL(request.url).searchParams);

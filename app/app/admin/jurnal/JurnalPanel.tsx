@@ -56,7 +56,7 @@ const COLS: Record<Exclude<Tab, "consum">, { key: string; label: string }[]> = {
   ],
 };
 
-export function JurnalPanel({ role }: { role: "ADMIN" | "AUDITOR" }) {
+export function JurnalPanel() {
   const [tab, setTab] = useState<Tab>("login");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -110,7 +110,7 @@ export function JurnalPanel({ role }: { role: "ADMIN" | "AUDITOR" }) {
 
   return (
     <div className="ig-page">
-      <div className="crumb">{role === "ADMIN" ? "Administrare" : "Audit"}</div>
+      <div className="crumb">Administrare</div>
       <h1>Jurnal</h1>
       <p className="sub">
         Intrări, verificări cadastrale, consum pe zile și funcții, acțiuni ale administratorilor. Doar citire; orele sunt

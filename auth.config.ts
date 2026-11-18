@@ -44,7 +44,7 @@ export const authConfig = {
         nextUrl.searchParams.get("demo") === "true";
       const u = auth?.user;
       // Само решение — чистая функция lib/auth-access.ts (покрыта тестами): verify-email → план/
-      // грант/агентство → /app/pending; AUDITOR без плана → только журнал. Флаг WAITLIST_MODE здесь
+      // грант/агентство → /app/pending. Флаг WAITLIST_MODE здесь
       // НЕ читается (edge инлайнит env на билде) — решает Node-слой страницы /app/pending.
       const d = decideAppAccess({
         pathname: nextUrl.pathname,

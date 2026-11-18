@@ -6,7 +6,6 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { isValidPlan } from "@/lib/plan";
 import { deleteUserCompletely } from "@/lib/delete-user";
 import { recordAdminAction } from "@/lib/audit";
-import { checkRoleChange } from "@/lib/audit-roles";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -33,7 +32,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const target = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, planActivatedAt: true, plan: true, role: true, isBlocked: true },
+    select: { id: true, planActivatedAt: true, plan: true, isBlocked: true },
   });
   if (!target) {
     return NextResponse.json({ error: "Utilizator negăsit." }, { status: 404 });
@@ -84,14 +83,6 @@ export async function PATCH(request: Request, { params }: Params) {
     data.blockedAt = body.isBlocked ? new Date() : null;
   }
 
-  // Смена роли из интерфейса: только AGENT ↔ AUDITOR; ADMIN выдаётся через БД; свою роль и
-  // роль админа менять нельзя (checkRoleChange). Токен сам освежит роль из БД (jwt-колбэк).
-  if (body.role !== undefined) {
-    const chk = checkRoleChange({ actorId: guard.userId, targetId: id, targetRole: target.role, newRole: body.role });
-    if (!chk.ok) return NextResponse.json({ error: chk.error }, { status: 400 });
-    data.role = body.role;
-  }
-
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nimic de actualizat." }, { status: 400 });
   }
@@ -99,7 +90,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const updated = await prisma.user.update({
     where: { id },
     data,
-    select: { id: true, plan: true, isBlocked: true, blockedAt: true, role: true },
+    select: { id: true, plan: true, isBlocked: true, blockedAt: true },
   });
 
   // Журнал действий админа (best-effort; только технические поля, без e-mail/имён).
@@ -108,9 +99,6 @@ export async function PATCH(request: Request, { params }: Params) {
   }
   if (body.isBlocked !== undefined && updated.isBlocked !== target.isBlocked) {
     await recordAdminAction({ actorId: guard.userId, userId: id, action: updated.isBlocked ? "BLOCK" : "UNBLOCK" });
-  }
-  if (body.role !== undefined && updated.role !== target.role) {
-    await recordAdminAction({ actorId: guard.userId, userId: id, action: "CHANGE_ROLE", meta: { from: target.role, to: updated.role } });
   }
 
   return NextResponse.json({ user: updated });

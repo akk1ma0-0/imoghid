@@ -2,10 +2,12 @@
 // Возвращает null → сессия аннулируется (рассинхрон sessionVersion ИЛИ пользователь заблокирован/удалён).
 // Роль берётся из БД на каждом запросе: понижение/назначение роли действует сразу, без перелогина.
 
+import type { UserRole } from "@prisma/client";
+
 export type DbAuthUser = {
   sessionVersion: number;
   email: string;
-  role: "AGENT" | "ADMIN" | "AUDITOR";
+  role: UserRole;
   isBlocked: boolean;
   plan: "BASIC" | "PRO" | "HUB" | null;
   planActive: boolean;
