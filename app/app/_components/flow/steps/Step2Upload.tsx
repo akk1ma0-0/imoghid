@@ -1,5 +1,6 @@
 "use client";
 
+import { ServiceConsentLabel, ServiceConsentVersionField } from "@/components/ServiceConsentLabel";
 import { useRef, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
 import type { FlowTx } from "../types";
@@ -295,18 +296,13 @@ export function Step2Upload({
                 onChange={(e) => setOverageConsent(e.target.checked)}
                 style={{ marginTop: 2, flexShrink: 0 }}
               />
-              <span>
-                Sunt de acord cu{" "}
-                <a href="/termeni" target="_blank" rel="noopener noreferrer">
-                  Termenii de plată și Politica de returnare
-                </a>
-                .
-              </span>
+              <ServiceConsentLabel />
             </label>
             {/* Форма POST навигирует браузер на страницу VictoriaBank (авто-сабмит HTML). */}
             <form method="POST" action="/api/payments/vb-overage-initiate">
               <input type="hidden" name="feature" value={overage.feature} />
               <input type="hidden" name="agreedToTerms" value={overageConsent ? "true" : "false"} />
+              <ServiceConsentVersionField />
               <button type="submit" className="btn solid" disabled={!overageConsent}>
                 Plătește {overage.feeMdl} MDL și continuă →
               </button>

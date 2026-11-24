@@ -84,8 +84,8 @@ async function retireAllPaymentMethods(userId: string, now: Date, tms?: TmsDelet
 // onDelete по схеме для связей на User:
 //   Cascade  → EmailVerificationToken, UserDocument, CreatorPost, UserFile, Notification,
 //              PaymentMethod, Subscription (удаляются автоматически вместе с User);
-//   SetNull  → Payment и RecurringConsent (платёжные операции хранятся 2 года — контракт банка,
-//              п. 3.2.5: остаются с userId → null, плательщик — в Payment.payerEmail);
+//   SetNull  → Payment и RecurringConsent (платёжные операции хранятся не менее PAYMENT_RETENTION_YEARS
+//              (6 лет, lib/payment-config.ts — бухгалтерский/налоговый учёт): остаются с userId → null, плательщик — в Payment.payerEmail);
 //              PageVisit (остаётся, userId → null — сознательно, для аналитики);
 //   Restrict → InviteCode, Transaction (+ каскад дочерних), Report, SavedListingContact,
 //              BlacklistReport, AnuntGeneration — удаляем ЯВНО до delete(User),

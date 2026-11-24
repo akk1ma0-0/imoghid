@@ -347,7 +347,8 @@ model RecurringConsent {
   userId         String?
   subscriptionId String?
   paymentId      String?  // первый платёж, при котором дано согласие
-  textVersion    String   // версия текста согласия, показанного клиенту
+  textVersion    String   // версия текста согласия, показанного клиенту ("ONE_TIME" — разовый платёж VictoriaBank, автосписания нет)
+  serviceTextVersion String? // версия текста галочки «serviciul digital imediat + Condițiile de plată/Termenii» (lib/recurring-consent.ts); null — согласия до v2
   amount         String   // сумма периода на момент согласия, "300.00"
   currency       String
   acceptedAt     DateTime @default(now())

@@ -11,8 +11,19 @@ export function recurringConsentText(amount: string, currency: string): string {
   );
 }
 
-export const TERMS_CONSENT_TEXT =
-  "Am citit și accept Termenii și Condițiile, inclusiv condițiile de plată și Politica de returnare.";
+// Единая обязательная галочка при ЛЮБОЙ оплате картой (CyberSource и VictoriaBank, включая доплату
+// сверх лимита и «O accesare»). Текст — дословно из юридического текста v2 (D.1). Сервер отклоняет
+// платёж без agreedToTerms и без актуальной SERVICE_CONSENT_VERSION; версия пишется в
+// RecurringConsent.serviceTextVersion. Меняете формулировку → поднимите версию.
+export const SERVICE_CONSENT_VERSION = "2026-11-24.ro.v1";
+export const SERVICE_CONSENT_TEXT =
+  "Sunt de acord să primesc serviciul digital imediat după achitare și confirm că am citit și accept Condițiile de plată, Termenii de returnare și Termenii publicați pe site.";
+// Якорь в /termeni (id заголовков строятся lib/legal-slug.ts): «Condițiile de plată» и «Termenii de returnare» ведут
+// на один раздел «Plată și rambursare».
+export const PAYMENT_TERMS_HREF = "/termeni#plata-si-rambursare";
+export const RETURN_POLICY_HREF = "/termeni#plata-si-rambursare";
+// textVersion для разовых платежей VictoriaBank (автосписания нет).
+export const ONE_TIME_CONSENT_VERSION = "ONE_TIME";
 
 // ── Агентская подписка: изменение числа мест ──
 // Докупка: оплата сейчас (пропорция остатка периода) + новая месячная сумма со следующего периода.

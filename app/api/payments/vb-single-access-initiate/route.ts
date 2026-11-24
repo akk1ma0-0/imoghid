@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
+import { checkServiceConsent, recordOneTimeConsent } from "@/lib/service-consent";
 import { generateOrder } from "@/lib/payments";
 import { SINGLE_ACCESS_FEE_MDL } from "@/lib/plan-limits";
 import { buildPaymentFormHtml, formatAmount, vbConfig } from "@/lib/vb-egateway";
@@ -25,13 +26,8 @@ export async function POST(request: Request) {
 
   const form = await request.formData().catch(() => null);
   // Согласие с условиями оплаты/возврата — обязательно (SIP), как и у остальных платежей.
-  const agreedToTerms = form ? String(form.get("agreedToTerms") ?? "") === "true" : false;
-  if (!agreedToTerms) {
-    return NextResponse.json(
-      { error: "Trebuie să acceptați Termenii și Condițiile de plată și Politica de returnare." },
-      { status: 400 },
-    );
-  }
+  const consent = checkServiceConsent(form);
+  if (!consent.ok) return consent.response;
 
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
@@ -44,9 +40,10 @@ export async function POST(request: Request) {
   // Уникальный ORDER (одна повторная попытка на коллизию). purpose=SINGLE_ACCESS → callback
   // НЕ активирует план, а создаёт 3 грант-строки. plan хранит текущий план (может быть null).
   let order = generateOrder();
+  let paymentId = "";
   for (let i = 0; i < 2; i++) {
     try {
-      await prisma.payment.create({
+      const created = await prisma.payment.create({
         data: {
           order,
           userId: sess.userId,
@@ -57,6 +54,7 @@ export async function POST(request: Request) {
           purpose: "SINGLE_ACCESS",
         },
       });
+      paymentId = created.id;
       break;
     } catch {
       if (i === 1) {
@@ -65,6 +63,8 @@ export async function POST(request: Request) {
       order = generateOrder();
     }
   }
+
+  await recordOneTimeConsent({ request, userId: sess.userId, paymentId, amount, currency: c.currency });
 
   const origin = new URL(request.url).origin;
   const html = buildPaymentFormHtml({

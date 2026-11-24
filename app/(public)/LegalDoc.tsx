@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { LEGAL_DOCS } from "@/lib/legal-content";
+import { legalSlug } from "@/lib/legal-slug";
 
 // Перекрёстные ссылки между публичными документами.
 const CROSS = [
@@ -38,7 +39,7 @@ export function LegalDoc({ docKey }: { docKey: keyof typeof LEGAL_DOCS }) {
       continue;
     }
     flush();
-    if (b.t === "h2") nodes.push(<h2 key={k++}>{b.text}</h2>);
+    if (b.t === "h2") nodes.push(<h2 key={k++} id={legalSlug(b.text)}>{b.text}</h2>);
     else if (b.t === "h3") nodes.push(<h3 key={k++}>{b.text}</h3>);
     else if (b.t === "q") nodes.push(<p className="legal-q" key={k++}>{b.text}</p>);
     else nodes.push(<p key={k++}>{b.text}</p>);

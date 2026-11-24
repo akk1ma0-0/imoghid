@@ -1,5 +1,6 @@
 "use client";
 
+import { ServiceConsentLabel, ServiceConsentVersionField } from "@/components/ServiceConsentLabel";
 import { useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -205,13 +206,7 @@ export function PlanStatus({
         style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "18px auto 0", maxWidth: 560, fontSize: 13, color: "var(--ink2)", lineHeight: 1.55, cursor: "pointer" }}
       >
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
-        <span>
-          Sunt de acord cu{" "}
-          <Link href="/termeni" target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue, #2563eb)" }}>
-            Termenii de plată și Politica de returnare
-          </Link>
-          .
-        </span>
+        <ServiceConsentLabel />
       </label>
 
       {/* «O accesare» — докупить разовый доступ */}
@@ -228,6 +223,7 @@ export function PlanStatus({
           </div>
           <form method="POST" action="/api/payments/vb-single-access-initiate" style={{ flex: "0 0 auto" }}>
             <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+            <ServiceConsentVersionField />
             <button type="submit" disabled={!agreed} className="btn" style={{ justifyContent: "center", height: 44 }}>
               Cumpără — 30 MDL
             </button>
@@ -259,6 +255,7 @@ export function PlanStatus({
               <input type="hidden" name="purpose" value="SUBSCRIPTION" />
               <input type="hidden" name="plan" value="PRO" />
               <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+              <ServiceConsentVersionField />
               <button type="submit" disabled={!agreed} className="btn solid" style={{ justifyContent: "center", height: 44 }}>
                 Treceți la Pro
               </button>

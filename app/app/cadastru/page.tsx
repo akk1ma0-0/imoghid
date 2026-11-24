@@ -1,5 +1,6 @@
 "use client";
 
+import { ServiceConsentLabel, ServiceConsentVersionField } from "@/components/ServiceConsentLabel";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDemo } from "@/app/contexts/DemoContext";
@@ -605,17 +606,12 @@ export default function CadastruPage() {
                       onChange={(e) => setOverageConsent(e.target.checked)}
                       style={{ marginTop: 2, flexShrink: 0 }}
                     />
-                    <span>
-                      Sunt de acord cu{" "}
-                      <a href="/termeni" target="_blank" rel="noopener noreferrer">
-                        Termenii de plată și Politica de returnare
-                      </a>
-                      .
-                    </span>
+                    <ServiceConsentLabel />
                   </label>
                   <form method="POST" action="/api/payments/vb-overage-initiate">
                     <input type="hidden" name="feature" value={overage.feature} />
                     <input type="hidden" name="agreedToTerms" value={overageConsent ? "true" : "false"} />
+                    <ServiceConsentVersionField />
                     <button type="submit" className="btn solid" disabled={!overageConsent}>
                       Plătește {overage.feeMdl} MDL și continuă →
                     </button>

@@ -5,13 +5,14 @@ import { requireSession } from "@/lib/transaction-auth";
 import { generateOrder, paymentCurrency } from "@/lib/payments";
 import { isCyberSourceEnabledFor } from "@/lib/payment-provider";
 import { resolvePaymentIntent } from "@/lib/payment-intent";
-import { AGENCY_TOPUP_CONSENT_VERSION, RECURRING_CONSENT_VERSION } from "@/lib/recurring-consent";
+import { AGENCY_TOPUP_CONSENT_VERSION, RECURRING_CONSENT_VERSION, SERVICE_CONSENT_VERSION } from "@/lib/recurring-consent";
+import { csConsentError } from "@/lib/service-consent";
 import { hasOwnAgencyCsSubscription } from "@/lib/agency-subscription-service";
 import { createCaptureContext } from "@/lib/cybersource/checkout";
 import { checkPersonalCheckout, hasOwnCsSubscription } from "@/lib/plan-change-service";
 
 // POST /api/payments/cs/capture-context
-//   { purpose, plan?, seats?, takeOwnerSeat?, agreedToTerms, agreedToRecurring, consentVersion }
+//   { purpose, plan?, seats?, takeOwnerSeat?, agreedToTerms, agreedToRecurring, consentVersion, serviceConsentVersion }
 // → { paymentId, captureContext, clientLibrary, clientLibraryIntegrity, amount, currency }.
 // Создаёт Payment (PENDING, CYBERSOURCE, CUSTOMER, payerEmail) и запись согласия (версия текста,
 // сумма, ip, user-agent), затем capture context Unified Checkout. Сумма — только сервер.
@@ -34,13 +35,10 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "Cerere invalidă." }, { status: 400 });
-  if (body.agreedToTerms !== true || body.agreedToRecurring !== true) {
-    return NextResponse.json({ error: "Trebuie să bifați ambele acorduri." }, { status: 400 });
-  }
+  // Обе галочки + версии текстов (единая галочка оплаты — serviceConsentVersion): без них платёж не создаётся.
   const expectedVersion = body.purpose === "AGENCY_TOPUP" ? AGENCY_TOPUP_CONSENT_VERSION : RECURRING_CONSENT_VERSION;
-  if (body.consentVersion !== expectedVersion) {
-    return NextResponse.json({ error: "Textul acordului s-a actualizat. Reîncărcați pagina." }, { status: 409 });
-  }
+  const consentErr = csConsentError(body, expectedVersion);
+  if (consentErr) return NextResponse.json({ error: consentErr.error }, { status: consentErr.status });
 
   const resolved = await resolvePaymentIntent(sess.userId, body);
   if (!resolved.ok) return NextResponse.json({ error: resolved.message }, { status: resolved.status });
@@ -95,6 +93,7 @@ export async function POST(request: Request) {
       userId: sess.userId,
       paymentId: payment.id,
       textVersion: expectedVersion,
+      serviceTextVersion: SERVICE_CONSENT_VERSION,
       amount: consentAmount,
       currency,
       ip: clientIp(request),

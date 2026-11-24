@@ -86,7 +86,7 @@ const MERCHANT_COUNTRY = "Moldova";
 const MERCHANT_URL = "imoghid.md";
 const SUPPORT_EMAIL = "info@biseeth.md";
 const SUPPORT_PHONE = "+373 69 427 567";
-const RETURN_POLICY_URL = "https://imoghid.md/termeni";
+const RETURN_POLICY_URL = "https://imoghid.md/termeni#plata-si-rambursare";
 
 type ReceiptData = {
   order: string;
@@ -239,7 +239,7 @@ export function buildReceipt(r: ReceiptData): {
   const text =
     `ImoGhid — Bon electronic (confirmare plată)\n\n` +
     `${textLines}${seatsText}\n\n` +
-    `Politica de returnare: ${RETURN_POLICY_URL} (secțiunea „Plată și rambursare")\n` +
+    `Termenii de returnare: ${RETURN_POLICY_URL} (secțiunea „Plată și rambursare")\n` +
     `Suport: ${SUPPORT_EMAIL} · ${SUPPORT_PHONE}\n`;
 
   // В HTML все значения строк (имя покупателя, номер заказа, RRN и т.д.) экранируются; plain-text

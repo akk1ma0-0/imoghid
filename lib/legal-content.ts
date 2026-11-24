@@ -1,6 +1,8 @@
-// АВТОГЕНЕРАЦИЯ из docs/*.docx (скрипт scripts/gen-legal-content.mjs). Не редактировать вручную —
-// при изменении документов перегенерировать. Статический контент для публичных
-// страниц /despre /faq /confidentialitate /termeni (без runtime-парсинга .docx).
+// Статический контент публичных страниц /despre /faq /confidentialitate /termeni.
+// Правится ВРУЧНУЮ (до 2026-11-19 генерировался из docs/*.docx скриптом scripts/gen-legal-content.mjs —
+// генератор больше не используется, .docx в docs/ устарели). Тексты платежей по подписке — из
+// юридического текста v2 (после ответа юриста). Заголовки h2 получают id = legalSlug(text)
+// (lib/legal-slug.ts): якоря /termeni#abonament-tarife-si-plati и /termeni#plata-si-rambursare.
 
 export type LegalBlock = { t: "h2" | "h3" | "q" | "p" | "li"; text: string };
 export type LegalDoc = { title: string; blocks: LegalBlock[] };
@@ -81,7 +83,99 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "ImoGhid oferă mai multe opțiuni: O accesare (30 MDL/obiect, pentru utilizare punctuală), Basic (300 MDL/lună) și Pro (500 MDL/lună), fiecare cu limite proprii pentru verificări cadastrale, examinarea dosarelor și Creator Hub. Pentru agenții și echipe există planul HUB/Agenție (450 MDL/loc, minimum 3 locuri), cu verificare cadastrală și Obiectele mele nelimitate, plus limite lunare generoase pentru examinarea dosarului, Creator Hub și Anunțuri 999. Detalii complete și prețuri actualizate găsiți pe pagina de planuri. Abonamentul ImoGhid este separat de eventualele taxe ale 999.md."
+        "text": "Basic (300 MDL/lună), Pro (500 MDL/lună) și HUB/Agenție (450 MDL pe loc, lunar, minimum 3 locuri). Pentru o singură verificare există și „O accesare” (30 MDL, plată unică). Abonamentul ImoGhid este separat de eventualele taxe ale 999.md. Prețurile nu includ TVA (Furnizorul nu este plătitor de TVA). Ce include fiecare:"
+      },
+      {
+        "t": "li",
+        "text": "O accesare (30 MDL, plată unică): pachet de trei drepturi unice: 1 verificare cadastrală, 1 examinare a dosarului și 1 obiect."
+      },
+      {
+        "t": "li",
+        "text": "Basic (300 MDL/lună): verificare cadastrală 50/lună; examinarea dosarului 30/lună; Obiectele mele până la 20 de obiecte active simultan; Creator Hub 20 de postări/lună; Check-list acte, Tipuri de acte ale imobilului și Actele mele (set complet). Anunțuri 999 nu este inclus."
+      },
+      {
+        "t": "li",
+        "text": "Pro (500 MDL/lună): verificare cadastrală nelimitată; examinarea dosarului 60/lună; Obiectele mele nelimitate; Creator Hub 60/lună; Anunțuri 999 60/lună; același set de acte ca în Basic."
+      },
+      {
+        "t": "li",
+        "text": "HUB/Agenție (450 MDL/loc, lunar, minimum 3 locuri): pentru fiecare agent: verificare cadastrală și Obiectele mele nelimitate; examinarea dosarului 70/lună; Creator Hub 70/lună; Anunțuri 999 70/lună; același set de acte. Limitele se numără separat pentru fiecare agent."
+      },
+      {
+        "t": "li",
+        "text": "Peste limită, unele funcții se pot plăti suplimentar: examinarea dosarului (Basic 15 MDL, Pro 10 MDL, HUB 5 MDL) și verificarea cadastrală pe Basic (5 MDL)."
+      },
+      {
+        "t": "q",
+        "text": "Se reînnoiește abonamentul automat?"
+      },
+      {
+        "t": "p",
+        "text": "Da. Cu bifarea acordului la plată, suma se debitează în fiecare lună de pe cardul salvat, cu o zi înainte de sfârșitul perioadei. Cu 3 zile înainte primiți un e-mail. Puteți anula oricând."
+      },
+      {
+        "t": "q",
+        "text": "Cum anulez abonamentul?"
+      },
+      {
+        "t": "p",
+        "text": "Profil, „Anulează abonamentul”. Nu se mai debitează nimic, iar accesul rămâne până la sfârșitul perioadei plătite. Până atunci puteți relua abonamentul."
+      },
+      {
+        "t": "q",
+        "text": "Pot primi banii înapoi?"
+      },
+      {
+        "t": "p",
+        "text": "Serviciul digital se furnizează imediat după plată, iar perioada deja plătită nu se returnează la anulare sau la schimbarea planului, cu excepția plăților efectuate din eroare (de ex. debitare dublă) și a cazurilor prevăzute de lege. Scrieți la info@biseeth.md; răspundem în 5 zile lucrătoare."
+      },
+      {
+        "t": "q",
+        "text": "De ce trebuie să bifez caseta înainte de plată?"
+      },
+      {
+        "t": "p",
+        "text": "Prin ea confirmați că ați citit Condițiile de plată, Termenii de returnare și Termenii și că sunteți de acord ca serviciul digital să fie furnizat imediat după achitare. Fără bifare, plata nu se efectuează."
+      },
+      {
+        "t": "q",
+        "text": "Ce se întâmplă dacă debitarea este respinsă?"
+      },
+      {
+        "t": "p",
+        "text": "Accesul se păstrează 5 zile după sfârșitul perioadei plătite. Primiți un e-mail, iar la un refuz temporar încercăm din nou. Puteți actualiza cardul din Aplicație („Schimbă cardul”)."
+      },
+      {
+        "t": "q",
+        "text": "Cum schimb cardul?"
+      },
+      {
+        "t": "p",
+        "text": "Profil, „Schimbă cardul”. Cardul se verifică fără debitare, iar noul card se folosește pentru plățile următoare."
+      },
+      {
+        "t": "q",
+        "text": "Cum trec la alt plan?"
+      },
+      {
+        "t": "p",
+        "text": "Trecerea la un plan superior se aplică imediat, cu plata integrală și perioadă nouă. Trecerea la un plan inferior se aplică de la perioada următoare."
+      },
+      {
+        "t": "q",
+        "text": "Cum funcționează abonamentul agenției?"
+      },
+      {
+        "t": "p",
+        "text": "Administratorul plătește un număr de locuri, invită agenții cu coduri și poate adăuga locuri (proporțional cu zilele rămase) sau le poate reduce de la perioada următoare. Dacă administratorul anulează abonamentul sau își șterge contul, membrii pierd accesul HUB (la anulare, la sfârșitul perioadei plătite; la ștergerea contului, imediat)."
+      },
+      {
+        "t": "q",
+        "text": "Cum șterg contul?"
+      },
+      {
+        "t": "p",
+        "text": "Profil, „Ștergeți contul”. Abonamentele se anulează, cardurile salvate se șterg, iar evidența plăților se păstrează 6 ani conform legii."
       }
     ]
   },
@@ -119,6 +213,14 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       {
         "t": "li",
         "text": "Date despre utilizatori (agenți): nume, prenume, e-mail, telefon, date de cont, date privind abonamentul și plata, jurnale de utilizare, adresă IP."
+      },
+      {
+        "t": "li",
+        "text": "Date de plată: tokenul cardului emis de procesatorul de plăți, ultimele 4 cifre, tipul cardului (Visa/Mastercard), data expirării, istoricul plăților și al abonamentului, acordurile pentru debitare recurentă și confirmarea la plată a furnizării imediate a serviciului digital (data, versiunea textului). La acordul pentru plată se păstrează și adresa IP și user-agent-ul, ca dovadă a acordului. Numărul complet al cardului și codul CVV nu ajung la noi și nu sunt stocate de ImoGhid."
+      },
+      {
+        "t": "li",
+        "text": "Date de securitate și jurnal de audit: evenimentele de autentificare (data și ora conectării, conectări eșuate), verificările cadastrale efectuate (data, obiectul verificat, utilizatorul care a inițiat verificarea), consumul de limite și acțiunile administrative. Adresa IP și user-agent nu se păstrează în acest jurnal."
       },
       {
         "t": "li",
@@ -163,6 +265,18 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       {
         "t": "li",
         "text": "îndeplinirea unei obligații legale."
+      },
+      {
+        "t": "li",
+        "text": "Pentru plăți și abonament (inclusiv transferul datelor către bancă și procesatorul de plăți): executarea contractului cu utilizatorul."
+      },
+      {
+        "t": "li",
+        "text": "Pentru evidența contabilă și fiscală a plăților: obligația legală a Furnizorului."
+      },
+      {
+        "t": "li",
+        "text": "Pentru jurnalul de audit: interesul legitim al Furnizorului (securitatea sistemului, prevenirea abuzurilor, evidența utilizării datelor din registrele publice conform acordului cu AGE)."
       },
       {
         "t": "h2",
@@ -213,12 +327,44 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
         "text": "Datele pot fi prelucrate de furnizori care acționează la instrucțiunea operatorului. Pentru verificarea sarcinilor și interdicțiilor, numărul cadastral este transmis Agenției de Guvernare Electronică (AGE), în condițiile descrise mai sus. Nu vindem și nu comercializăm datele cu caracter personal."
       },
       {
+        "t": "p",
+        "text": "Pentru procesarea plăților cu cardul, datele necesare plății (suma, moneda, identificatori ai tranzacției, e-mailul și numele plătitorului, datele cardului introduse în fereastra securizată) sunt prelucrate de:"
+      },
+      {
+        "t": "li",
+        "text": "Victoriabank (acquirer);"
+      },
+      {
+        "t": "li",
+        "text": "CyberSource / Visa Acceptance Solutions (procesator de plăți), cu infrastructură în Statele Unite ale Americii și Uniunea Europeană."
+      },
+      {
+        "t": "p",
+        "text": "Prin urmare, are loc un transfer transfrontalier de date. Acesta se efectuează în scopul executării contractului cu dvs. (procesarea plății) și cu garanțiile asigurate de bancă și de procesatorul de plăți, prin contractele și standardele de securitate aplicabile acestora (inclusiv PCI DSS). Nu este necesar un consimțământ separat pentru acest transfer."
+      },
+      {
         "t": "h2",
         "text": "Perioada de stocare"
       },
       {
         "t": "p",
         "text": "Datele se păstrează doar pe durata necesară scopurilor pentru care au fost colectate și pe durata relației contractuale, plus termenele impuse de obligațiile legale (de ex. fiscale). Ulterior, datele se șterg sau se anonimizează."
+      },
+      {
+        "t": "li",
+        "text": "Tokenul cardului se păstrează cât timp abonamentul este activ sau în perioada de grație și se șterge la încetarea abonamentului, la schimbarea cardului (tokenul anterior) și la ștergerea contului."
+      },
+      {
+        "t": "li",
+        "text": "Evidența plăților (suma, data, tipul plății, e-mailul plătitorului din momentul plății) se păstrează 6 ani de la data plății, în baza obligației legale de contabilitate și fiscalitate; în acest interval nu este legată de contul șters."
+      },
+      {
+        "t": "li",
+        "text": "Adresa IP și user-agent-ul înregistrate la acordul pentru plată (dovada acordului) se păstrează același termen ca și înregistrarea plății, 6 ani de la data plății."
+      },
+      {
+        "t": "li",
+        "text": "Jurnalul de audit se păstrează 12 luni. După ștergerea contului, identificatorul tehnic al utilizatorului rămâne în jurnal, fără nume și e-mail, până la expirarea termenului."
       },
       {
         "t": "h2",
@@ -239,6 +385,10 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       {
         "t": "p",
         "text": "Drepturile se exercită prin cerere la info@biseeth.md. Răspundem în maximum 36 de ore lucrătoare."
+      },
+      {
+        "t": "p",
+        "text": "Ștergerea contului este disponibilă direct în Aplicație (Profil). Datele care trebuie păstrate legal (evidența plăților) nu se șterg înainte de termen."
       },
       {
         "t": "h2",
@@ -262,7 +412,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Prezenta Politică poate fi actualizată. Versiunea în vigoare este publicată în Aplicație. Data ultimei actualizări: 23.10.2026."
+        "text": "Prezenta Politică poate fi actualizată. Versiunea în vigoare este publicată în Aplicație. Data ultimei actualizări: 19.11.2026."
       }
     ]
   },
@@ -343,7 +493,123 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Accesul la funcțiile Aplicației se face pe bază de abonament. Tarifele, planurile, condițiile de reînnoire și de rambursare sunt indicate în Aplicație. Tarifele pot fi modificate cu notificare prealabilă."
+        "text": "Accesul la funcțiile Aplicației se face pe bază de abonament lunar sau prin plată unică („O accesare”). Planurile și tarifele în vigoare sunt afișate în Aplicație înainte de plată: Basic, Pro și HUB/Agenție (pentru agenții, cu preț pe loc și minimum 3 locuri). Tarifele sunt exprimate în lei moldovenești (MDL). Tarifele nu includ TVA, Furnizorul nu este plătitor de TVA."
+      },
+      {
+        "t": "p",
+        "text": "Plata se efectuează cu cardul bancar, printr-o fereastră securizată a procesatorului de plăți. Datele complete ale cardului se introduc exclusiv în această fereastră și nu ajung la Furnizor. Plata poate necesita confirmare 3-D Secure din partea băncii emitente. Procesarea plăților este asigurată de Victoriabank și de procesatorul de plăți CyberSource (Visa Acceptance Solutions)."
+      },
+      {
+        "t": "p",
+        "text": "Tarifele pot fi modificate cu notificare prealabilă. O modificare a tarifului nu se aplică abonamentului existent fără acordul expres al utilizatorului: dacă nu acceptați noul tarif, abonamentul nu se prelungește la prețul nou."
+      },
+      {
+        "t": "h2",
+        "text": "Furnizarea serviciului și acordul la plată"
+      },
+      {
+        "t": "p",
+        "text": "Serviciile Aplicației sunt servicii digitale și se furnizează imediat după achitare. Înainte de plată, persoana fizică bifează obligatoriu caseta: „Sunt de acord să primesc serviciul digital imediat după achitare și confirm că am citit și accept Condițiile de plată, Termenii de returnare și Termenii publicați pe site.” Fără această bifare plata nu se efectuează. Bifarea confirmă că ați luat cunoștință de aceste condiții, inclusiv de faptul că suma plătită pentru perioada începută nu se returnează (vezi „Plată și rambursare”), și constituie acordul dvs. pentru începerea imediată a furnizării serviciului."
+      },
+      {
+        "t": "p",
+        "text": "Pentru achiziția unui număr mare de locuri, cu preț negociat individual, condițiile și plata (prin transfer bancar, nu cu cardul) se stabilesc printr-un contract separat cu Furnizorul. Planurile HUB/Agenție la tarifele standard afișate în Aplicație se plătesc cu cardul, în condițiile din acest document."
+      },
+      {
+        "t": "h2",
+        "text": "Reînnoirea automată (debitare recurentă)"
+      },
+      {
+        "t": "p",
+        "text": "Abonamentele lunare se reînnoiesc automat. Prin bifarea acordului la plată, utilizatorul permite Furnizorului să debiteze automat, în fiecare lună, suma indicată în fața acordului, de pe cardul salvat, până la anularea abonamentului. Pentru aceasta, procesatorul de plăți salvează cardul sub formă de token (un identificator care nu permite folosirea cardului în afara ImoGhid)."
+      },
+      {
+        "t": "li",
+        "text": "Perioada de abonament este o lună calendaristică de la data plății."
+      },
+      {
+        "t": "li",
+        "text": "Debitarea pentru perioada următoare se efectuează cu o zi înainte de încheierea perioadei plătite."
+      },
+      {
+        "t": "li",
+        "text": "Cu 3 zile înainte de debitare se trimite un e-mail de reamintire."
+      },
+      {
+        "t": "li",
+        "text": "Suma debitată este aceea pentru care ați acordat acordul. Dacă suma se schimbă (tarif nou, modificarea numărului de locuri), se solicită un nou acord, iar fără el debitarea nu se efectuează."
+      },
+      {
+        "t": "li",
+        "text": "După fiecare plată reușită primiți un document de plată (chitanță) pe e-mail."
+      },
+      {
+        "t": "h2",
+        "text": "Anularea abonamentului"
+      },
+      {
+        "t": "p",
+        "text": "Puteți anula abonamentul oricând din Aplicație (Profil, „Anulează abonamentul”). După anulare nu mai au loc debitări, iar accesul se păstrează până la sfârșitul perioadei deja plătite. Cardul salvat (tokenul) se șterge la încetarea accesului. Până la sfârșitul perioadei puteți relua abonamentul."
+      },
+      {
+        "t": "h2",
+        "text": "Schimbarea planului"
+      },
+      {
+        "t": "li",
+        "text": "Trecerea la un plan superior (de ex. Basic la Pro) se face imediat, cu plata integrală a noului plan și începutul unei perioade noi de la data plății. Suma plătită pentru perioada planului anterior nu se returnează."
+      },
+      {
+        "t": "li",
+        "text": "Trecerea la un plan inferior (de ex. Pro la Basic) se aplică de la începutul perioadei următoare; până atunci rămâne planul actual. Programarea poate fi anulată până la data debitării."
+      },
+      {
+        "t": "h2",
+        "text": "Abonamentul agenției (HUB/Agenție)"
+      },
+      {
+        "t": "p",
+        "text": "Abonamentul agenției se plătește pe loc: număr de locuri × prețul pe loc (minimum 3 locuri), lunar, cu aceleași reguli de reînnoire automată."
+      },
+      {
+        "t": "li",
+        "text": "Adăugarea de locuri este disponibilă imediat. Se plătește proporțional cu zilele rămase din perioada curentă (cu un minimum de 10 MDL), iar de la perioada următoare se debitează suma pentru noul număr de locuri, pentru care se solicită un nou acord."
+      },
+      {
+        "t": "li",
+        "text": "Reducerea numărului de locuri se aplică de la perioada următoare; nu se returnează nimic. Numărul de locuri nu poate fi mai mic de 3 și nu poate fi mai mic decât numărul de locuri ocupate sau rezervate prin coduri de invitație."
+      },
+      {
+        "t": "li",
+        "text": "La anularea abonamentului sau la ștergerea contului administratorului agenției, membrii pierd accesul HUB. La anulare, accesul se păstrează până la sfârșitul perioadei plătite; la ștergerea contului administratorului, accesul membrilor încetează imediat."
+      },
+      {
+        "t": "h2",
+        "text": "Eșecul plății"
+      },
+      {
+        "t": "p",
+        "text": "Dacă debitarea este respinsă de bancă:"
+      },
+      {
+        "t": "li",
+        "text": "în cazul unui refuz definitiv (card expirat, blocat, închis) nu se mai încearcă repetat; primiți un e-mail cu cererea de a actualiza cardul;"
+      },
+      {
+        "t": "li",
+        "text": "în cazul unui refuz temporar (fonduri insuficiente, eroare tehnică) se fac încercări repetate după 1, 3 și 5 zile."
+      },
+      {
+        "t": "p",
+        "text": "Accesul se păstrează 5 zile după sfârșitul perioadei plătite. Dacă plata nu este reluată în acest termen, planul încetează, iar cardul salvat se șterge. Puteți actualiza cardul oricând din Aplicație („Schimbă cardul”)."
+      },
+      {
+        "t": "h2",
+        "text": "Ștergerea contului"
+      },
+      {
+        "t": "p",
+        "text": "La ștergerea contului: abonamentele se anulează, cardurile salvate se șterg la procesatorul de plăți, iar datele contului se șterg. Evidența plăților (suma, data, tipul plății, e-mailul din momentul plății) se păstrează 6 ani de la data plății, conform obligațiilor legale de contabilitate și fiscalitate, fără legătură cu contul șters. Ștergerea contului nu produce rambursarea perioadei plătite."
       },
       {
         "t": "h2",
@@ -391,7 +657,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Termenii pot fi actualizați; versiunea în vigoare se publică în Aplicație. Data ultimei actualizări: 23.10.2026."
+        "text": "Termenii pot fi actualizați; versiunea în vigoare se publică în Aplicație. Data ultimei actualizări: 24.11.2026."
       },
       {
         "t": "h2",
@@ -399,11 +665,31 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Procedura de returnare a produselor. Fiind un serviciu digital, „returnarea\" se realizează prin exercitarea dreptului de retragere și/sau prin cerere de rambursare. Cererea se transmite la info@biseeth.md și include datele contului, plata vizată și motivul. Ca regulă a contractului la distanță, consumatorul dispune de un termen de 14 zile calendaristice pentru retragere, fără justificare. Întrucât serviciul este digital și furnizat imediat, dacă utilizatorul a solicitat expres începerea prestării și a utilizat funcțiile Aplicației, dreptul de retragere nu se mai poate exercita pentru perioada respectivă. Rambursarea rămâne datorată în cazul neconformității serviciului (remediere, iar dacă nu este posibilă — reducere de preț sau rambursare proporțională) și în cazul plăților duble/erorilor de facturare imputabile Companiei, conform Legii nr. 105/2003 privind protecția consumatorilor."
+        "text": "Plată. Accesul la funcțiile Aplicației se face pe bază de abonament. Tarifele, planurile și condițiile de reînnoire sunt indicate în Aplicație; tarifele pot fi modificate cu notificare prealabilă. Plata se efectuează online, cu cardul, prin procesatorul de plăți autorizat. Tarifele nu includ TVA (Furnizorul nu este plătitor de TVA)."
       },
       {
         "t": "p",
-        "text": "Termenii și condițiile de creditare a conturilor clienților în caz de retur sau anulare. Atunci când rambursarea este datorată, suma se creditează integral, prin aceeași modalitate de plată utilizată la achitare (pe cardul de pe care s-a efectuat plata), fără reținerea vreunui comision sau taxă în sarcina clientului, în cel mult 14 zile de la aprobarea cererii, dacă legea nu prevede un alt termen. La dezactivarea abonamentului în cursul unei perioade deja achitate, accesul continuă până la finalul acesteia, fără restituirea diferenței pentru perioada rămasă."
+        "text": "Serviciu digital furnizat imediat. Serviciul are caracter digital și este furnizat imediat după achitare. La achitare, utilizatorul își exprimă acordul expres pentru începerea imediată a prestării, bifând caseta corespunzătoare. În concordanță cu Legea nr. 105/2003 privind protecția consumatorilor și cu regulile aplicabile contractelor la distanță, dreptul de retragere prevăzut pentru contractele la distanță nu se mai aplică serviciului digital a cărui prestare a început cu acordul expres al consumatorului. Prin urmare, perioada deja achitată nu se rambursează la dezactivarea abonamentului sau la schimbarea planului."
+      },
+      {
+        "t": "p",
+        "text": "Rambursări datorate. Rambursarea rămâne datorată în următoarele cazuri: (a) neconformitatea serviciului — mai întâi remediere, iar dacă aceasta nu este posibilă, reducere de preț sau rambursare proporțională; (b) plăți duble, debitări eronate sau erori de facturare imputabile Furnizorului. Aceste drepturi se exercită conform Legii nr. 105/2003."
+      },
+      {
+        "t": "p",
+        "text": "Cereri. Cererea se transmite la info@biseeth.md și include datele contului, plata vizată și motivul. Furnizorul răspunde în termen de 5 zile lucrătoare."
+      },
+      {
+        "t": "p",
+        "text": "Creditarea sumelor. Atunci când rambursarea este datorată, suma se creditează integral, prin aceeași modalitate de plată utilizată la achitare, fără reținerea vreunui comision în sarcina clientului. Termenul efectiv de creditare depinde de banca emitentă a cardului."
+      },
+      {
+        "t": "p",
+        "text": "Dezactivarea abonamentului. La dezactivare în cursul unei perioade deja achitate, accesul continuă până la finalul acesteia, fără restituirea diferenței pentru perioada rămasă."
+      },
+      {
+        "t": "p",
+        "text": "Persoane juridice. Pentru clienții persoane juridice, condițiile de plată și rambursare pot fi stabilite printr-un contract separat."
       }
     ]
   }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ServiceConsentLabel, ServiceConsentVersionField } from "@/components/ServiceConsentLabel";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -214,15 +215,13 @@ export function AgencySubscriptionBlock({
             </div>
             <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, marginBottom: 10, cursor: "pointer" }}>
               <input type="checkbox" checked={addAgreed} onChange={(e) => setAddAgreed(e.target.checked)} style={{ marginTop: 3 }} />
-              <span>
-                Sunt de acord cu{" "}
-                <a href="/termeni" target="_blank" rel="noopener noreferrer">Termenii de plată și Politica de returnare</a>.
-              </span>
+              <ServiceConsentLabel />
             </label>
             <form method="POST" action="/api/payments/start">
               <input type="hidden" name="purpose" value="AGENCY_SEATS" />
               <input type="hidden" name="seats" value={addSeats} />
               <input type="hidden" name="agreedToTerms" value={addAgreed ? "true" : "false"} />
+              <ServiceConsentVersionField />
               <button type="submit" className="btn solid" disabled={!addAgreed}>
                 Continuă spre plată →
               </button>

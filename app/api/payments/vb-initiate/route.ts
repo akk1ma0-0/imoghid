@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
+import { checkServiceConsent, recordOneTimeConsent } from "@/lib/service-consent";
 import { isPayablePlan, planAmount, generateOrder, PLAN_PRICING } from "@/lib/payments";
 import { buildPaymentFormHtml, formatAmount, vbConfig } from "@/lib/vb-egateway";
 import { personalPlanPurchaseBlock } from "@/lib/agency";
@@ -57,13 +58,8 @@ export async function POST(request: Request) {
 
   // Согласие с условиями оплаты/возврата — обязательно (SIP п.7). Не полагаемся на
   // frontend-disabled: проверяем и на сервере. Без agreedToTerms=true → 400.
-  const agreedToTerms = form ? String(form.get("agreedToTerms") ?? "") === "true" : false;
-  if (!agreedToTerms) {
-    return NextResponse.json(
-      { error: "Trebuie să acceptați Termenii și Condițiile de plată și Politica de returnare." },
-      { status: 400 },
-    );
-  }
+  const consent = checkServiceConsent(form);
+  if (!consent.ok) return consent.response;
 
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
@@ -75,11 +71,13 @@ export async function POST(request: Request) {
 
   // Уникальный ORDER (одна повторная попытка на случай коллизии).
   let order = generateOrder();
+  let paymentId = "";
   for (let i = 0; i < 2; i++) {
     try {
-      await prisma.payment.create({
+      const created = await prisma.payment.create({
         data: { order, userId: sess.userId, payerEmail: user.email, plan: planRaw, amount, currency: c.currency },
       });
+      paymentId = created.id;
       break;
     } catch {
       if (i === 1) {
@@ -88,6 +86,8 @@ export async function POST(request: Request) {
       order = generateOrder();
     }
   }
+
+  await recordOneTimeConsent({ request, userId: sess.userId, paymentId, amount, currency: c.currency });
 
   const origin = new URL(request.url).origin;
   const html = buildPaymentFormHtml({

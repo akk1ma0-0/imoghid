@@ -3,6 +3,7 @@ import type { UsageFeature } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
+import { checkServiceConsent, recordOneTimeConsent } from "@/lib/service-consent";
 import { generateOrder } from "@/lib/payments";
 import { overageFeeMdl } from "@/lib/plan-limits";
 import { buildPaymentFormHtml, formatAmount, vbConfig } from "@/lib/vb-egateway";
@@ -39,13 +40,8 @@ export async function POST(request: Request) {
   const feature = featureRaw as UsageFeature;
 
   // Согласие с условиями оплаты/возврата — обязательно (SIP), как и у подписки.
-  const agreedToTerms = form ? String(form.get("agreedToTerms") ?? "") === "true" : false;
-  if (!agreedToTerms) {
-    return NextResponse.json(
-      { error: "Trebuie să acceptați Termenii și Condițiile de plată și Politica de returnare." },
-      { status: 400 },
-    );
-  }
+  const consent = checkServiceConsent(form);
+  if (!consent.ok) return consent.response;
 
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
@@ -67,9 +63,10 @@ export async function POST(request: Request) {
   // Уникальный ORDER (одна повторная попытка на коллизию). purpose=OVERAGE → callback НЕ
   // активирует план, а «раскрывает» грант. plan хранит текущий план (от него зависит сумма).
   let order = generateOrder();
+  let paymentId = "";
   for (let i = 0; i < 2; i++) {
     try {
-      await prisma.payment.create({
+      const created = await prisma.payment.create({
         data: {
           order,
           userId: sess.userId,
@@ -81,6 +78,7 @@ export async function POST(request: Request) {
           overageFeature: feature,
         },
       });
+      paymentId = created.id;
       break;
     } catch {
       if (i === 1) {
@@ -89,6 +87,8 @@ export async function POST(request: Request) {
       order = generateOrder();
     }
   }
+
+  await recordOneTimeConsent({ request, userId: sess.userId, paymentId, amount, currency: c.currency });
 
   const origin = new URL(request.url).origin;
   const html = buildPaymentFormHtml({

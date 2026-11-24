@@ -1,5 +1,6 @@
 "use client";
 
+import { ServiceConsentLabel, ServiceConsentVersionField } from "@/components/ServiceConsentLabel";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,7 +38,7 @@ const TARIFFS: Tariff[] = [
     features: [
       "Verificare cadastrală — 50/lună",
       "Examinarea dosarului — 30/lună",
-      "Obiectele mele — 20/lună",
+      "Obiectele mele — 20 simultan",
       "Check-list acte",
       "Tipuri de acte ale imobilului",
       "Actele Mele — set complet",
@@ -302,17 +303,7 @@ export function PendingTariffs({
           onChange={(e) => setAgreed(e.target.checked)}
           style={{ marginTop: 2, flexShrink: 0 }}
         />
-        <span>
-          Sunt de acord cu{" "}
-          <Link href="/termeni" target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue, #2563eb)" }}>
-            Termenii și Condițiile de plată
-          </Link>{" "}
-          și cu{" "}
-          <Link href="/termeni" target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue, #2563eb)" }}>
-            Politica de returnare
-          </Link>
-          .
-        </span>
+        <ServiceConsentLabel />
       </label>
       )}
 
@@ -418,6 +409,7 @@ export function PendingTariffs({
                     <input type="hidden" name="purpose" value="SUBSCRIPTION" />
                     <input type="hidden" name="plan" value={t.plan} />
                     <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+                    <ServiceConsentVersionField />
                     <button
                       type="submit"
                       disabled={!agreed}
@@ -517,6 +509,15 @@ export function PendingTariffs({
       </div>
       )}
 
+      {/* Условия подписки под ценами (юр. текст v2, D.4). */}
+      <p style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.55, textAlign: "center", maxWidth: 720, margin: "14px auto 0" }}>
+        Abonamentele se reînnoiesc automat lunar. Anulare oricând din profil. Prețurile nu includ TVA. Detalii în{" "}
+        <Link href="/termeni" target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue, #2563eb)" }}>
+          Termeni și Condiții
+        </Link>
+        .
+      </p>
+
       {/* «O accesare» — разовая покупка без подписки (Этап C): 1 verificare + 1 dosar + 1 obiect. */}
       <div className="card" style={{ marginTop: 16, maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>
         <div
@@ -541,6 +542,7 @@ export function PendingTariffs({
             {isAuthenticated ? (
               <form method="POST" action="/api/payments/vb-single-access-initiate">
                 <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+                <ServiceConsentVersionField />
                 <button
                   type="submit"
                   disabled={!agreed}

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { recurringConsentText, TERMS_CONSENT_TEXT } from "@/lib/recurring-consent";
+import { recurringConsentText, RETURN_POLICY_HREF, SERVICE_CONSENT_VERSION } from "@/lib/recurring-consent";
+import { ServiceConsentLabel } from "@/components/ServiceConsentLabel";
 
 // Клиент Unified Checkout v1 (JS API: VAS.UnifiedCheckout → createCheckout → mount).
 // Форма карты — в iframe CyberSource: номер карты и CVV не проходят ни через наш фронт, ни через
@@ -106,6 +107,7 @@ export function CheckoutClient(props: {
           agreedToTerms: true,
           agreedToRecurring: true,
           consentVersion: props.consentVersion,
+          serviceConsentVersion: SERVICE_CONSENT_VERSION,
         }),
       });
       const data = (await r.json().catch(() => null)) as
@@ -145,10 +147,7 @@ export function CheckoutClient(props: {
         <div className="card-bd" style={{ padding: 20 }}>
           <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, marginBottom: 12, cursor: "pointer" }}>
             <input type="checkbox" checked={terms} disabled={phase !== "consent"} onChange={(e) => setTerms(e.target.checked)} style={{ marginTop: 2 }} />
-            <span>
-              {TERMS_CONSENT_TEXT}{" "}
-              <a href="/termeni" target="_blank" rel="noopener noreferrer">Termeni și Condiții</a>
-            </span>
+            <ServiceConsentLabel />
           </label>
           <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, marginBottom: 16, cursor: "pointer" }}>
             <input type="checkbox" checked={recurring} disabled={phase !== "consent"} onChange={(e) => setRecurring(e.target.checked)} style={{ marginTop: 2 }} />
@@ -180,7 +179,8 @@ export function CheckoutClient(props: {
           )}
           <p style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 14, lineHeight: 1.5 }}>
             Datele cardului se introduc într-o fereastră securizată a procesatorului de plăți și nu ajung la ImoGhid.
-            Plata poate necesita confirmare 3-D Secure de la banca dvs.
+            Plata poate necesita confirmare 3-D Secure de la banca dvs.{" "}
+            <a href={RETURN_POLICY_HREF} target="_blank" rel="noopener noreferrer">Termenii de returnare</a>.
           </p>
         </div>
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { ServiceConsentLabel, ServiceConsentVersionField } from "@/components/ServiceConsentLabel";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -51,6 +52,7 @@ export function AgencyClient({
 }) {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
+  const [topupAgreed, setTopupAgreed] = useState(false);
   const [takeSeat, setTakeSeat] = useState(false);
   const [buySeats, setBuySeats] = useState(agency ? 1 : minSeats);
   const [code, setCode] = useState<string | null>(null);
@@ -98,15 +100,13 @@ export function AgencyClient({
             </label>
             <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12.5, marginBottom: 14, cursor: "pointer" }}>
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 2 }} />
-              <span>
-                Sunt de acord cu{" "}
-                <a href="/termeni" target="_blank" rel="noopener noreferrer">Termenii de plată și Politica de returnare</a>.
-              </span>
+              <ServiceConsentLabel />
             </label>
             <form method="POST" action="/api/payments/start">
               <input type="hidden" name="purpose" value="AGENCY_SEATS" />
               <input type="hidden" name="seats" value={buySeats} />
               <input type="hidden" name="agreedToTerms" value={agreed ? "true" : "false"} />
+              <ServiceConsentVersionField />
               <input type="hidden" name="takeOwnerSeat" value={takeSeat ? "true" : "false"} />
               <button type="submit" disabled={!agreed} className="btn solid" style={{ height: 44 }}>
                 Cumpără {buySeats} locuri — {buySeats * feePerSeat} MDL
@@ -236,11 +236,16 @@ export function AgencyClient({
         </button>
         {/* Агентство VictoriaBank — прежняя докупка; при подписке с автопродлением — блок выше. */}
         {!subscription && (
-          <form method="POST" action="/api/payments/start" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <form method="POST" action="/api/payments/start" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input type="hidden" name="purpose" value="AGENCY_SEATS" />
-            <input type="hidden" name="agreedToTerms" value="true" />
+            <input type="hidden" name="agreedToTerms" value={topupAgreed ? "true" : "false"} />
+            <ServiceConsentVersionField />
             <input type="number" name="seats" min={1} defaultValue={1} style={{ width: 72, height: 38, padding: "0 10px" }} title="Locuri suplimentare" />
-            <button type="submit" className="btn">Cumpără locuri suplimentare</button>
+            <button type="submit" className="btn" disabled={!topupAgreed}>Cumpără locuri suplimentare</button>
+            <label style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12.5, cursor: "pointer", flexBasis: "100%" }}>
+              <input type="checkbox" checked={topupAgreed} onChange={(e) => setTopupAgreed(e.target.checked)} style={{ marginTop: 2 }} />
+              <ServiceConsentLabel />
+            </label>
           </form>
         )}
       </div>
