@@ -22,7 +22,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "ImoGhid este un produs dezvoltat sub marca comercială BiSeeTh, de „BlackSpace Tech” SRL, în colaborare cu Liudmila Popovscaia, expert în drept imobiliar, care a contribuit la concepția juridică și funcțională a platformei. Contact: liudmila.popovscaia@gmail.com. Răspundem în maximum 36 de ore lucrătoare. Telefon de contact: +373 69 427 567."
+        "text": "ImoGhid este un produs dezvoltat sub marca comercială BiSeeTh, de „BLACKSPACE TECH” SRL, în colaborare cu Liudmila Popovscaia, expert în drept imobiliar, care a contribuit la concepția juridică și funcțională a platformei. Contact: liudmila.popovscaia@gmail.com. Răspundem în maximum 36 de ore lucrătoare. Telefon de contact: +373 69 427 567. Program de suport: Luni–Vineri, 09:00–18:00 (ora Chișinău)."
       }
     ]
   },
@@ -184,7 +184,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
     "blocks": [
       {
         "t": "p",
-        "text": "Prezenta Politică explică modul în care Compania dezvoltatoare, „BlackSpace Tech” SRL, prelucrează datele cu caracter personal în cadrul aplicației ImoGhid (denumită în continuare „Aplicația”), destinată agenților imobiliari din Republica Moldova."
+        "text": "Prezenta Politică explică modul în care Compania dezvoltatoare, „BLACKSPACE TECH” SRL, prelucrează datele cu caracter personal în cadrul aplicației ImoGhid (denumită în continuare „Aplicația”), destinată agenților imobiliari din Republica Moldova."
       },
       {
         "t": "h2",
@@ -192,11 +192,11 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "li",
-        "text": "Operator: „BlackSpace Tech” SRL, IDNO 1024600065567, sediu mun. Chișinău, bd Decebal 99D, MD-2038, Republica Moldova, care administrează marca BiSeeTh."
+        "text": "Operator: „BLACKSPACE TECH” SRL, IDNO 1024600065567, sediu mun. Chișinău, bd. Decebal 99D, of. 40, MD-2038, Republica Moldova, care administrează marca BiSeeTh."
       },
       {
         "t": "li",
-        "text": "Contact: info@biseeth.md. Răspundem în maximum 36 de ore lucrătoare. Telefon de contact: +373 69 427 567."
+        "text": "Contact: info@biseeth.md. Răspundem în maximum 36 de ore lucrătoare. Telefon de contact: +373 69 427 567. Program de suport: Luni–Vineri, 09:00–18:00 (ora Chișinău)."
       },
       {
         "t": "h2",
@@ -308,7 +308,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Solicitările sunt făcute din numele ImoGhid („BlackSpace Tech” SRL), printr-o conexiune securizată și autentificată. Datele primite provin din sursa oficială, nu sunt generate de inteligența artificială și reflectă starea imobilului la momentul verificării."
+        "text": "Solicitările sunt făcute din numele ImoGhid („BLACKSPACE TECH” SRL), printr-o conexiune securizată și autentificată. Datele primite provin din sursa oficială, nu sunt generate de inteligența artificială și reflectă starea imobilului la momentul verificării."
       },
       {
         "t": "p",
@@ -421,7 +421,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
     "blocks": [
       {
         "t": "p",
-        "text": "Prezenții Termeni și Condiții reglementează utilizarea aplicației ImoGhid, furnizată de „BlackSpace Tech” SRL. Prin crearea unui cont și utilizarea Aplicației, utilizatorul acceptă acești termeni."
+        "text": "Prezenții Termeni și Condiții reglementează utilizarea aplicației ImoGhid, furnizată de „BLACKSPACE TECH” SRL. Prin crearea unui cont și utilizarea Aplicației, utilizatorul acceptă acești termeni."
       },
       {
         "t": "h2",
@@ -433,7 +433,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "li",
-        "text": "Furnizorul: „BlackSpace Tech” SRL, care operează sub marca comercială BiSeeTh."
+        "text": "Furnizorul: „BLACKSPACE TECH” SRL, care operează sub marca comercială BiSeeTh."
       },
       {
         "t": "li",
@@ -617,7 +617,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Aplicația, codul, designul și conținutul propriu aparțin „BlackSpace Tech” SRL și sunt protejate de lege. Utilizatorului i se acordă un drept limitat, neexclusiv, de utilizare."
+        "text": "Aplicația, codul, designul și conținutul propriu aparțin „BLACKSPACE TECH” SRL și sunt protejate de lege. Utilizatorului i se acordă un drept limitat, neexclusiv, de utilizare."
       },
       {
         "t": "h2",

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 
 import { BrandPanel } from "../_components/BrandPanel";
-import { PaymentCards } from "@/components/PaymentCards";
+import { MerchantFooter } from "@/components/MerchantFooter";
 import { PasswordInput } from "@/components/PasswordInput";
 
 export default function LoginPage() {
@@ -159,7 +159,7 @@ function LoginForm() {
             finală pentru tranzacție revine notarului și agentului.
           </div>
 
-          <PaymentCards />
+          <MerchantFooter className="compact" showLinks={false} />
         </div>
       </div>
     </div>

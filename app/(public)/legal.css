@@ -96,3 +96,5 @@
   .legal-wrap h1 { font-size: 23px; }
   .legal-wrap h2 { font-size: 16px; }
 }
+.legal-foot .legal-merchant { border-top: 0; padding: 10px 0 0; text-align: left; }
+.legal-foot .legal-merchant img { height: 22px; }

@@ -1,0 +1,24 @@
+.lp { font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #fff; min-height: 100vh; display: flex; flex-direction: column; }
+.lp-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid #e5e7eb; }
+.lp-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-weight: 700; font-size: 17px; }
+.lp-logo { width: 32px; height: 32px; border-radius: 8px; background: #111827; color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.lp-actions { display: flex; gap: 8px; }
+.lp-btn { display: inline-block; padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; border: 1px solid #d1d5db; color: #111827; background: #fff; }
+.lp-btn.solid { background: #111827; border-color: #111827; color: #fff; }
+.lp-main { flex: 1; width: 100%; max-width: 980px; margin: 0 auto; padding: 0 20px 40px; }
+.lp-hero { padding: 48px 0 28px; max-width: 720px; }
+.lp-hero h1 { font-size: 34px; line-height: 1.15; margin: 0 0 14px; letter-spacing: -0.02em; }
+.lp-hero p { font-size: 16px; line-height: 1.65; color: #4b5563; margin: 0 0 20px; }
+.lp-sec { margin-top: 36px; }
+.lp-sec h2 { font-size: 21px; margin: 0 0 14px; }
+.lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.lp-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
+.lp-card h3 { font-size: 15px; margin: 0 0 6px; }
+.lp-card p { font-size: 13.5px; line-height: 1.6; color: #4b5563; margin: 0; }
+.lp-price { font-size: 28px; font-weight: 700; margin: 6px 0 2px; }
+.lp-price small { font-size: 13px; font-weight: 500; color: #6b7280; }
+.lp-note { font-size: 12.5px; color: #6b7280; line-height: 1.6; margin-top: 10px; }
+.lp-links { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; }
+.lp-links a { color: #1d4ed8; text-decoration: none; }
+.lp-links a:hover { text-decoration: underline; }
+@media (max-width: 600px) { .lp-hero h1 { font-size: 27px; } .lp-hero { padding-top: 32px; } }

@@ -7,7 +7,7 @@ import { signIn } from "next-auth/react";
 
 import { BrandPanel } from "../_components/BrandPanel";
 import { TrackVisit } from "@/components/TrackVisit";
-import { PaymentCards } from "@/components/PaymentCards";
+import { MerchantFooter } from "@/components/MerchantFooter";
 import { PasswordInput } from "@/components/PasswordInput";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -349,7 +349,7 @@ export function RegisterForm({ waitlist }: { waitlist: boolean }) {
             <a href="/confidentialitate" target="_blank" rel="noopener noreferrer">Politica de confidențialitate</a>.
           </div>
 
-          <PaymentCards />
+          <MerchantFooter className="compact" showLinks={false} />
         </div>
       </div>
     </div>

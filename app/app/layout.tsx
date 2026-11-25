@@ -8,6 +8,7 @@ import { Providers } from "@/components/Providers";
 import { Topbar } from "./_components/Topbar";
 import { DemoProvider } from "@/app/contexts/DemoContext";
 import { DemoBanner } from "./_components/DemoBanner";
+import { MerchantFooter } from "@/components/MerchantFooter";
 import { DemoTooltip } from "@/app/_components/DemoTooltip";
 
 // Шрифты — браузерная загрузка Google Fonts (как в (auth)), с системными фолбэками в imoghid.css.
@@ -63,15 +64,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 </nav>
               </header>
               {children}
-              <footer className="app-footer">
-                <Link href="/despre">Despre ImoGhid</Link>
-                <span className="sep">·</span>
-                <Link href="/termeni">Termeni și Condiții</Link>
-                <span className="sep">·</span>
-                <Link href="/confidentialitate">Politică de confidențialitate</Link>
-                <span className="sep">·</span>
-                <Link href="/faq">Întrebări frecvente</Link>
-              </footer>
+              <MerchantFooter className="app-footer" />
             </div>
           </DemoProvider>
         </Providers>
@@ -88,15 +81,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <DemoBanner />
           <Topbar />
           {children}
-          <footer className="app-footer">
-            <Link href="/despre">Despre ImoGhid</Link>
-            <span className="sep">·</span>
-            <Link href="/termeni">Termeni și Condiții</Link>
-            <span className="sep">·</span>
-            <Link href="/confidentialitate">Politică de confidențialitate</Link>
-            <span className="sep">·</span>
-            <Link href="/faq">Întrebări frecvente</Link>
-          </footer>
+          <MerchantFooter className="app-footer" />
           <DemoTooltip />
         </div>
         </DemoProvider>

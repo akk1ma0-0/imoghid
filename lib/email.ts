@@ -5,6 +5,8 @@ import type { PaymentPurpose, SubscriptionPlan, UsageFeature } from "@prisma/cli
 import { prisma } from "@/lib/prisma";
 import { fmtDateChisinau } from "@/lib/date-chisinau";
 import { escapeHtml } from "@/lib/escape-html";
+import { MERCHANT } from "@/lib/merchant";
+import { RETURN_POLICY_HREF } from "@/lib/recurring-consent";
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
 
@@ -81,12 +83,13 @@ export async function sendVerificationEmail(
 
 // ── Bon electronic (email-чек после успешной оплаты) ──────────────────────────
 // Реквизиты продавца (требование банка для чека).
-const MERCHANT_NAME = "BlackSpace Tech SRL";
-const MERCHANT_COUNTRY = "Moldova";
-const MERCHANT_URL = "imoghid.md";
-const SUPPORT_EMAIL = "info@biseeth.md";
-const SUPPORT_PHONE = "+373 69 427 567";
-const RETURN_POLICY_URL = "https://imoghid.md/termeni#plata-si-rambursare";
+const MERCHANT_NAME: string = MERCHANT.legalName;
+const MERCHANT_COUNTRY: string = MERCHANT.country;
+const MERCHANT_URL: string = MERCHANT.siteUrl;
+const SUPPORT_EMAIL: string = MERCHANT.email;
+const SUPPORT_PHONE: string = MERCHANT.phone;
+const SUPPORT_HOURS: string = MERCHANT.supportHours;
+const RETURN_POLICY_URL = `${MERCHANT.siteUrl}${RETURN_POLICY_HREF}`;
 
 type ReceiptData = {
   order: string;
@@ -240,7 +243,7 @@ export function buildReceipt(r: ReceiptData): {
     `ImoGhid — Bon electronic (confirmare plată)\n\n` +
     `${textLines}${seatsText}\n\n` +
     `Termenii de returnare: ${RETURN_POLICY_URL} (secțiunea „Plată și rambursare")\n` +
-    `Suport: ${SUPPORT_EMAIL} · ${SUPPORT_PHONE}\n`;
+    `Suport: ${SUPPORT_EMAIL} · ${SUPPORT_PHONE} (${SUPPORT_HOURS})\n`;
 
   // В HTML все значения строк (имя покупателя, номер заказа, RRN и т.д.) экранируются; plain-text
   // версия выше — нет. Константы реквизитов (MERCHANT_*, SUPPORT_*) — наш код, не пользовательские.
@@ -265,9 +268,9 @@ export function buildReceipt(r: ReceiptData): {
     `Detalii privind rambursarea: <a href="${RETURN_POLICY_URL}" style="color:#1d4ed8;text-decoration:none">Termeni și Condiții — „Plată și rambursare"</a>.` +
     `</p>` +
     `<p style="font-size:12px;color:#6b7280;line-height:1.7;margin:8px 0 0">` +
-    `Suport: <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;text-decoration:none">${SUPPORT_EMAIL}</a> · ${SUPPORT_PHONE}` +
+    `Suport: <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;text-decoration:none">${SUPPORT_EMAIL}</a> · ${SUPPORT_PHONE} (${SUPPORT_HOURS})` +
     `</p>` +
-    `<p style="font-size:11px;color:#9ca3af;margin-top:18px">${MERCHANT_NAME} · ${MERCHANT_COUNTRY} · ${MERCHANT_URL}</p>` +
+    `<p style="font-size:11px;color:#9ca3af;margin-top:18px">${MERCHANT_NAME} · IDNO ${MERCHANT.idno} · ${MERCHANT.address} · ${MERCHANT_COUNTRY} · ${MERCHANT_URL}</p>` +
     `</div>`;
 
   return {

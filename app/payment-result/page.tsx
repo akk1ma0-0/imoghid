@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { Providers } from "@/components/Providers";
+import { MerchantFooter } from "@/components/MerchantFooter";
 import { PostPaymentEntry } from "@/components/PostPaymentEntry";
 
 // BACKREF — страница, куда браузер возвращается после оплаты. Активацию плана НЕ делаем
@@ -52,6 +53,7 @@ export default async function PaymentResultPage({
         <Providers>
           <PostPaymentEntry initialActive={alreadyActive} />
         </Providers>
+        <MerchantFooter className="compact" showLinks={false} />
       </div>
     </div>
   );

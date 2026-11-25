@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { LEGAL_DOCS } from "@/lib/legal-content";
 import { legalSlug } from "@/lib/legal-slug";
+import { MERCHANT } from "@/lib/merchant";
+import { MerchantFooter } from "@/components/MerchantFooter";
 
 // Перекрёстные ссылки между публичными документами.
 const CROSS = [
@@ -64,8 +66,8 @@ export function LegalDoc({ docKey }: { docKey: keyof typeof LEGAL_DOCS }) {
           </Link>
           <p className="legal-letter">ImoGhid — Documente legale și informative</p>
           <p className="legal-meta">
-            BiSeeTh este o marcă comercială administrată de „BlackSpace Tech” SRL, IDNO
-            1024600065567 · Dezvoltată în colaborare cu Liudmila Popovscaia, expert în drept
+            BiSeeTh este o marcă comercială administrată de „{MERCHANT.legalName}”, IDNO{" "}
+            {MERCHANT.idno} · Dezvoltată în colaborare cu Liudmila Popovscaia, expert în drept
             imobiliar.
           </p>
         </header>
@@ -82,15 +84,7 @@ export function LegalDoc({ docKey }: { docKey: keyof typeof LEGAL_DOCS }) {
               </span>
             ))}
           </div>
-          <div className="legal-foot-legal">
-            © 2026 BlackSpace Tech SRL · IDNO 1024600065567 · bd. Decebal 99D, mun. Chișinău
-          </div>
-          <div className="legal-foot-cards" aria-label="Metode de plată acceptate">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/visa.svg" alt="Visa" height={22} />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/mastercard.svg" alt="Mastercard" height={22} />
-          </div>
+          <MerchantFooter className="legal-merchant" showLinks={false} />
         </footer>
       </div>
     </div>
