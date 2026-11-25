@@ -40,6 +40,19 @@ describe("classifyResponse — платёж", () => {
     assert.equal(o.details.reconciliationId, "79710341A39WTT5W");
   });
 
+  it("201 AUTHORIZED: RRN из processorInformation.retrievalReferenceNumber; нет поля → null", () => {
+    const base = { id: "1", status: "AUTHORIZED", processorInformation: { responseCode: "00", approvalCode: "831000" } };
+    const without = classifyResponse(res(201, base), OK_STATUSES.payment);
+    const withRrn = classifyResponse(
+      res(201, { ...base, processorInformation: { ...base.processorInformation, retrievalReferenceNumber: "330412345678" } }),
+      OK_STATUSES.payment,
+    );
+    assert.ok(without.kind === "approved" && withRrn.kind === "approved");
+    if (without.kind !== "approved" || withRrn.kind !== "approved") return;
+    assert.equal(without.details.rrn, null);
+    assert.equal(withRrn.details.rrn, "330412345678");
+  });
+
   it("201 DECLINED → declined с причиной и кодом процессора", () => {
     const o = classifyResponse(
       res(201, {

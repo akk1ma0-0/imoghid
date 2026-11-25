@@ -30,6 +30,7 @@ describe("recordCitSuccess — замена подписки Basic → Pro", { s
     paymentInstrumentId: `PI_NEW_${run}`,
     networkTransactionId: `NTI_${run}`,
     approvalCode: "123456",
+    rrn: null,
     processorCode: "00",
     cardLast4: "0000",
     cardBrand: "VISA",

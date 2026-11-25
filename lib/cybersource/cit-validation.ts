@@ -93,6 +93,7 @@ export type TxnFacts = {
   paymentInstrumentId: string | null;
   networkTransactionId: string | null;
   approvalCode: string | null;
+  rrn: string | null; // processorInformation.retrievalReferenceNumber
   processorCode: string | null;
   cardLast4: string | null;
   cardBrand: string | null;
@@ -131,6 +132,7 @@ export function transactionFactsOf(json: Record<string, unknown> | null): TxnFac
     paymentInstrumentId: str(obj(pay.paymentInstrument).id) ?? str(obj(tok.paymentInstrument).id),
     networkTransactionId: str(proc.networkTransactionId),
     approvalCode: str(proc.approvalCode),
+    rrn: str(proc.retrievalReferenceNumber),
     processorCode: str(proc.responseCode),
     cardLast4: suffix && /^\d{4}$/.test(suffix) ? suffix : null,
     cardBrand: type ? (CARD_TYPES[type] ?? str(card.brandName) ?? type) : str(card.brandName),

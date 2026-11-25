@@ -188,6 +188,7 @@ describe("recordCitSuccess — докупка мест (AGENCY_TOPUP)", { skip: 
     paymentInstrumentId: `PI_TOPUP_${run}`,
     networkTransactionId: `NTI_TOPUP_${run}`,
     approvalCode: "654321",
+    rrn: null,
     processorCode: "00",
     cardLast4: "4444",
     cardBrand: "MASTERCARD",

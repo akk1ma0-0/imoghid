@@ -110,6 +110,7 @@ export async function completeCardChange(args: { paymentId: string; userId: stri
           networkTransactionId: facts.networkTransactionId,
           processorCode: facts.processorCode,
           approval: facts.approvalCode,
+          ...(facts.rrn ? { rrn: facts.rrn } : {}),
           cardLast4: facts.cardLast4,
         },
       });

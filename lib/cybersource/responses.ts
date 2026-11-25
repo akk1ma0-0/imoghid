@@ -26,6 +26,7 @@ export type CsDetails = {
   reason: string | null; // errorInformation.reason
   processorCode: string | null; // processorInformation.responseCode
   approvalCode: string | null;
+  rrn: string | null; // processorInformation.retrievalReferenceNumber (RRN для чека; у части процессоров нет)
   networkTransactionId: string | null;
   reconciliationId: string | null;
   merchantAdviceCode: string | null; // processorInformation.merchantAdvice.code (правила повторов сети)
@@ -41,6 +42,7 @@ export function detailsOf(json: Record<string, unknown> | null): CsDetails {
     reason: str(ei.reason) ?? str(json?.reason),
     processorCode: str(pi.responseCode),
     approvalCode: str(pi.approvalCode),
+    rrn: str(pi.retrievalReferenceNumber),
     networkTransactionId: str(pi.networkTransactionId),
     reconciliationId: str(json?.reconciliationId),
     merchantAdviceCode: str(obj(pi.merchantAdvice).code),

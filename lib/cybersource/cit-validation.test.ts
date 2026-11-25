@@ -63,6 +63,11 @@ describe("transactionFactsOf", () => {
     assert.equal(f.expYear, 2031);
     assert.equal(JSON.stringify(f).includes("999999"), false, "BIN не должен попадать в факты");
   });
+  it("RRN берётся из processorInformation.retrievalReferenceNumber; нет поля → null", () => {
+    assert.equal(facts().rrn, null);
+    const f = facts({ processorInformation: { approvalCode: "831000", responseCode: "00", retrievalReferenceNumber: "330412345678" } });
+    assert.equal(f.rrn, "330412345678");
+  });
   it("отказ авторизации → declined; без ics_auth → unknown; без id → null", () => {
     assert.equal(facts({ applicationInformation: { applications: [{ name: "ics_auth", rCode: "0" }] } }).outcome, "declined");
     assert.equal(facts({ applicationInformation: { applications: [] } }).outcome, "unknown");

@@ -163,6 +163,7 @@ export function paymentUpdateFor(outcome: CsOutcome): Prisma.PaymentUpdateInput 
         networkTransactionId: outcome.details.networkTransactionId,
         processorCode: outcome.details.processorCode,
         approval: outcome.details.approvalCode,
+        ...(outcome.details.rrn ? { rrn: outcome.details.rrn } : {}),
       };
     case "declined":
       return {
