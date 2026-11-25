@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { generateOrder, paymentCurrency } from "@/lib/payments";
 import { consentMeta } from "@/lib/http-meta";
+import { payerSnapshot } from "@/lib/payer-snapshot";
+import { paymentDescription } from "@/lib/payment-description";
 import { RECURRING_CONSENT_VERSION } from "@/lib/recurring-consent";
 import { agencyNextChargeAmount, findOwnAgencySubscription } from "@/lib/agency-subscription-service";
 import { cooldownLeftMs } from "@/lib/subscription-rules";
@@ -38,13 +40,18 @@ export async function POST(request: Request) {
   const recurringAmount = await agencyNextChargeAmount(sub);
   if (!recurringAmount) return NextResponse.json({ error: "Abonamentul nu poate fi actualizat acum. Contactați-ne." }, { status: 409 });
   const currency = sub.currency ?? paymentCurrency();
-  const user = await prisma.user.findUnique({ where: { id: sess.userId }, select: { email: true } });
+  const user = await prisma.user.findUnique({ where: { id: sess.userId }, select: { email: true, name: true, phone: true } });
 
   const payment = await prisma.payment.create({
     data: {
       order: generateOrder(),
       userId: sess.userId,
       payerEmail: user?.email ?? null,
+      ...payerSnapshot({
+        user: user ?? { name: null, phone: null },
+        request,
+        description: paymentDescription({ plan: "HUB", cardVerification: true }),
+      }),
       plan: "HUB",
       amount: "0.00",
       currency,

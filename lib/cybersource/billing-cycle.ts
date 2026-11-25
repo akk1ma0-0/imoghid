@@ -52,13 +52,13 @@ const UPGRADE_WINDOW_MS = 60 * 60 * 1000; // клиент оплачивает �
 
 type Sub = Subscription & {
   paymentMethod: PaymentMethod | null;
-  user: { id: string; email: string; name: string; plan: string | null; planActivatedAt: Date | null };
+  user: { id: string; email: string; name: string; phone: string | null; plan: string | null; planActivatedAt: Date | null };
   agency: { id: string; pricePerSeatMdl: number; seatsPaid: number } | null;
 };
 
 const SUB_INCLUDE = {
   paymentMethod: true,
-  user: { select: { id: true, email: true, name: true, plan: true, planActivatedAt: true } },
+  user: { select: { id: true, email: true, name: true, phone: true, plan: true, planActivatedAt: true } },
   agency: { select: { id: true, pricePerSeatMdl: true, seatsPaid: true } },
 } as const;
 
@@ -219,6 +219,8 @@ async function charge(sub: Sub, now: Date): Promise<string> {
     res = await chargeSavedCard({
       userId: sub.userId,
       payerEmail: sub.user.email,
+      payerName: sub.user.name,
+      payerPhone: sub.user.phone,
       plan: plan as "BASIC" | "PRO",
       subscriptionId: sub.id,
       periodStart,
@@ -519,6 +521,8 @@ async function chargeAgency(sub: Sub, now: Date, periodStart: Date): Promise<str
     res = await chargeSavedCard({
       userId: sub.userId,
       payerEmail: sub.user.email,
+      payerName: sub.user.name,
+      payerPhone: sub.user.phone,
       plan: "HUB",
       purpose: "AGENCY_SEATS",
       seats: t.seats,

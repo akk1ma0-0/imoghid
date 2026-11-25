@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { generateOrder, paymentCurrency } from "@/lib/payments";
+import { clientIp } from "@/lib/http-meta";
+import { payerSnapshot } from "@/lib/payer-snapshot";
+import { paymentDescription } from "@/lib/payment-description";
 import { isCyberSourceEnabledFor } from "@/lib/payment-provider";
 import { resolvePaymentIntent } from "@/lib/payment-intent";
 import { AGENCY_TOPUP_CONSENT_VERSION, RECURRING_CONSENT_VERSION, SERVICE_CONSENT_VERSION } from "@/lib/recurring-consent";
@@ -16,16 +19,11 @@ import { checkPersonalCheckout, hasOwnCsSubscription } from "@/lib/plan-change-s
 // → { paymentId, captureContext, clientLibrary, clientLibraryIntegrity, amount, currency }.
 // Создаёт Payment (PENDING, CYBERSOURCE, CUSTOMER, payerEmail) и запись согласия (версия текста,
 // сумма, ip, user-agent), затем capture context Unified Checkout. Сумма — только сервер.
-function clientIp(request: Request): string | null {
-  const xff = request.headers.get("x-forwarded-for");
-  return (xff ? xff.split(",")[0].trim() : request.headers.get("x-real-ip")) || null;
-}
-
 export async function POST(request: Request) {
   const sess = await requireSession();
   if ("response" in sess) return sess.response;
 
-  const user = await prisma.user.findUnique({ where: { id: sess.userId }, select: { email: true, role: true } });
+  const user = await prisma.user.findUnique({ where: { id: sess.userId }, select: { email: true, name: true, phone: true, role: true } });
   if (!user) return NextResponse.json({ error: "Utilizator negăsit." }, { status: 404 });
   // Владелец подписки CyberSource (личной или агентской) может сменить план / докупить места и вне
   // бета-списка (иначе кнопка вела бы в тупик).
@@ -75,6 +73,11 @@ export async function POST(request: Request) {
       order: generateOrder(),
       userId: sess.userId,
       payerEmail: user.email,
+      ...payerSnapshot({
+        user,
+        request,
+        description: paymentDescription({ plan: intent.plan, purpose: intent.purpose, seats: intent.seats }),
+      }),
       plan: intent.plan,
       amount,
       currency,

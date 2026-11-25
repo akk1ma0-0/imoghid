@@ -200,10 +200,16 @@ model User {
 model Payment {
   id        String          @id @default(cuid())
   order     String          @unique // числовой ORDER, отправленный банку (min 6 цифр)
-  // Платёжные операции хранятся не менее 2 лет (контракт банка, п. 3.2.5) — и после удаления
-  // аккаунта: userId → null (SetNull), плательщик остаётся в payerEmail (снимок при создании).
+  // Платёжные операции хранятся не менее PAYMENT_RETENTION_YEARS (6 лет; lib/payment-config.ts) —
+  // и после удаления аккаунта: userId → null (SetNull), плательщик остаётся в снимке при создании.
   userId    String?
   payerEmail String?
+  // Снимок плательщика (договор с банком EC7122/231126): имя, телефон, IP клиента, описание услуги.
+  // Nullable: старые записи без бэкфилла; у автосписаний (MIT) payerIp = null (клиента нет).
+  payerName   String?
+  payerPhone  String?
+  payerIp     String?
+  description String?
   plan      SubscriptionPlan // тариф, который активируется при успешной оплате
   amount    String          // "300.00" / "500.00" (MDL), decimal с точкой
   currency  String          @default("MDL")

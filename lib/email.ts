@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { fmtDateChisinau } from "@/lib/date-chisinau";
 import { escapeHtml } from "@/lib/escape-html";
 import { MERCHANT } from "@/lib/merchant";
+import { paymentDescription } from "@/lib/payment-description";
 import { RETURN_POLICY_HREF } from "@/lib/recurring-consent";
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
@@ -144,11 +145,6 @@ export function agencyReceiptInfo(
 // ("450.00", "1350.00").
 const fmtMdl = (n: number) => n.toFixed(2);
 
-const OVERAGE_SERVICE_RO: Record<string, string> = {
-  DOSAR_ANALYSIS: "Supra-limit — examinarea dosarului",
-  CADASTRU_CHECK: "Supra-limit — verificarea cadastrală",
-};
-
 // Дата/время в формате DD/MM/YYYY HH:MM:SS по времени Молдовы (как просил банк).
 function formatReceiptDate(d: Date): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -173,17 +169,7 @@ export function buildReceipt(r: ReceiptData): {
   html: string;
   visible: [string, string | null][];
 } {
-  const planLabel = r.plan === "PRO" ? "Plan Pro" : r.plan === "HUB" ? "HUB/Agenție" : "Plan Basic";
-  const service =
-    r.purpose === "AGENCY_SEATS"
-      ? `HUB/Agenție — ${r.seats ?? 0} locuri`
-      : r.purpose === "AGENCY_TOPUP"
-        ? `HUB/Agenție — ${r.seats ?? 0} ${r.seats === 1 ? "loc adăugat" : "locuri adăugate"} (perioada rămasă)`
-      : r.purpose === "SINGLE_ACCESS"
-        ? "O accesare — acces unic (1 verificare + 1 dosar + 1 obiect)"
-        : r.purpose === "OVERAGE" && r.overageFeature
-          ? `${OVERAGE_SERVICE_RO[r.overageFeature] ?? "Supra-limit ImoGhid"} (${planLabel})`
-          : `Abonament ImoGhid — ${planLabel}`;
+  const service = paymentDescription({ plan: r.plan, purpose: r.purpose, seats: r.seats, overageFeature: r.overageFeature });
   const dateStr = formatReceiptDate(r.paidAt);
   const opType = `Plată cu cardul ${r.cardNetwork ?? "Visa/Mastercard"}`;
   const amountStr = `${r.amount} ${r.currency}`;

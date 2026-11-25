@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { generateOrder, paymentCurrency } from "@/lib/payments";
+import { clientIp } from "@/lib/http-meta";
+import { payerSnapshot } from "@/lib/payer-snapshot";
+import { paymentDescription } from "@/lib/payment-description";
 import { RECURRING_CONSENT_VERSION } from "@/lib/recurring-consent";
 import { findOwnSubscription } from "@/lib/subscription-service";
 import { canChangeCard, cooldownLeftMs } from "@/lib/subscription-rules";
@@ -14,11 +17,6 @@ import { createCaptureContext } from "@/lib/cybersource/checkout";
 // Payment (purpose CARD_VERIFICATION, 0.00) привязан к подписке владельца; новое согласие на
 // автосписание (сумма подписки, версия текста, ip, user-agent) записывается здесь.
 const COOLDOWN_MS = 20_000;
-
-function clientIp(request: Request): string | null {
-  const xff = request.headers.get("x-forwarded-for");
-  return (xff ? xff.split(",")[0].trim() : request.headers.get("x-real-ip")) || null;
-}
 
 export async function POST(request: Request) {
   const sess = await requireSession();
@@ -48,13 +46,18 @@ export async function POST(request: Request) {
   const recurringAmount = sub.amount ?? consent?.amount;
   if (!recurringAmount) return NextResponse.json({ error: "Abonamentul nu poate fi actualizat acum. Contactați-ne." }, { status: 409 });
   const currency = sub.currency ?? paymentCurrency();
-  const user = await prisma.user.findUnique({ where: { id: sess.userId }, select: { email: true } });
+  const user = await prisma.user.findUnique({ where: { id: sess.userId }, select: { email: true, name: true, phone: true } });
 
   const payment = await prisma.payment.create({
     data: {
       order: generateOrder(),
       userId: sess.userId,
       payerEmail: user?.email ?? null,
+      ...payerSnapshot({
+        user: user ?? { name: null, phone: null },
+        request,
+        description: paymentDescription({ plan: sub.plan, cardVerification: true }),
+      }),
       plan: sub.plan,
       amount: "0.00",
       currency,

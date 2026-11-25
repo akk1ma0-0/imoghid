@@ -130,15 +130,16 @@ export async function deleteUserCompletely(
   const hashes = brs.map((b) => b.phoneHash);
 
   await prisma.$transaction(async (db) => {
-    // Платежи НЕ удаляются: после удаления аккаунта они остаются с userId = null. Снимок
-    // e-mail плательщика проставлен при создании платежа; здесь — подстраховка для записей
-    // без него, пока связь с аккаунтом ещё есть.
-    const owner = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+    // Платежи НЕ удаляются: после удаления аккаунта они остаются с userId = null и хранятся
+    // PAYMENT_RETENTION_YEARS (запись транзакции: плательщик, телефон, IP, описание — не
+    // анонимизируются, это требование договора с банком). Снимок плательщика проставлен при
+    // создании платежа; здесь — подстраховка для записей без него (в т.ч. созданных до миграции
+    // payer-полей), пока связь с аккаунтом ещё есть. payerIp не восстанавливается.
+    const owner = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true, phone: true } });
     if (owner) {
-      await db.payment.updateMany({
-        where: { userId, payerEmail: null },
-        data: { payerEmail: owner.email },
-      });
+      await db.payment.updateMany({ where: { userId, payerEmail: null }, data: { payerEmail: owner.email } });
+      if (owner.name) await db.payment.updateMany({ where: { userId, payerName: null }, data: { payerName: owner.name } });
+      if (owner.phone) await db.payment.updateMany({ where: { userId, payerPhone: null }, data: { payerPhone: owner.phone } });
     }
     if (hashes.length) {
       await db.listing999.updateMany({

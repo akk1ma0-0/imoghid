@@ -8,6 +8,8 @@
 //     processingInformation.authorizationOptions.initiator.*;
 //   void — POST /pts/v2/payments/{id}/voids; refund — POST /pts/v2/payments/{id}/refunds;
 //   capture — POST /pts/v2/payments/{id}/captures; reversal — POST /pts/v2/payments/{id}/reversals.
+import { payerSnapshot } from "@/lib/payer-snapshot";
+import { paymentDescription } from "@/lib/payment-description";
 import { Prisma, type SubscriptionPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -40,6 +42,9 @@ async function send(op: string, path: string, body: unknown, ok: readonly string
 export type MitChargeInput = {
   userId: string;
   payerEmail: string | null;
+  // Снимок плательщика на момент списания (запись транзакции). IP не передаётся: клиента при MIT нет.
+  payerName?: string | null;
+  payerPhone?: string | null;
   plan: SubscriptionPlan;
   // Ключ идемпотентности (уникален в БД): одна попытка attemptNo за период подписки.
   subscriptionId: string;
@@ -88,6 +93,11 @@ export async function claimChargeAttempt(
         order: generateOrder(),
         userId: input.userId,
         payerEmail: input.payerEmail,
+        ...payerSnapshot({
+          user: { name: input.payerName ?? null, phone: input.payerPhone ?? null },
+          request: null,
+          description: paymentDescription({ plan: input.plan, purpose: input.purpose ?? "SUBSCRIPTION", seats: input.seats }),
+        }),
         plan: input.plan,
         amount,
         currency,

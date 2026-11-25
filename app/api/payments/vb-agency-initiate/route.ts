@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { checkServiceConsent, recordOneTimeConsent } from "@/lib/service-consent";
 import { generateOrder } from "@/lib/payments";
+import { payerSnapshot } from "@/lib/payer-snapshot";
+import { paymentDescription } from "@/lib/payment-description";
 import { AGENCY_SEAT_FEE_MDL, AGENCY_MIN_SEATS } from "@/lib/plan-limits";
 import { buildPaymentFormHtml, formatAmount, vbConfig } from "@/lib/vb-egateway";
 
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
-    select: { email: true },
+    select: { email: true, name: true, phone: true },
   });
   if (!user) return NextResponse.json({ error: "Utilizator negăsit." }, { status: 404 });
 
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
           order,
           userId: sess.userId,
           payerEmail: user.email, // снимок для хранения операции после удаления аккаунта
+          ...payerSnapshot({ user, request, description: paymentDescription({ plan: "HUB", purpose: "AGENCY_SEATS", seats }) }),
           plan: "HUB",
           amount,
           currency: c.currency,

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/transaction-auth";
 import { checkServiceConsent, recordOneTimeConsent } from "@/lib/service-consent";
 import { generateOrder } from "@/lib/payments";
+import { payerSnapshot } from "@/lib/payer-snapshot";
+import { paymentDescription } from "@/lib/payment-description";
 import { overageFeeMdl } from "@/lib/plan-limits";
 import { buildPaymentFormHtml, formatAmount, vbConfig } from "@/lib/vb-egateway";
 
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: sess.userId },
-    select: { email: true, plan: true },
+    select: { email: true, name: true, phone: true, plan: true },
   });
   if (!user) return NextResponse.json({ error: "Utilizator negăsit." }, { status: 404 });
 
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
           order,
           userId: sess.userId,
           payerEmail: user.email, // снимок для хранения операции после удаления аккаунта
+          ...payerSnapshot({ user, request, description: paymentDescription({ plan: user.plan!, purpose: "OVERAGE", overageFeature: feature }) }),
           plan: user.plan!, // != null, т.к. fee посчитан
           amount,
           currency: c.currency,

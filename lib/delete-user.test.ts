@@ -134,6 +134,29 @@ describe("удаление аккаунта и CyberSource", { skip: !enabled &&
     assert.equal(kept.payerEmail, u.email);
   });
 
+  it("снимок плательщика (имя/телефон/IP/описание) переживает удаление аккаунта; пустые имя/телефон добираются из аккаунта, IP не придумывается", async () => {
+    const u = await user("payer");
+    await prisma.user.update({ where: { id: u.id }, data: { phone: "+37369000001" } });
+    const full = await payment(u.id, { provider: "CYBERSOURCE", payerEmail: u.email });
+    await prisma.payment.update({
+      where: { id: full.id },
+      data: { payerName: "Ion Snapshot", payerPhone: "+37369111111", payerIp: "203.0.113.5", description: "Abonament ImoGhid — Plan Basic" },
+    });
+    const old = await payment(u.id, { provider: "VICTORIABANK", payerEmail: null });
+    const { tms } = fakeTms();
+    assert.deepEqual(await deleteUserCompletely(u.id, { tms }), { ok: true });
+    const a = await prisma.payment.findUniqueOrThrow({ where: { id: full.id } });
+    assert.equal(a.userId, null);
+    assert.equal(a.payerName, "Ion Snapshot");
+    assert.equal(a.payerPhone, "+37369111111");
+    assert.equal(a.payerIp, "203.0.113.5");
+    assert.equal(a.description, "Abonament ImoGhid — Plan Basic");
+    const b = await prisma.payment.findUniqueOrThrow({ where: { id: old.id } });
+    assert.equal(b.payerName, u.name);
+    assert.equal(b.payerPhone, "+37369000001");
+    assert.equal(b.payerIp, null);
+  });
+
   it("личная подписка: токен удалён у банка, записан TOKEN_DELETE, аккаунт удалён, платёж сохранён", async () => {
     const u = await user("personal");
     const pm = await card(u.id);

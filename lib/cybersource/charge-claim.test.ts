@@ -60,4 +60,14 @@ describe("claimChargeAttempt — параллельный запуск", { skip:
     assert.equal(r.kind, "claimed");
     assert.equal(await prisma.payment.count({ where: { subscriptionId, periodStart } }), 2);
   });
+
+  it("MIT: снимок плательщика (имя, телефон, описание), payerIp = null", async () => {
+    const r = await claimChargeAttempt({ ...input(7), payerName: "Claim Test", payerPhone: "+37369000002" });
+    assert.equal(r.kind, "claimed");
+    const row = await prisma.payment.findFirst({ where: { subscriptionId, attemptNo: 7 } });
+    assert.equal(row?.payerName, "Claim Test");
+    assert.equal(row?.payerPhone, "+37369000002");
+    assert.equal(row?.payerIp, null);
+    assert.equal(row?.description, "Abonament ImoGhid — Plan Basic");
+  });
 });
