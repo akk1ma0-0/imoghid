@@ -169,6 +169,16 @@ describe("тексты страниц v2", () => {
     assert.match(p, /Jurnalul de audit se păstrează 12 luni/);
     assert.match(p, /Ștergerea contului este disponibilă direct în Aplicație/);
   });
+  it("Politică и «Ștergerea contului»: запись платежей — имя, телефон, IP, описание; IP не пишется при автосписании", () => {
+    const p = allText("confidentialitate");
+    assert.match(p, /descrierea serviciului plătit, numărul comenzii, identificatorii tranzacției, numele, numărul de telefon și e-mailul plătitorului, precum și adresa IP de pe care a fost inițiată plata/);
+    assert.match(p, /nu se actualizează la modificarea ulterioară a profilului/);
+    assert.match(p, /La plățile lunare automate, efectuate fără participarea dumneavoastră, adresa IP nu se înregistrează\./);
+    assert.match(p, /Data ultimei actualizări: 26\.11\.2026/);
+    const t = allText("termeni");
+    assert.match(t, /descrierea serviciului, numele, numărul de telefon și e-mailul plătitorului, adresa IP din momentul plății\) se păstrează 6 ani/);
+    assert.ok(!/\(suma, data, tipul plății, e-mailul/.test(p + t), "старая формулировка не осталась");
+  });
   it("нет служебных пометок и устаревшего срока", () => {
     for (const k of ["termeni", "confidentialitate", "faq"] as const) {
       const t = allText(k);
@@ -176,7 +186,7 @@ describe("тексты страниц v2", () => {
       assert.match(t, /./);
     }
     assert.match(allText("termeni"), /Data ultimei actualizări: 24\.11\.2026/);
-    assert.match(allText("confidentialitate"), /Data ultimei actualizări: 19\.11\.2026/);
+    assert.match(allText("confidentialitate"), /Data ultimei actualizări: 26\.11\.2026/);
   });
   it("FAQ: все вопросы раздела C и цифры планов = plan-limits", () => {
     const faq = allText("faq");

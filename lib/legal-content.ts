@@ -356,7 +356,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "li",
-        "text": "Evidența plăților (suma, data, tipul plății, e-mailul plătitorului din momentul plății) se păstrează 6 ani de la data plății, în baza obligației legale de contabilitate și fiscalitate; în acest interval nu este legată de contul șters."
+        "text": "Evidența plăților (suma, moneda, data și ora, tipul plății, descrierea serviciului plătit, numărul comenzii, identificatorii tranzacției, numele, numărul de telefon și e-mailul plătitorului, precum și adresa IP de pe care a fost inițiată plata) se păstrează 6 ani de la data plății, în baza obligației legale de contabilitate și fiscalitate și pentru soluționarea contestațiilor privind plățile; în acest interval nu este legată de contul șters. Numele, numărul de telefon și adresa IP se rețin așa cum erau în momentul plății și nu se actualizează la modificarea ulterioară a profilului. La plățile lunare automate, efectuate fără participarea dumneavoastră, adresa IP nu se înregistrează."
       },
       {
         "t": "li",
@@ -412,7 +412,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Prezenta Politică poate fi actualizată. Versiunea în vigoare este publicată în Aplicație. Data ultimei actualizări: 19.11.2026."
+        "text": "Prezenta Politică poate fi actualizată. Versiunea în vigoare este publicată în Aplicație. Data ultimei actualizări: 26.11.2026."
       }
     ]
   },
@@ -609,7 +609,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "La ștergerea contului: abonamentele se anulează, cardurile salvate se șterg la procesatorul de plăți, iar datele contului se șterg. Evidența plăților (suma, data, tipul plății, e-mailul din momentul plății) se păstrează 6 ani de la data plății, conform obligațiilor legale de contabilitate și fiscalitate, fără legătură cu contul șters. Ștergerea contului nu produce rambursarea perioadei plătite."
+        "text": "La ștergerea contului: abonamentele se anulează, cardurile salvate se șterg la procesatorul de plăți, iar datele contului se șterg. Evidența plăților (suma, data, tipul plății, descrierea serviciului, numele, numărul de telefon și e-mailul plătitorului, adresa IP din momentul plății) se păstrează 6 ani de la data plății, conform obligațiilor legale de contabilitate și fiscalitate, fără legătură cu contul șters. Ștergerea contului nu produce rambursarea perioadei plătite."
       },
       {
         "t": "h2",
