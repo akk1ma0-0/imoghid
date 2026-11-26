@@ -38,9 +38,11 @@ diff -ruN -x node_modules -x certs -x *.mock-backup -x ws-test.js -x package-loc
 diff -ruN -x node_modules -x certs -x *.mock-backup -x ws-test.js -x package-lock.json -x logs a/server.js b/server.js
 --- a/server.js	2026-10-23 15:06:14
 +++ b/server.js	2026-11-17 15:32:55
-@@ -11,7 +11,32 @@
+@@ -11,7 +11,33 @@
  const LOG_FILE = path.join(__dirname, "logs", "requests.log");
- const CAD_RE = /^\d{7}(\.\d{3}(\.\d{2}(\.\d{3})?)?)?$/;
+-const CAD_RE = /^\d{7}(\.\d{3}(\.\d{2}(\.\d{3})?)?)?$/;
++// Номера бывают с 3–4-значными сегментами (0100225.041.0212, 0100109.128.01.143): участок 7 цифр, далее до 3 сегментов.
++const CAD_RE = /^\d{7}(\.\d{3,4}(\.\d{2,4}(\.\d{2,4})?)?)?$/;
  const RID_RE = /^[0-9a-fA-F-]{8,64}$/;
 +// Умеренный темп к AGE: не более MC_MAX_PARALLEL (по умолчанию 2) одновременных запросов, остальные ждут в очереди.
 +const MAX_PARALLEL = Math.max(1, Number(process.env.MC_MAX_PARALLEL) || 2);
@@ -129,4 +131,45 @@ diff -ruN -x node_modules -x certs -x *.mock-backup -x ws-test.js -x package-loc
 +  const r = parse("<Rights><Right><HasInterdictions>true</HasInterdictions><HasNotations>false</HasNotations><HasOtherRights>False</HasOtherRights><Quota>1/2</Quota></Right></Rights>");
 +  assert.deepEqual(r.Rights[0], { HasInterdictions: true, Quota: "1/2", HasNotations: false, HasOtherRights: false });
 +  assert.equal(r.RightsPresent, true);
++});
+diff -ruN -x node_modules -x certs -x *.mock-backup -x ws-test.js -x package-lock.json -x logs a/test/cad-re.test.js b/test/cad-re.test.js
+--- a/test/cad-re.test.js	1970-01-01 03:00:00
++++ b/test/cad-re.test.js	2026-11-24 12:00:00
+@@ -0,0 +1,37 @@
++"use strict";
++// node --test test/   (без сети и сертификатов: проверяется regex CAD_RE, прочитанный из server.js как есть)
++const test = require("node:test");
++const assert = require("node:assert/strict");
++const fs = require("node:fs");
++const path = require("node:path");
++
++const src = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
++const m = src.match(/^const CAD_RE = (\/.*\/);$/m);
++assert.ok(m, "CAD_RE не найден в server.js");
++const CAD_RE = new RegExp(m[1].slice(1, -1));
++
++test("принимаются номера с 3- и 4-значными сегментами", () => {
++  for (const ok of [
++    "0100109",
++    "0100109.159",
++    "0100109.159.02",
++    "0100109.159.02.001",
++    "0100109.128.01.143",
++    "0100225.041.0212",
++    "0100418.027.0094",
++    "0100109.1590.0212.0013",
++  ]) assert.equal(CAD_RE.test(ok), true, ok);
++});
++test("отклоняются неверные форматы", () => {
++  for (const bad of [
++    "",
++    "0100109.1",
++    "100109.159",
++    "0100109..02",
++    "0100109.159.02.001.001",
++    "0100109.159.0",
++    "0100109.159.02.0",
++    "01001A9.159",
++    "0100109.159.02.001 ",
++  ]) assert.equal(CAD_RE.test(bad), false, bad);
 +});

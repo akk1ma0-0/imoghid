@@ -3,12 +3,14 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
+import { CAD_NUMBER_RE, isValidCadastralNumber } from "@/lib/cadastru-config";
 import {
   FLAG_EXISTS,
   FLAG_NONE,
   FLAG_UNKNOWN,
   lookupCadastru,
   mapRealEstate,
+  resolveCadastruQuery,
   rightsHaveNoData,
 } from "@/lib/cadastru-service";
 
@@ -213,5 +215,74 @@ describe("Rights: пусто = «нет данных», а не «нет обр�
     const m = mapRealEstate(re([R(false, false, false), R(false, false, false)]));
     assert.equal(m.rightsNoData, false);
     assert.match(m.titulari ?? "", /2 titulari/);
+  });
+});
+
+describe("формат кадастрового номера (сегменты 3–4 цифры)", () => {
+  const ACCEPT = [
+    "0100225.041.0212", // 7.3.4 — реальный номер
+    "0100418.027.0094", // 7.3.4 — реальный номер
+    "0100109.159.02.001",
+    "0100109.128.01.143",
+    "0100109.1590.02.001", // 4 цифры во 2-м сегменте
+    "0100109.159.02.0013", // 4 цифры в 4-м сегменте
+    "0100109.1590.0212.0013",
+    "0100109", // участок
+    "0100109.159", // здание
+  ];
+  const REJECT = [
+    "0100109.1", // 1 цифра во 2-м сегменте
+    "100109.159", // 6 цифр в первом
+    "01001090.159", // 8 цифр в первом
+    "0100109..02", // пустой сегмент
+    "0100109.159.02.001.001", // 5-й сегмент
+    "0100109.159.0",
+    "0100109.159.02.0",
+    "01001A9.159", // буквы
+    "0100109.159.ab",
+    "",
+  ];
+
+  it("CAD_NUMBER_RE / isValidCadastralNumber принимают допустимые номера", () => {
+    for (const c of ACCEPT) {
+      assert.equal(CAD_NUMBER_RE.test(c), true, c);
+      assert.equal(isValidCadastralNumber(c), true, c);
+    }
+  });
+  it("отклоняют недопустимые", () => {
+    for (const c of REJECT) {
+      assert.equal(CAD_NUMBER_RE.test(c), false, c);
+      assert.equal(isValidCadastralNumber(c), false, c);
+    }
+  });
+  it("resolveCadastruQuery: допустимый номер → cad, недопустимый → INVALID_INPUT", () => {
+    for (const c of ACCEPT) assert.deepEqual(resolveCadastruQuery(c, { addressSearch: false }).kind, "cad", c);
+    for (const c of REJECT) {
+      const r = resolveCadastruQuery(c, { addressSearch: false });
+      assert.equal(r.kind, "error", c);
+      if (r.kind === "error") assert.equal(r.code, "INVALID_INPUT", c);
+    }
+  });
+  it("в коннектор строка уходит без изменений (без нормализации и нулей)", async () => {
+    for (const c of ["0100225.041.0212", "0100109.128.01.143", "0100109.1590.02.0013"]) {
+      const sent: string[] = [];
+      globalThis.fetch = (async (_u: unknown, init?: RequestInit) => {
+        sent.push(JSON.parse(String(init?.body)).cadastralNumber);
+        return json(200, { mode: "live", data: { CadastralNumber: c, Area: "58.40", Rights: [] } });
+      }) as typeof fetch;
+      const r = await lookupCadastru(c, BASE_ID, opts());
+      assert.equal(r.ok, true, c);
+      assert.deepEqual(sent, [c]);
+    }
+  });
+  it("недопустимый номер в сеть не уходит", async () => {
+    let n = 0;
+    globalThis.fetch = (async () => {
+      n++;
+      return json(200, OK_BODY);
+    }) as typeof fetch;
+    const r = await lookupCadastru("0100109.1", BASE_ID, opts());
+    assert.equal(r.ok, false);
+    assert.equal(n, 0);
   });
 });
