@@ -10,7 +10,7 @@ import { POST as vbAgencyInitiate } from "@/app/api/payments/vb-agency-initiate/
 
 // POST /api/payments/start — единая точка входа кнопок оплаты подписки и мест агентства.
 //   purpose=SUBSCRIPTION (plan) | AGENCY_SEATS (seats, takeOwnerSeat) + agreedToTerms.
-// CyberSource (PAYMENT_PROVIDER=cybersource и пользователь в CS_BETA_EMAILS или ADMIN) →
+// CyberSource (PAYMENT_PROVIDER=cybersource; при CS_BETA_ONLY=true — только ADMIN и CS_BETA_EMAILS) →
 // 303 на /app/checkout. Иначе — прежний поток VictoriaBank: форма передаётся как есть в
 // существующие обработчики vb-initiate / vb-agency-initiate (их код не меняется).
 // Докупка мест к существующему агентству: есть агентская подписка CyberSource → /app/checkout
