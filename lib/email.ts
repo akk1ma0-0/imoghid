@@ -89,7 +89,7 @@ const MERCHANT_COUNTRY: string = MERCHANT.country;
 const MERCHANT_URL: string = MERCHANT.siteUrl;
 const SUPPORT_EMAIL: string = MERCHANT.email;
 const SUPPORT_PHONE: string = MERCHANT.phone;
-const SUPPORT_HOURS: string = MERCHANT.supportHours;
+const SUPPORT_HOURS: string = MERCHANT.supportHoursPlain;
 const RETURN_POLICY_URL = `${MERCHANT.siteUrl}${RETURN_POLICY_HREF}`;
 
 type ReceiptData = {
@@ -229,7 +229,7 @@ export function buildReceipt(r: ReceiptData): {
     `ImoGhid — Bon electronic (confirmare plată)\n\n` +
     `${textLines}${seatsText}\n\n` +
     `Termenii de returnare: ${RETURN_POLICY_URL} (secțiunea „Plată și rambursare")\n` +
-    `Suport: ${SUPPORT_EMAIL} · ${SUPPORT_PHONE} (${SUPPORT_HOURS})\n`;
+    `Suport: ${SUPPORT_EMAIL} · ${SUPPORT_PHONE} · ${SUPPORT_HOURS}\n`;
 
   // В HTML все значения строк (имя покупателя, номер заказа, RRN и т.д.) экранируются; plain-text
   // версия выше — нет. Константы реквизитов (MERCHANT_*, SUPPORT_*) — наш код, не пользовательские.
@@ -254,7 +254,7 @@ export function buildReceipt(r: ReceiptData): {
     `Detalii privind rambursarea: <a href="${RETURN_POLICY_URL}" style="color:#1d4ed8;text-decoration:none">Termeni și Condiții — „Plată și rambursare"</a>.` +
     `</p>` +
     `<p style="font-size:12px;color:#6b7280;line-height:1.7;margin:8px 0 0">` +
-    `Suport: <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;text-decoration:none">${SUPPORT_EMAIL}</a> · ${SUPPORT_PHONE} (${SUPPORT_HOURS})` +
+    `Suport: <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;text-decoration:none">${SUPPORT_EMAIL}</a> · ${SUPPORT_PHONE} · ${SUPPORT_HOURS}` +
     `</p>` +
     `<p style="font-size:11px;color:#9ca3af;margin-top:18px">${MERCHANT_NAME} · IDNO ${MERCHANT.idno} · ${MERCHANT.address} · ${MERCHANT_COUNTRY} · ${MERCHANT_URL}</p>` +
     `</div>`;

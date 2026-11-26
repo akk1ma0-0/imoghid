@@ -43,7 +43,9 @@ describe("MERCHANT", () => {
     assert.equal(v["Cod de autorizare"], "A1B2C3");
     assert.equal(v["Tip operațiune"], "Plată cu cardul Visa");
     assert.match(v["Data și ora"] ?? "", /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/);
-    assert.ok(r.text.includes(MERCHANT.supportHours));
+    assert.ok(r.text.includes(`${MERCHANT.phone} · Luni–Vineri, 09:00–18:00, ora Chișinău`));
+    assert.ok(r.html.includes(`${MERCHANT.phone} · Luni–Vineri, 09:00–18:00, ora Chișinău`));
+    assert.ok(!/\([^()]*\([^()]*\)[^()]*\)/.test(r.text), "вложенных скобок в чеке нет");
     assert.ok(r.html.includes(`${MERCHANT.siteUrl}/termeni#plata-si-rambursare`));
     assert.ok(r.html.includes(MERCHANT.idno));
   });

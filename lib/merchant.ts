@@ -10,6 +10,8 @@ export const MERCHANT = {
   phone: "+373 69 427 567",
   email: "info@biseeth.md",
   supportHours: "Luni–Vineri, 09:00–18:00 (ora Chișinău)",
+  // Тот же график без скобок — для строк, где он сам стоит в скобках или после разделителя (чек).
+  supportHoursPlain: "Luni–Vineri, 09:00–18:00, ora Chișinău",
   site: "imoghid.md",
   siteUrl: "https://imoghid.md",
 } as const;
