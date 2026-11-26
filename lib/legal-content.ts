@@ -657,7 +657,7 @@ export const LEGAL_DOCS: Record<"despre" | "faq" | "confidentialitate" | "termen
       },
       {
         "t": "p",
-        "text": "Termenii pot fi actualizați; versiunea în vigoare se publică în Aplicație. Data ultimei actualizări: 24.11.2026."
+        "text": "Termenii pot fi actualizați; versiunea în vigoare se publică în Aplicație. Data ultimei actualizări: 26.11.2026."
       },
       {
         "t": "h2",

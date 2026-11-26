@@ -185,7 +185,7 @@ describe("тексты страниц v2", () => {
       assert.doesNotMatch(t, /provizoriu|de completat|\*\*|\b2 ani\b/, k);
       assert.match(t, /./);
     }
-    assert.match(allText("termeni"), /Data ultimei actualizări: 24\.11\.2026/);
+    assert.match(allText("termeni"), /Data ultimei actualizări: 26\.11\.2026/);
     assert.match(allText("confidentialitate"), /Data ultimei actualizări: 26\.11\.2026/);
   });
   it("FAQ: все вопросы раздела C и цифры планов = plan-limits", () => {
